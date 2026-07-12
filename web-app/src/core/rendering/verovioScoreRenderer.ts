@@ -1,11 +1,7 @@
-import createVerovioModule from 'verovio/wasm';
-import { VerovioToolkit } from 'verovio/esm';
 import type { ScoreVersion, StableMeasureId } from '@cuenote/score-domain';
-import {
-  findRenderedMeasureElement,
-  setRenderedMeasureHighlight
-} from './measureDom';
+import { findRenderedMeasureElement, setRenderedMeasureHighlight } from './measureDom';
 import type { RenderedMeasureLink, ScoreRenderer } from './scoreRenderer';
+import type { VerovioToolkit } from 'verovio/esm';
 
 type ToolkitOptions = {
   pageHeight: number;
@@ -24,6 +20,8 @@ const DEFAULT_OPTIONS: ToolkitOptions = {
   svgBoundingBoxes: true,
   adjustPageHeight: true
 };
+
+let toolkitFactoryPromise: Promise<() => Promise<VerovioToolkit>> | null = null;
 
 export function createVerovioScoreRenderer(): ScoreRenderer {
   return new VerovioScoreRenderer();
@@ -96,6 +94,7 @@ class VerovioScoreRenderer implements ScoreRenderer {
     this.clearClickHandlers();
     this.container = null;
     this.toolkit = null;
+    this.toolkitPromise = null;
     this.version = null;
     this.measureLinks = [];
     this.selectedMeasureId = null;
@@ -107,9 +106,9 @@ class VerovioScoreRenderer implements ScoreRenderer {
     }
 
     if (!this.toolkitPromise) {
-      this.toolkitPromise = createVerovioModule().then((module) => {
-        this.toolkit = new VerovioToolkit(module);
-        return this.toolkit;
+      this.toolkitPromise = loadVerovioToolkit().then((toolkit) => {
+        this.toolkit = toolkit;
+        return toolkit;
       });
     }
 
@@ -127,7 +126,7 @@ class VerovioScoreRenderer implements ScoreRenderer {
     const pages: string[] = [];
     const measureLinks: RenderedMeasureLink[] = [];
 
-    this.version.parts.forEach((part, partIndex) => {
+    this.version.parts.forEach((part) => {
       part.measures.forEach((measure) => {
         const pageNumber = Math.max(1, toolkit.getPageWithElement(measure.sourceXmlId));
         measureLinks.push({
@@ -215,4 +214,20 @@ class VerovioScoreRenderer implements ScoreRenderer {
     }
     this.clickHandlers.clear();
   }
+}
+
+async function loadVerovioToolkit(): Promise<VerovioToolkit> {
+  if (!toolkitFactoryPromise) {
+    toolkitFactoryPromise = Promise.all([import('verovio/wasm'), import('verovio/esm')]).then(
+      async ([wasmModule, esmModule]) => {
+        return async () => {
+          const module = await wasmModule.default();
+          return new esmModule.VerovioToolkit(module);
+        };
+      }
+    );
+  }
+
+  const createToolkit = await toolkitFactoryPromise;
+  return createToolkit();
 }

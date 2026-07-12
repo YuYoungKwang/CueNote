@@ -105,6 +105,26 @@ Impact: Playback highlight uses `PerformanceMeasure.sourceMeasureId` and the vie
 
 Alternative: Teach the renderer about repeated occurrences. Rejected because Verovio renders source notation, not playback clones.
 
+### Verovio Loading Policy
+
+Load Verovio with a dynamic import only after the score viewer route is entered.
+
+Reason: The score library route should not pay the cost of the Verovio bundle when the user has not opened a score yet.
+
+Impact: The viewer must expose an explicit renderer-loading state, and renderer initialization failures must surface a retry action instead of leaving the view blank.
+
+Alternative: Keep Verovio in the initial app bundle or add preload logic now. Rejected for this phase because the policy is route-entry loading only, without preload or deeper chunk tuning.
+
+### Representative Part Policy
+
+Use the first MusicXML part as the representative part for repeat expansion, navigation interpretation, and measure-duration playback timing in the MVP.
+
+Reason: Phase 2 needs one deterministic playback order without inventing cross-part merge rules that the product has not approved yet.
+
+Impact: Other parts share the representative part's `PerformanceMeasure` order. When a later part disagrees on measure count, time signature, or navigation marks, the app emits structured warnings instead of auto-merging the structure.
+
+Alternative: Attempt to reconcile all parts automatically or let the user choose a representative part now. Rejected for this phase because both choices expand scope beyond the agreed MVP.
+
 ### No New State Libraries
 
 Do not add a new state-management dependency for Phase 2.

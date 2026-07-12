@@ -2,11 +2,13 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   PlaybackTimeline,
+  analyzeRepresentativePartWarnings,
   expandRepeats,
   type Measure,
   type PerformanceMeasure,
   type PlaybackSnapshot,
   type PlaybackStatus,
+  type RepeatExpansionWarning,
   type ScoreDocument,
   type ScoreVersion,
   type StableMeasureId
@@ -26,14 +28,20 @@ type ViewerStatus =
       kind: 'ready';
       document: ScoreDocument;
       version: ScoreVersion;
+      representativePartName: string;
       measures: Measure[];
       measuresById: Record<string, Measure>;
       performanceMeasures: PerformanceMeasure[];
-      warnings: Array<{ code: string; message: string; severity: 'INFO' | 'WARNING' | 'ERROR'; sourceMeasureId?: string }>;
+      warnings: RepeatExpansionWarning[];
     }
   | { kind: 'not-found' }
-  | { kind: 'parse-error'; message: string }
-  | { kind: 'render-error'; message: string };
+  | { kind: 'parse-error'; message: string };
+
+type RendererState =
+  | { kind: 'idle' }
+  | { kind: 'loading' }
+  | { kind: 'ready' }
+  | { kind: 'error'; message: string };
 
 export function ScoreViewerPage() {
   const { scoreId = '' } = useParams();
@@ -47,7 +55,8 @@ export function ScoreViewerPage() {
   const musicXmlService = useMemo(() => createMusicXMLService(), []);
   const sample = useMemo(() => getSampleById(scoreId), [scoreId]);
   const [status, setStatus] = useState<ViewerStatus>({ kind: 'loading' });
-  const [renderReady, setRenderReady] = useState(false);
+  const [rendererState, setRendererState] = useState<RendererState>({ kind: 'idle' });
+  const [rendererRetryKey, setRendererRetryKey] = useState(0);
   const [selectedMeasureId, setSelectedMeasureId] = useState<StableMeasureId | null>(null);
   const [zoom, setZoom] = useState(1);
   const [bpm, setBpm] = useState(DEFAULT_BPM);
@@ -71,12 +80,14 @@ export function ScoreViewerPage() {
   useEffect(() => {
     if (!sample) {
       timelineRef.current = null;
+      setRendererState({ kind: 'idle' });
       setStatus({ kind: 'not-found' });
       return;
     }
 
     let cancelled = false;
-    setRenderReady(false);
+    setRendererRetryKey(0);
+    setRendererState({ kind: 'idle' });
     setStatus({ kind: 'loading' });
 
     try {
@@ -84,9 +95,13 @@ export function ScoreViewerPage() {
         scoreId: sample.id,
         sample: true
       });
-      const measures = parsed.version.parts[0]?.measures ?? [];
+
+      const representativePart = parsed.version.parts[0];
+      const measures = representativePart?.measures ?? [];
       const measuresById = Object.fromEntries(measures.map((measure) => [measure.id, measure]));
+      const representativePartWarnings = analyzeRepresentativePartWarnings(parsed.version.parts);
       const performanceOrder = expandRepeats(measures);
+      const warnings = [...representativePartWarnings, ...performanceOrder.warnings];
       const firstMeasureId = measures[0]?.id ?? null;
 
       void recentStore.load(parsed.document.id).then((record) => {
@@ -123,10 +138,11 @@ export function ScoreViewerPage() {
           kind: 'ready',
           document: parsed.document,
           version: parsed.version,
+          representativePartName: representativePart?.name ?? 'Part 1',
           measures,
           measuresById,
           performanceMeasures: performanceOrder.measures,
-          warnings: performanceOrder.warnings
+          warnings
         });
         setZoom(restoredZoom);
         setBpm(restoredBpm);
@@ -137,6 +153,7 @@ export function ScoreViewerPage() {
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unexpected MusicXML parse error.';
       timelineRef.current = null;
+      setRendererState({ kind: 'idle' });
       setStatus({ kind: 'parse-error', message });
     }
 
@@ -153,6 +170,8 @@ export function ScoreViewerPage() {
     let cancelled = false;
     const renderer = createVerovioScoreRenderer();
     rendererRef.current = renderer;
+    setRendererState({ kind: 'loading' });
+    containerRef.current.innerHTML = '';
 
     void renderer.mount(containerRef.current);
 
@@ -172,38 +191,40 @@ export function ScoreViewerPage() {
           void renderer.scrollTo(selectedMeasureIdRef.current);
         }
 
-        setRenderReady(true);
+        setRendererState({ kind: 'ready' });
       })
       .catch((error) => {
         if (cancelled) {
           return;
         }
 
-        setStatus({
-          kind: 'render-error',
+        setRendererState({
+          kind: 'error',
           message: error instanceof Error ? error.message : 'Score rendering failed.'
         });
       });
 
     return () => {
       cancelled = true;
-      setRenderReady(false);
       renderer.destroy();
       rendererRef.current = null;
+      if (containerRef.current) {
+        containerRef.current.innerHTML = '';
+      }
     };
-  }, [status.kind, status.kind === 'ready' ? status.version.id : null]);
+  }, [rendererRetryKey, status.kind, status.kind === 'ready' ? status.version.id : null]);
 
   useEffect(() => {
-    if (status.kind !== 'ready' || !rendererRef.current || !selectedMeasureId) {
+    if (status.kind !== 'ready' || rendererState.kind !== 'ready' || !rendererRef.current || !selectedMeasureId) {
       return;
     }
 
     rendererRef.current.highlight(selectedMeasureId);
     void rendererRef.current.scrollTo(selectedMeasureId);
-  }, [selectedMeasureId, status]);
+  }, [rendererState.kind, selectedMeasureId, status]);
 
   useEffect(() => {
-    if (status.kind !== 'ready' || !rendererRef.current) {
+    if (status.kind !== 'ready' || rendererState.kind !== 'ready' || !rendererRef.current) {
       return;
     }
 
@@ -215,12 +236,12 @@ export function ScoreViewerPage() {
         }
       })
       .catch((error) => {
-        setStatus({
-          kind: 'render-error',
+        setRendererState({
+          kind: 'error',
           message: error instanceof Error ? error.message : 'Zoom update failed.'
         });
       });
-  }, [status, zoom]);
+  }, [rendererState.kind, status, zoom]);
 
   useEffect(() => {
     if (status.kind !== 'ready') {
@@ -416,6 +437,10 @@ export function ScoreViewerPage() {
     updatePlaybackSnapshot(timelineRef.current.setCountInMeasures(nextCountInMeasures));
   };
 
+  const onRetryRenderer = () => {
+    setRendererRetryKey((value) => value + 1);
+  };
+
   if (status.kind === 'not-found') {
     return (
       <section className="panel state-panel" data-testid="score-viewer-error">
@@ -440,30 +465,18 @@ export function ScoreViewerPage() {
     );
   }
 
-  if (status.kind === 'render-error') {
-    return (
-      <section className="panel state-panel" data-testid="score-viewer-error">
-        <h2>Renderer error</h2>
-        <p>{status.message}</p>
-        <Link className="primary-link" to="/">
-          Back to library
-        </Link>
-      </section>
-    );
-  }
-
   if (status.kind === 'loading') {
     return (
-      <main className="viewer-layout">
+      <main className="viewer-layout" data-testid="score-viewer-loading">
         <section className="viewer-main panel">
           <div className="panel-heading viewer-heading">
             <div>
               <p className="eyebrow">Viewer</p>
               <h2>Loading score</h2>
-              <p className="muted">Preparing MusicXML parsing and Verovio rendering.</p>
+              <p className="muted">Preparing MusicXML parsing for the viewer route.</p>
             </div>
           </div>
-          <div className="score-stage" ref={containerRef} data-testid="score-renderer">
+          <div className="score-stage" data-testid="score-renderer">
             <p className="muted">Loading score...</p>
           </div>
         </section>
@@ -480,8 +493,10 @@ export function ScoreViewerPage() {
     );
   }
 
+  const isRendererReady = rendererState.kind === 'ready';
+
   return (
-    <main className="viewer-layout" data-testid={renderReady ? 'score-viewer-ready' : 'score-viewer-loading'}>
+    <main className="viewer-layout" data-testid={isRendererReady ? 'score-viewer-ready' : 'score-viewer-loading'}>
       <section className="viewer-main panel">
         <div className="panel-heading viewer-heading">
           <div>
@@ -563,6 +578,14 @@ export function ScoreViewerPage() {
           <div>
             <span className="summary-label">Occurrence number</span>
             <strong data-testid="current-occurrence">{playbackSnapshot.currentOccurrence ?? 0}</strong>
+          </div>
+          <div>
+            <span className="summary-label">Representative part</span>
+            <strong>{status.representativePartName}</strong>
+          </div>
+          <div>
+            <span className="summary-label">Warnings</span>
+            <strong>{status.warnings.length}</strong>
           </div>
           <div>
             <span className="summary-label">Zoom</span>
@@ -661,7 +684,23 @@ export function ScoreViewerPage() {
           ) : null}
         </div>
 
-        {!renderReady ? <p className="muted">Rendering score...</p> : null}
+        {rendererState.kind === 'loading' ? (
+          <div className="panel state-panel stage-state" data-testid="score-renderer-loading">
+            <h3>Loading renderer</h3>
+            <p>Verovio is loading for this viewer route.</p>
+          </div>
+        ) : null}
+
+        {rendererState.kind === 'error' ? (
+          <div className="panel state-panel stage-state" data-testid="score-viewer-error">
+            <h3>Renderer error</h3>
+            <p>{rendererState.message}</p>
+            <button type="button" className="primary-link" data-testid="score-renderer-retry" onClick={onRetryRenderer}>
+              Retry renderer
+            </button>
+          </div>
+        ) : null}
+
         <div className="score-stage" ref={containerRef} data-testid="score-renderer" />
       </section>
 
