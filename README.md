@@ -7,7 +7,7 @@ CueNote는 브라우저에서 실행되고 설치 가능한 Web PWA 기반 협�
 ## 저장소 구조
 
 ```text
-score-flow/
+CueNote/
 ├─ web-app/
 ├─ backend/
 ├─ ai-training/

@@ -1,0 +1,13 @@
+{
+  "name": "cuenote",
+  "private": true,
+  "workspaces": [
+    "web-app",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run -w web-app build",
+    "test": "npm run -w web-app test",
+    "test:e2e": "npm run -w web-app test:e2e"
+  }
+}

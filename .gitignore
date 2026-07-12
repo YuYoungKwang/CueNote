@@ -1,5 +1,16 @@
 .env
 
+# Node / web
+node_modules/
+web-app/node_modules/
+packages/*/node_modules/
+dist/
+web-app/dist/
+coverage/
+playwright-report/
+test-results/
+*.tsbuildinfo
+
 # Backend
 backend/target/
 

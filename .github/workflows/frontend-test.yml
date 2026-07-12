@@ -1,0 +1,47 @@
+name: Frontend Test
+
+on:
+  push:
+    paths:
+      - "web-app/**"
+      - "packages/**"
+      - "package.json"
+      - ".github/workflows/frontend-test.yml"
+  pull_request:
+    paths:
+      - "web-app/**"
+      - "packages/**"
+      - "package.json"
+      - ".github/workflows/frontend-test.yml"
+
+jobs:
+  frontend-test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Install Playwright browsers
+        working-directory: web-app
+        run: npx playwright install --with-deps chromium
+
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        run: npm run test
+
+      - name: E2E
+        run: npm run test:e2e

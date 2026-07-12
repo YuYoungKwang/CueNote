@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="CueNote">
+  <rect width="128" height="128" rx="24" fill="#0f172a"/>
+  <path d="M30 38h68v10H30zm0 20h54v10H30zm0 20h44v10H30z" fill="#e2e8f0"/>
+  <circle cx="88" cy="84" r="14" fill="#38bdf8"/>
+</svg>

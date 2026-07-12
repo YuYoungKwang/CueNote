@@ -2,78 +2,77 @@
 
 ## Scope
 
-Implement only ROADMAP Phase 0:
+Implement only ROADMAP Phase 0 for the current Web PWA-first repository:
 
 - Monorepo foundation
-- SwiftUI iOS/iPadOS app skeleton
-- Java 21 Spring Boot backend skeleton
-- PostgreSQL local development environment
-- Flyway V1 migration
-- Health API
-- Common success/error response shape
+- `web-app` React + TypeScript + Vite
+- PWA manifest and Service Worker
+- `src/app`, `src/core`, `src/domain`, `src/features`, `src/ai`, `src/workers`
+- IndexedDB adapter interface
+- `MockOMRService`
+- Vitest basic tests
+- Playwright basic E2E
+- Java 21 Spring Boot backend
+- PostgreSQL Docker Compose
+- Flyway V1
 - Testcontainers integration test
-- K3s manifest draft
-- Sample environment variables
-- Backend test GitHub Actions workflow
-- Core iOS service protocols
+- K3s namespace, Deployment, Service, Ingress, Secret example
+- `.env.example`
+- GitHub Actions frontend/backend test
 
 ## Out of Scope
 
 - Real OMR
+- Real ONNX model connection
 - Real score rendering
-- WebSocket ensemble sync
+- Real ensemble WebSocket
 - Note editor
-- Sign in with Apple
-- Score CRUD beyond interfaces
+- Authentication provider implementation
+- Native iOS implementation in the active product path
 
 ## Implementation Order
 
-1. Create backend Maven/Spring Boot project.
-2. Add common API envelope, request ID metadata, and global error response.
-3. Add `/api/v1/health` and Actuator health.
-4. Add Flyway V1 migration and Testcontainers integration test.
-5. Add PostgreSQL Docker Compose and K3s draft manifests.
-6. Add SwiftUI app shell and domain/service protocols.
-7. Update README and CI workflow.
-8. Run feasible validation commands and record any unavailable checks.
+1. Create the web-app workspace and shared monorepo scaffolding.
+2. Add PWA manifest, Service Worker, capability detection, storage adapter, and mock OMR service.
+3. Add Vitest unit coverage and Playwright E2E smoke coverage.
+4. Keep the existing Spring Boot backend, health API, common responses, Flyway migration, and Testcontainers test aligned.
+5. Add Docker Compose, K3s drafts, `.env.example`, and frontend/backend GitHub Actions workflows.
+6. Validate build, tests, compose, and YAML parsing.
 
 ## Decisions
 
-### Health Response Shape
+### Frontend Stack
 
-The API spec defines a global success envelope, while the health section shows a direct health payload.
-For Phase 0, `/api/v1/health` will use the global envelope:
+Use React + TypeScript + Vite for the first implementation.
 
-```json
-{
-  "data": {
-    "status": "UP",
-    "version": "0.1.0"
-  },
-  "meta": {
-    "requestId": "..."
-  }
-}
-```
+Reason: The roadmap now treats Web PWA as the first platform, and Vite keeps the workspace small and fast to iterate on.
 
-Reason: Phase 0 explicitly requires both Health API and common success/error responses, and health is the only public API in this phase.
+Impact: The repository becomes a real monorepo with a browser-first application entrypoint instead of an iOS app shell.
 
-Impact: Clients must read `data.status` for the app health endpoint. Kubernetes probes should use `/actuator/health/readiness` or `/actuator/health/liveness`.
+Alternative: Keep the legacy iOS app as the active path. Rejected because the current product direction is Web PWA-first.
 
-Alternative: Return the direct payload for `/api/v1/health` and leave the common response unused until later phases.
+### Legacy iOS Placement
 
-### Build Tool
+Move the previous iOS Phase 0 output into `legacy/ios-app`.
 
-Use Maven for the backend.
+Reason: Preserve the old implementation for long-term Phase 11 reference without mixing it into the active product path.
 
-Reason: No Gradle wrapper exists in the repository and creating a Maven Spring Boot project keeps CI and Docker-based local validation straightforward.
+Impact: Active development, docs, and CI should not treat the legacy iOS code as a build target.
 
-Impact: Local host validation requires Maven and JDK 21, or a Docker Maven/JDK 21 image.
+Alternative: Keep `ios-app` at the root and mark it as unused. Rejected because it continues to imply active support.
 
-Alternative: Add Gradle wrapper later if the team standardizes on Gradle.
+### Backend Build Validation
+
+Use a Dockerized Maven 21 image for backend validation in this environment.
+
+Reason: The host has no Maven installed and only Java 17 locally.
+
+Impact: Backend tests remain reproducible without changing the source tree.
+
+Alternative: Add a Maven wrapper. Rejected for Phase 0 because the repo already has a working Docker path for validation.
 
 ## Risks
 
-- The current host has Java 17, no Maven/Gradle, and no Xcode/Swift toolchain.
-- iOS build validation cannot be executed in this Windows environment.
-- Testcontainers requires Docker availability and image pulls during test execution.
+- Testcontainers inside Docker needs host override settings in this environment.
+- iOS build validation cannot be run here.
+- The repository still contains legacy iOS source for reference, but it is intentionally excluded from active development.
