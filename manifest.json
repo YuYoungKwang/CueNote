@@ -1,0 +1,52 @@
+[
+  {
+    "file": "README.md",
+    "bytes": 1628,
+    "sha256": "2e1b7701d6cab2e97916485f3733ecf407aa868b8db4fcfe811ad5d24f8beced"
+  },
+  {
+    "file": "docs/01-PRD.md",
+    "bytes": 7665,
+    "sha256": "665d869327c2273b8d015e83d809639e17ca6cc50d96ada17aaf61356a6eb092"
+  },
+  {
+    "file": "docs/02-ARCHITECTURE.md",
+    "bytes": 7611,
+    "sha256": "0bd938b89c53a99c88ff44de83524508b424d5711f9a0a0c787ea209dd1f5b10"
+  },
+  {
+    "file": "docs/03-DOMAIN-MODEL.md",
+    "bytes": 7857,
+    "sha256": "864387c7494d45c660751890a6c797528b9d130cca2b503f79f44be1be60e76d"
+  },
+  {
+    "file": "docs/04-API-SPEC.md",
+    "bytes": 7610,
+    "sha256": "288ef7d4a93784767ee939f44331d75453664aef700c353146347a055ae6c001"
+  },
+  {
+    "file": "docs/05-OMR-SPEC.md",
+    "bytes": 7544,
+    "sha256": "b76a9404d722568cd281d2c461d1211eb9ade96c8ae34d9fea2086a66490e3f2"
+  },
+  {
+    "file": "docs/06-SYNC-PROTOCOL.md",
+    "bytes": 6174,
+    "sha256": "4c962583d15b55120475d71f64723338e60608496aca40c22e546c3b20d390ce"
+  },
+  {
+    "file": "docs/07-ROADMAP.md",
+    "bytes": 5273,
+    "sha256": "00b34cd7c6265d5b6710ab8e69511b304b30b977118585d6670666911baec8e3"
+  },
+  {
+    "file": "docs/08-ACCEPTANCE-CRITERIA.md",
+    "bytes": 5310,
+    "sha256": "60dab2cb5ac1d03b9d444be44eb5cee103938562a01f55f9a919a9c253030b7c"
+  },
+  {
+    "file": "docs/09-CODEX-PROMPTS.md",
+    "bytes": 7240,
+    "sha256": "ad2546be06c21e4bf78c4f93980595ae177e34cb0337779e6840f37fd6786236"
+  }
+]

@@ -1,0 +1,299 @@
+# 08. 완료 기준과 검증
+
+## 1. 공통 Definition of Done
+
+- 지정된 Phase 범위와 일치한다.
+- 범위 밖 기능을 임의로 구현하지 않았다.
+- 빌드가 성공한다.
+- 핵심 도메인 로직에 단위 테스트가 있다.
+- 실패 경로와 사용자 오류 메시지가 있다.
+- 임시 하드코딩을 완료 기능으로 남기지 않았다.
+- Secret·토큰·개인 파일을 커밋하지 않았다.
+- 관련 문서가 갱신되었다.
+- 변경 파일과 실제 검증 결과가 기록되었다.
+- 실행하지 못한 검증을 성공했다고 보고하지 않는다.
+- Mac, 특정 브라우저, 실제 기기 등 접근할 수 없는 환경의 검증은 미검증으로 표시한다.
+
+## 2. 코드 품질
+
+### Web PWA
+
+- React component에 네트워크·DB·반복 해석 로직을 직접 넣지 않는다.
+- 무거운 OMR 추론과 이미지 전처리는 Web Worker에서 실행한다.
+- IndexedDB 오류와 저장 공간 부족을 사용자에게 설명한다.
+- Service Worker 업데이트와 캐시 무효화 정책이 있다.
+- WebGPU가 없거나 실패해도 WASM fallback을 제공한다.
+- 화면 절대 픽셀만 필기 좌표로 저장하지 않는다.
+- 브라우저 background/foreground 복구를 고려한다.
+
+### Backend
+
+- Controller/Service/Repository 책임을 분리한다.
+- DTO와 Entity를 분리한다.
+- 입력과 권한을 검증한다.
+- Flyway로 DB schema를 관리한다.
+- Testcontainers 통합 테스트를 작성한다.
+- 민감 정보를 로그에 남기지 않는다.
+
+### AI Training
+
+- 학습은 Windows 또는 WSL2 Python/PyTorch 환경에서 수행한다.
+- 브라우저에서 학습한다고 설명하지 않는다.
+- ONNX export와 validation을 분리한다.
+- 모델 파일은 version, hash, size, 호환성을 manifest로 관리한다.
+
+## 3. Phase 0
+
+- `npm install` 성공
+- `npm run build` 성공
+- `npm run test` 성공
+- Playwright 기본 E2E 성공
+- PWA manifest 유효
+- Service Worker 등록
+- `app/core/domain/features/ai/workers` 구조가 있다.
+- IndexedDB adapter 기본 인터페이스가 있다.
+- `MockOMRService`가 있으며 실제 ONNX 모델은 연결하지 않는다.
+- Docker Compose 설정이 유효하다.
+- Backend가 Java 21로 빌드된다.
+- Backend build/test가 성공한다.
+- Health API가 200을 반환한다.
+- PostgreSQL Compose가 실행된다.
+- Flyway migration이 적용된다.
+- Testcontainers 통합 테스트가 실행된다.
+- K3s Deployment/Service/Ingress 초안이 있다.
+- `.env.example`에 실제 Secret이 없다.
+- 실제 OMR과 실제 합주 WebSocket은 아직 구현하지 않는다.
+
+> 관련 문서: [11-PWA-OFFLINE-SPEC.md](./11-PWA-OFFLINE-SPEC.md)
+
+## 4. 브라우저 검증 대상
+
+필수 또는 권장 검증 대상:
+
+- Windows Chrome
+- Windows Edge
+- macOS Chrome 또는 Safari
+- iPad Safari
+
+현재 환경에 없는 브라우저 또는 실제 기기는 성공으로 주장하지 않고 미검증으로 기록한다.
+
+> 관련 문서: [10-WEB-CAPABILITY-MATRIX.md](./10-WEB-CAPABILITY-MATRIX.md)
+
+## 5. Phase 1
+
+- 샘플 MusicXML 2개 이상을 불러온다.
+- 파싱 실패를 사용자에게 표시한다.
+- 마디마다 안정적인 ID가 있다.
+- 렌더러가 마디 DOM 또는 equivalent mapping을 제공한다.
+- 특정 마디를 하이라이트·스크롤할 수 있다.
+- 회전 또는 viewport 변경 후 현재 마디가 유지된다.
+- 최근 악보가 IndexedDB에 저장된다.
+- 인터넷 없이 기존 샘플을 다시 열 수 있다.
+- parser와 마디 매핑 테스트가 있다.
+
+## 6. Phase 2
+
+### 반복
+
+- 단순 도돌이표
+- 1·2번 ending
+- D.C. al Fine
+- D.S. al Fine
+- D.S. al Coda
+- 대상 누락 warning
+- 무한 루프 방지
+- sourceMeasureId와 occurrence 보존
+
+### 자동 넘김
+
+- BPM 변경 반영
+- 재생/일시정지/정지
+- 카운트인
+- background/foreground 복구
+- timer throttling 후 절대 시각 기반 재계산
+- 자동 하이라이트·스크롤
+
+## 7. Phase 3
+
+- Canvas 기반 필기 overlay
+- Pointer Events 처리
+- 펜/형광펜/지우개
+- 텍스트 메모 CRUD
+- 마디/음표 anchor
+- 회전·확대 후 위치 유지
+- PRIVATE/PART/ENSEMBLE scope
+- 메모 필터
+- IndexedDB 저장
+- 앱 재시작 후 복원
+
+필기 입력 테스트:
+
+- 마우스
+- 터치
+- 스타일러스
+- pressure 정보가 없는 입력
+- pressure 정보가 있는 입력은 가능한 환경에서 검증하고, 없으면 미검증으로 기록
+
+## 8. Phase 4
+
+- 인증 provider token 또는 login code를 서버에서 검증한다.
+- access/refresh token이 동작한다.
+- 악보 CRUD 권한 테스트가 있다.
+- 권한 없는 악보 접근이 차단된다.
+- presigned upload의 MIME/크기/소유권을 검증한다.
+- 버전 생성·다운로드가 된다.
+- revision 충돌 시 409.
+- 팀 메모 scope를 서버에서 필터링한다.
+- batch 동기화가 중복 적용되지 않는다.
+- 브라우저 로컬 동기화 큐 실패와 재시도를 테스트한다.
+
+## 9. Phase 5
+
+- 세션 생성과 참가가 된다.
+- 악보 버전 불일치를 차단한다.
+- 리더만 공용 상태를 변경한다.
+- 미래 targetTimestamp에 시작한다.
+- 오래된 sequence를 무시한다.
+- 중복 이벤트가 idempotent하다.
+- 개인 탐색 후 리더 위치로 복귀한다.
+- 네트워크 단절 후 스냅샷으로 복구한다.
+- 리더 변경이 전파된다.
+- 종료 세션 명령을 거부한다.
+- background/foreground 복구를 검증한다.
+- 화면 회전 후 위치를 유지한다.
+- PWA와 일반 브라우저 탭 간 동기화를 검증한다.
+- Wake Lock 실패 시 기능이 중단되지 않는다.
+- timer throttling 후 snapshot으로 복구한다.
+- 최소 3개 브라우저 인스턴스 또는 동등 환경으로 검증한다.
+
+## 10. Phase 6
+
+- 편집과 필기 모드가 구분된다.
+- 코드·가사 수정
+- 제한적 음높이·음가 수정
+- undo/redo
+- 새 ScoreVersion 저장
+- 원본 복구
+- 유효한 MusicXML export
+- 편집 후 PerformanceOrder 재계산
+- revision 충돌 감지
+
+## 11. Phase 7
+
+- PDF.js page rendering
+- 이미지/PDF import
+- 카메라 input 가능 환경에서 검증
+- 흐림/잘림/원근 경고
+- 페이지 회전·순서 수정
+- Canvas/OpenCV.js 전처리
+- 시스템·오선·마디 검출
+- 원본과 crop 비교
+- Web Worker에서 이미지 처리
+- 전체 PDF를 한 번에 고해상도로 rasterize하지 않음
+
+## 12. Phase 8
+
+- ONNX 모델 manifest를 받는다.
+- 모델 hash를 검증한다.
+- 최초 모델 다운로드 진행률을 표시한다.
+- Cache Storage에 모델을 저장한다.
+- 캐시 재사용이 된다.
+- hash 변경 후 모델을 갱신한다.
+- WebGPU 실행 경로를 검증한다.
+- WASM fallback을 검증한다.
+- Web Worker에서 추론한다.
+- Tensor/ImageBitmap 해제가 확인된다.
+- 저사양 순차 처리를 제공한다.
+- 기본 음표·쉼표·조표·박자표 구조화
+- 음높이·음가 규칙 검증
+- 코드·가사 수정 가능
+- 저신뢰 마디 검수
+- MusicXML export
+- 도돌이표 감지 또는 쉬운 수동 추가
+
+> 관련 문서: [12-MODEL-DELIVERY-SPEC.md](./12-MODEL-DELIVERY-SPEC.md)
+
+## 13. Phase 9
+
+- 다양한 카메라 조건 평가
+- D.C./D.S./Coda 인식 고도화
+- 붙임줄/이음줄 후보 처리
+- 다중 절 가사 검수
+- 복잡한 코드 parser 회귀 테스트
+- 사용자 수정 기반 평가 리포트
+
+## 14. Phase 10
+
+- PWA 설치 동작
+- 오프라인 앱 셸
+- 기존 악보 오프라인 열람
+- 오프라인 편집
+- 동기화 큐
+- 충돌 처리
+- 캐시 업데이트
+- 오래된 캐시 제거
+- 모델 버전 관리
+- 저장 공간 부족 안내
+- 사용자 데이터 내보내기
+- 로그아웃 시 로컬 데이터 처리
+- 브라우저 호환성 결과 기록
+
+## 15. Phase 11
+
+- 웹 서비스 검증 이후 선택 여부를 결정한다.
+- 기존 Backend, 도메인 모델, 모델 artifact 재사용성을 검토한다.
+- 네이티브 전환이 필요하다는 제품/성능 근거를 기록한다.
+- Web PWA와의 기능 차이를 명확히 문서화한다.
+
+## 16. 측정 항목
+
+```text
+앱 시작 시간
+악보 렌더링 시간
+마디 이동 응답
+1페이지 OMR 시간
+Peak memory
+모델 다운로드 시간
+모델 로딩 시간
+WebSocket RTT
+합주 drift
+재연결 시간
+파일 업로드 시간
+IndexedDB 저장 시간
+Cache Storage hit rate
+```
+
+## 17. 보안
+
+- Secret scanning
+- 인증 없는 API 차단
+- 권한 없는 객체 다운로드 차단
+- presigned URL 수명
+- WebSocket 권한
+- 리더 위조 방지
+- 토큰 로그 마스킹
+- refresh token 폐기
+- 브라우저 storage token 저장 전략 검토
+- 모델 manifest hash 검증
+
+## 18. 백업·복구
+
+- PostgreSQL 일일 백업
+- 외부 스토리지 복제
+- 객체 저장소 백업
+- 복구 절차 문서
+- 실제 복구 테스트
+- 서버 장애 중 Web PWA 로컬 열람
+- K3s 재설치 후 복구 검증
+
+## 19. Codex 완료 보고
+
+```md
+## 구현 요약
+## 변경 파일
+## 실행한 명령과 실제 결과
+## 완료 기준 충족 여부
+## 실행하지 못한 검증
+## 알려진 제한
+## 문서와 다른 결정
+```

@@ -1,0 +1,21 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: cuenote-backend
+  namespace: cuenote
+  labels:
+    app.kubernetes.io/name: cuenote-backend
+    app.kubernetes.io/part-of: cuenote
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: api.cuenote.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: cuenote-backend
+                port:
+                  name: http

@@ -1,0 +1,19 @@
+.env
+
+# Backend
+backend/target/
+
+# iOS
+ios-app/DerivedData/
+ios-app/*.xcworkspace/xcuserdata/
+ios-app/*.xcodeproj/xcuserdata/
+ios-app/*.xcodeproj/project.xcworkspace/xcuserdata/
+
+# Editors
+.idea/
+.vscode/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
