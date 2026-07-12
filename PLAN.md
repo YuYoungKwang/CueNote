@@ -1,73 +1,123 @@
-# Phase 1 Plan
+# Phase 2 Plan
 
 ## Scope
 
-Implement only ROADMAP Phase 1:
+Implement only ROADMAP Phase 2:
 
-- Sample MusicXML fixtures bundled into the web app
-- MusicXML parser and domain translation
-- Minimal `ScoreDocument` / `ScoreVersion` / `ScorePart` / `Measure` model support in `packages/score-domain`
-- Score renderer adapter behind an app-facing interface
-- Measure-to-renderer mapping, highlight, scroll, and zoom
-- Library and viewer routes for sample scores
-- IndexedDB recent-score persistence
-- Parser, mapping, storage, and E2E coverage
+- Navigation mark parsing for repeat and jump symbols
+- Pure domain RepeatExpander with warnings and loop protection
+- PerformanceMeasure-based playback order
+- Pure domain PlaybackTimeline with injected clock
+- Viewer playback UI for BPM, count-in, play/pause/resume/stop, previous/next performance measure
+- Highlight and scroll driven by PerformanceMeasure sourceMeasureId
+- IndexedDB persistence for playback-related viewer state
+- Phase 2 unit tests and Playwright coverage on top of real Verovio rendering
 
 ## Out of Scope
 
 - OMR
-- Repeat expansion
-- Canvas handwriting
-- Backend API integration
-- WebSocket ensemble sync
+- Backend or WebSocket sync
 - Score editing
+- Canvas annotation
+- Mid-score tempo changes
+- Real audio/metronome engine
+- Phase 3 and later features
 
 ## Implementation Order
 
-1. Add Phase 1 sample MusicXML fixtures and bundle them into the app.
-2. Extend `packages/score-domain` with the minimum score document types.
-3. Implement the MusicXML parser with clear parse/unsupported-structure errors.
-4. Add a renderer adapter and choose a rendering library behind it.
-5. Build the library and viewer routes with measure selection, highlight, scroll, and zoom.
-6. Persist recent score state in IndexedDB without blocking score loading.
-7. Add unit tests and Playwright smoke coverage.
-8. Run build, test, E2E, and markdown-link verification.
+1. Expand `packages/score-domain` with navigation, performance-order, and playback types.
+2. Extend the MusicXML parser with duration and navigation mark extraction.
+3. Implement and test `RepeatExpander` as a pure domain state machine.
+4. Implement and test `PlaybackTimeline` with an injected monotonic clock.
+5. Add Phase 2 sample fixtures for repeat and navigation flows.
+6. Integrate playback order, warnings, and timeline controls into the viewer.
+7. Persist playback-related viewer state in IndexedDB without auto-resuming playback.
+8. Add Playwright coverage using a controllable injected clock while keeping the same production timeline logic.
+9. Run build, unit tests, E2E, markdown link verification, and a Phase 2 acceptance self-check.
 
 ## Decisions
 
-### Renderer Choice
+### Domain Placement
 
-Use Verovio for the Phase 1 renderer adapter.
+Put repeat expansion and playback timeline logic in `packages/score-domain`.
 
-Reason: Verovio can render MusicXML to SVG in the browser, supports JavaScript toolkit usage, and exposes element-to-page lookup and SVG HTML5 attributes for JS interaction. That gives us a clearer path to stable measure mapping than a renderer that leaves more of the interaction model implicit.
+Reason: Phase 2 rules must stay renderer-independent, UI-independent, and reusable by future backend or native clients.
 
-Impact: The app can keep the domain model separate from renderer internals while still scrolling, highlighting, and relinking measures after rerender.
+Impact: The viewer consumes derived playback data instead of embedding a repeat state machine in React state.
 
-Alternative: OpenSheetMusicDisplay. Rejected for Phase 1 because the Verovio toolkit exposes page and element lookup APIs that fit this viewer-first milestone more directly.
+Alternative: Keep the logic in `web-app/src/domain`. Rejected because the roadmap and domain model expect cross-platform domain reuse.
 
-### Routing
+### PerformanceMeasure Model
 
-Add the smallest browser router needed for `/` and `/scores/:scoreId`.
+Represent the actual playback order as `PerformanceMeasure[]` that reference source measures by ID.
 
-Reason: The viewer needs stable deep links, but Phase 1 should not create unrelated pages.
+Reason: Repeated measures must be distinguishable without duplicating source `Measure` objects.
 
-Impact: Library navigation and score viewing become shareable without expanding the app surface.
+Impact: UI, playback, and future sync can use `performanceMeasureId` while still mapping back to source measures for Verovio highlight and scroll.
 
-Alternative: Manual window-location handling. Rejected because the phase already needs route params and browser navigation, and React Router keeps the code clearer.
+Alternative: Duplicate `Measure` objects per occurrence. Rejected because it blurs source structure and playback structure.
 
-### Sample Scores
+### Repeat Expansion Strategy
 
-Bundle two self-authored MusicXML fixtures in the app.
+Use a pure state machine with explicit guards:
 
-Reason: The phase requires offline, license-safe demo material and E2E-ready input.
+- max transition count
+- max output length
+- repeated navigation state detection
+- single-use D.C. / D.S. / Coda jumps
 
-Impact: The viewer works without backend calls and can be tested deterministically.
+Reason: Loop prevention must come from deterministic domain rules, not from timeouts in UI tests or rendering code.
 
-Alternative: Fetch samples from the network. Rejected because this phase must work offline and avoid external dependencies.
+Impact: Unsupported or malformed navigation produces warnings and the safest partial result available.
+
+Alternative: Recursive traversal with ad hoc counters. Rejected because it is harder to inspect, test, and keep loop-safe.
+
+### Playback Clock
+
+Use an injected `PlaybackClock` with `performance.now()` in production and a controllable manual clock in tests.
+
+Reason: The timeline must compute position from monotonic elapsed time and remain testable without sleeping.
+
+Impact: Visibility recovery and timer throttling are handled by recomputing from elapsed time instead of trusting timer tick counts.
+
+Alternative: Interval-driven state progression only. Rejected because it is brittle in background tabs and produces flaky E2E behavior.
+
+### Viewer Selection Policy
+
+When the user selects a source measure from the list or rendered score:
+
+- while stopped or paused: seek to the nearest matching PerformanceMeasure occurrence, preferring the current occurrence or the earliest future one
+- while playing: seek immediately to the nearest matching PerformanceMeasure occurrence and keep playback running
+
+Reason: Phase 2 should keep manual measure navigation useful without introducing a second disconnected selection model.
+
+Impact: Source measure interactions remain available even when the playback order contains repeated occurrences.
+
+Alternative: Disable seek during playback. Rejected because the viewer already supports active navigation and the phase expects previous/next playback navigation.
+
+### Renderer Contract
+
+Keep Verovio responsible only for source score rendering and source measure DOM mapping.
+
+Reason: The renderer should not calculate playback order or interpret repeat semantics.
+
+Impact: Playback highlight uses `PerformanceMeasure.sourceMeasureId` and the viewer keeps the occurrence state separately.
+
+Alternative: Teach the renderer about repeated occurrences. Rejected because Verovio renders source notation, not playback clones.
+
+### No New State Libraries
+
+Do not add a new state-management dependency for Phase 2.
+
+Reason: The existing app is still small enough for local React state around a pure domain engine.
+
+Impact: We avoid dependency churn and keep the new complexity in domain modules instead of UI infrastructure.
+
+Alternative: Zustand or XState. Rejected for now because the behavior can be kept testable with plain domain classes and focused hooks/effects.
 
 ## Risks
 
-- Verovio integration can require careful SVG and DOM handling for measure mapping.
-- MusicXML parser coverage must stay intentionally small and fail clearly for unsupported structures.
-- Recent-score persistence must not block score loading if IndexedDB is unavailable.
-- The repository still contains backend and legacy iOS code, but Phase 1 must not modify them.
+- MusicXML navigation marks vary across files; Phase 2 must support the scoped fixtures clearly and warn on unsupported variants.
+- Verovio exposes source notation, so occurrence-level playback state must remain separate from DOM mapping.
+- Playback persistence must restore position and settings without auto-playing on refresh.
+- E2E playback must avoid real-time sleeps while still using the same production timeline logic.

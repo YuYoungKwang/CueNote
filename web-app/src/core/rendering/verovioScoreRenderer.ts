@@ -158,25 +158,47 @@ class VerovioScoreRenderer implements ScoreRenderer {
       return;
     }
 
-    const renderedMeasures = Array.from(
-      this.container.querySelectorAll<SVGGElement>('svg g.measure[data-class="measure"]:not(.bounding-box)')
-    );
     const measures = this.version.parts.flatMap((part) => part.measures);
+    const measureById = new Map(measures.map((measure) => [measure.id, measure]));
+    const sourceOrder = new Map(measures.map((measure, index) => [measure.id, index]));
+    const linksByPage = new Map<number, typeof measures>();
 
-    renderedMeasures.forEach((element, index) => {
-      const measure = measures[index];
+    this.measureLinks.forEach((link) => {
+      const measure = measureById.get(link.measureId);
       if (!measure) {
         return;
       }
 
-      element.dataset.measureId = measure.id;
-      element.dataset.measureSourceXmlId = measure.sourceXmlId;
-      element.style.cursor = 'pointer';
-
-      const handler = () => this.measureSelectListener?.(measure.id);
-      element.addEventListener('click', handler);
-      this.clickHandlers.set(element, handler);
+      const existing = linksByPage.get(link.pageNumber) ?? [];
+      existing.push(measure);
+      linksByPage.set(link.pageNumber, existing);
     });
+
+    linksByPage.forEach((pageMeasures) => {
+      pageMeasures.sort((left, right) => (sourceOrder.get(left.id) ?? 0) - (sourceOrder.get(right.id) ?? 0));
+    });
+
+    const pageSections = Array.from(this.container.querySelectorAll<HTMLElement>('.score-page'));
+    pageSections.forEach((pageSection) => {
+      const pageNumber = Number.parseInt(pageSection.dataset.pageNumber ?? '1', 10) || 1;
+      const pageMeasures = linksByPage.get(pageNumber) ?? [];
+      const renderedMeasures = Array.from(pageSection.querySelectorAll<SVGGElement>('svg g.measure:not(.bounding-box)'));
+      const assignmentCount = Math.min(pageMeasures.length, renderedMeasures.length);
+
+      for (let index = 0; index < assignmentCount; index += 1) {
+        this.decorateRenderedMeasureElement(renderedMeasures[index], pageMeasures[index]);
+      }
+    });
+  }
+
+  private decorateRenderedMeasureElement(element: SVGGElement, measure: ScoreVersion['parts'][number]['measures'][number]): void {
+    element.dataset.measureId = measure.id;
+    element.dataset.measureSourceXmlId = measure.sourceXmlId;
+    element.style.cursor = 'pointer';
+
+    const handler = () => this.measureSelectListener?.(measure.id);
+    element.addEventListener('click', handler);
+    this.clickHandlers.set(element, handler);
   }
 
   private syncHighlight(): void {

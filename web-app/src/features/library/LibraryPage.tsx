@@ -12,7 +12,7 @@ export function LibraryPage() {
 
     void recentStore.list().then((records) => {
       if (!cancelled) {
-        setRecentScores(records.sort((a, b) => b.lastOpenedAt - a.lastOpenedAt));
+        setRecentScores(records.sort((left, right) => right.lastOpenedAt - left.lastOpenedAt));
       }
     });
 
@@ -27,7 +27,7 @@ export function LibraryPage() {
         <div className="panel-heading">
           <div>
             <p className="eyebrow">Sample scores</p>
-            <h2>악보 라이브러리</h2>
+            <h2>Bundled score library</h2>
           </div>
         </div>
 
@@ -40,7 +40,7 @@ export function LibraryPage() {
               <h3>{sample.title}</h3>
               <p>{sample.description}</p>
               <Link className="primary-link" to={`/scores/${sample.id}`}>
-                열기
+                Open score
               </Link>
             </article>
           ))}
@@ -51,12 +51,12 @@ export function LibraryPage() {
         <div className="panel-heading">
           <div>
             <p className="eyebrow">Recent</p>
-            <h2>최근 열어본 악보</h2>
+            <h2>Recently opened</h2>
           </div>
         </div>
 
         {recentScores.length === 0 ? (
-          <p className="muted">아직 열어본 악보가 없습니다.</p>
+          <p className="muted">No recently opened score has been restored yet.</p>
         ) : (
           <ul className="recent-list">
             {recentScores.map((record) => (
@@ -64,7 +64,7 @@ export function LibraryPage() {
                 <Link to={`/scores/${record.scoreId}`}>
                   <strong>{record.title}</strong>
                   <span>
-                    {new Date(record.lastOpenedAt).toLocaleString()} · {record.currentMeasureId}
+                    {new Date(record.lastOpenedAt).toLocaleString()} | {record.currentMeasureId}
                   </span>
                 </Link>
               </li>

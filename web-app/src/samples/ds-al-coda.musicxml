@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<score-partwise version="4.0" xmlns="http://www.musicxml.org/ns/musicxml">
+  <work>
+    <work-title>Dal Segno al Coda</work-title>
+  </work>
+  <identification>
+    <creator type="composer">CueNote Team</creator>
+  </identification>
+  <part-list>
+    <score-part id="P1">
+      <part-name>Melody</part-name>
+    </score-part>
+  </part-list>
+  <part id="P1">
+    <measure number="1" xml:id="ds-m1">
+      <attributes>
+        <divisions>1</divisions>
+        <key>
+          <fifths>0</fifths>
+          <mode>major</mode>
+        </key>
+        <time>
+          <beats>4</beats>
+          <beat-type>4</beat-type>
+        </time>
+        <clef>
+          <sign>G</sign>
+          <line>2</line>
+        </clef>
+      </attributes>
+      <direction placement="above">
+        <direction-type>
+          <words>Segno</words>
+        </direction-type>
+      </direction>
+      <note>
+        <pitch><step>C</step><octave>4</octave></pitch>
+        <duration>4</duration>
+        <type>whole</type>
+      </note>
+    </measure>
+    <measure number="2" xml:id="ds-m2">
+      <note>
+        <pitch><step>D</step><octave>4</octave></pitch>
+        <duration>4</duration>
+        <type>whole</type>
+      </note>
+    </measure>
+    <measure number="3" xml:id="ds-m3">
+      <direction placement="above">
+        <direction-type>
+          <words>To Coda</words>
+        </direction-type>
+      </direction>
+      <note>
+        <pitch><step>E</step><octave>4</octave></pitch>
+        <duration>4</duration>
+        <type>whole</type>
+      </note>
+    </measure>
+    <measure number="4" xml:id="ds-m4">
+      <direction placement="above">
+        <direction-type>
+          <words>D.S. al Coda</words>
+        </direction-type>
+      </direction>
+      <note>
+        <pitch><step>F</step><octave>4</octave></pitch>
+        <duration>4</duration>
+        <type>whole</type>
+      </note>
+    </measure>
+    <measure number="5" xml:id="ds-m5">
+      <direction placement="above">
+        <direction-type>
+          <words>Coda</words>
+        </direction-type>
+      </direction>
+      <note>
+        <pitch><step>G</step><octave>4</octave></pitch>
+        <duration>4</duration>
+        <type>whole</type>
+      </note>
+    </measure>
+  </part>
+</score-partwise>

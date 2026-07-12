@@ -6,6 +6,10 @@ export interface RecentScoreRecord {
   lastOpenedAt: number;
   currentMeasureId: string;
   zoom: number;
+  currentPerformanceMeasureId?: string;
+  bpm?: number;
+  countInMeasures?: number;
+  playbackStatus?: 'STOPPED' | 'PAUSED' | 'ENDED' | 'PLAYING' | 'COUNT_IN';
 }
 
 export interface RecentScoreStore {

@@ -2,6 +2,8 @@ import {
   createStableMeasureId,
   type KeySignature,
   type Measure,
+  type NavigationMark,
+  type NavigationMarkType,
   type ScoreDocument,
   type ScorePart,
   type ScoreVersion,
@@ -46,7 +48,7 @@ export function parseMusicXML(sourceXml: string, options: MusicXmlParseOptions):
   const root = document.documentElement;
 
   if (root.nodeName !== 'score-partwise') {
-    throw new MusicXmlParseError('UNSUPPORTED_STRUCTURE', 'Only score-partwise MusicXML is supported in Phase 1.');
+    throw new MusicXmlParseError('UNSUPPORTED_STRUCTURE', 'Only score-partwise MusicXML is supported.');
   }
 
   const title = descendantTextContent(root, 'work-title') ?? 'Untitled score';
@@ -121,6 +123,7 @@ function parseMeasures(partElement: Element, scoreId: string, partId: string, pa
   const parsedMeasures: Measure[] = [];
   let currentTimeSignature: TimeSignature | undefined;
   let currentKeySignature: KeySignature | undefined;
+  let currentDivisions = 1;
 
   for (const [measureIndex, measureElement] of measures.entries()) {
     const numberText = measureElement.getAttribute('number') ?? String(measureIndex + 1);
@@ -128,6 +131,7 @@ function parseMeasures(partElement: Element, scoreId: string, partId: string, pa
     const measureId = createStableMeasureId(scoreId, partIndex, measureIndex + 1, sourceXmlId);
     const measureTimeSignature = parseTimeSignature(measureElement) ?? currentTimeSignature;
     const measureKeySignature = parseKeySignature(measureElement) ?? currentKeySignature;
+    const measureDivisions = parseDivisions(measureElement) ?? currentDivisions;
 
     if (measureTimeSignature) {
       currentTimeSignature = measureTimeSignature;
@@ -137,6 +141,8 @@ function parseMeasures(partElement: Element, scoreId: string, partId: string, pa
       currentKeySignature = measureKeySignature;
     }
 
+    currentDivisions = measureDivisions;
+
     parsedMeasures.push({
       id: measureId,
       number: Number.parseInt(numberText, 10) || measureIndex + 1,
@@ -145,8 +151,11 @@ function parseMeasures(partElement: Element, scoreId: string, partId: string, pa
       displayNumber: numberText,
       timeSignature: measureTimeSignature,
       keySignature: measureKeySignature,
+      divisions: measureDivisions,
+      durationDivisions: calculateMeasureDurationDivisions(measureElement),
       chordSymbols: parseChordSymbols(measureElement),
-      lyrics: parseLyrics(measureElement)
+      lyrics: parseLyrics(measureElement),
+      navigationMarks: parseNavigationMarks(measureElement, measureId)
     });
   }
 
@@ -190,6 +199,63 @@ function parseKeySignature(measureElement: Element): KeySignature | undefined {
   };
 }
 
+function parseDivisions(measureElement: Element): number | undefined {
+  const divisionsText = textContent(childElement(measureElement, 'attributes') ?? measureElement, 'divisions');
+  if (!divisionsText) {
+    return undefined;
+  }
+
+  const divisions = Number.parseInt(divisionsText, 10);
+  return Number.isFinite(divisions) && divisions > 0 ? divisions : undefined;
+}
+
+function calculateMeasureDurationDivisions(measureElement: Element): number {
+  let cursor = 0;
+  let maxCursor = 0;
+  let lastNoteStart = 0;
+
+  for (const child of Array.from(measureElement.children)) {
+    if (child.localName === 'note') {
+      if (childElement(child, 'grace')) {
+        continue;
+      }
+
+      const duration = Number.parseInt(textContent(child, 'duration') ?? '0', 10);
+      if (!Number.isFinite(duration) || duration <= 0) {
+        continue;
+      }
+
+      if (childElement(child, 'chord')) {
+        maxCursor = Math.max(maxCursor, lastNoteStart + duration);
+        continue;
+      }
+
+      lastNoteStart = cursor;
+      cursor += duration;
+      maxCursor = Math.max(maxCursor, cursor);
+      continue;
+    }
+
+    if (child.localName === 'forward') {
+      const duration = Number.parseInt(textContent(child, 'duration') ?? '0', 10);
+      if (Number.isFinite(duration) && duration > 0) {
+        cursor += duration;
+        maxCursor = Math.max(maxCursor, cursor);
+      }
+      continue;
+    }
+
+    if (child.localName === 'backup') {
+      const duration = Number.parseInt(textContent(child, 'duration') ?? '0', 10);
+      if (Number.isFinite(duration) && duration > 0) {
+        cursor = Math.max(0, cursor - duration);
+      }
+    }
+  }
+
+  return maxCursor;
+}
+
 function parseChordSymbols(measureElement: Element): string[] {
   return Array.from(measureElement.children)
     .filter((child) => child.localName === 'harmony')
@@ -216,6 +282,195 @@ function parseLyrics(measureElement: Element): string[] {
   }
 
   return lyrics;
+}
+
+function parseNavigationMarks(measureElement: Element, measureId: string): NavigationMark[] {
+  const marks: Array<Omit<NavigationMark, 'id'>> = [];
+
+  Array.from(measureElement.children)
+    .filter((child) => child.localName === 'barline')
+    .forEach((barline) => {
+      const repeat = childElement(barline, 'repeat');
+      if (repeat) {
+        const direction = repeat.getAttribute('direction');
+        const repeatTimes = parseOptionalInteger(repeat.getAttribute('times') ?? repeat.getAttribute('repeat-times'));
+        if (direction === 'forward') {
+          marks.push({ type: 'REPEAT_START', measureId });
+        } else if (direction === 'backward') {
+          marks.push({ type: 'REPEAT_END', measureId, repeatTimes });
+        }
+      }
+
+      const ending = childElement(barline, 'ending');
+      if (ending) {
+        const endingType = ending.getAttribute('type');
+        const endingNumbers = parseEndingNumbers(ending.getAttribute('number'));
+        if (endingType === 'start') {
+          marks.push({ type: 'ENDING_START', measureId, endingNumbers });
+        } else if (endingType === 'stop' || endingType === 'discontinue') {
+          marks.push({ type: 'ENDING_STOP', measureId, endingNumbers });
+        }
+      }
+    });
+
+  Array.from(measureElement.children)
+    .filter((child) => child.localName === 'direction')
+    .forEach((direction, directionIndex) => {
+      const words = Array.from(direction.getElementsByTagNameNS(MUSICXML_NS, 'words'))
+        .map((element) => element.textContent?.trim() ?? '')
+        .filter(Boolean);
+      const normalizedWords = normalizeWords(words.join(' '));
+      const sound = childElement(direction, 'sound');
+      const wordMarks = parseDirectionWordMarks(normalizedWords, measureId);
+      const soundMarks = parseDirectionSoundMarks(sound, normalizedWords, measureId);
+
+      [...wordMarks, ...soundMarks].forEach((mark) => {
+        if (!marks.some((existing) => existing.type === mark.type && existing.label === mark.label && existing.measureId === mark.measureId)) {
+          marks.push(mark);
+        }
+      });
+
+      if (normalizedWords.length === 0 && !sound && directionIndex === 0) {
+        return;
+      }
+    });
+
+  return marks.map((mark, index) => ({
+    ...mark,
+    id: `${measureId}:nav:${mark.type.toLowerCase()}:${index + 1}`
+  }));
+}
+
+function parseDirectionWordMarks(normalizedWords: string, measureId: string): Array<Omit<NavigationMark, 'id'>> {
+  if (!normalizedWords) {
+    return [];
+  }
+
+  const marks: Array<Omit<NavigationMark, 'id'>> = [];
+  const hasDaCapo = /\b(da capo|d c)\b/.test(normalizedWords);
+  const hasDalSegno = /\b(dal segno|d s)\b/.test(normalizedWords);
+  const hasToCoda = /\bto coda\b/.test(normalizedWords);
+  const hasAlCoda = /\bal coda\b/.test(normalizedWords);
+  const hasFine = /\bfine\b/.test(normalizedWords);
+  const hasSegno = /\bsegno\b/.test(normalizedWords);
+  const hasCoda = /\bcoda\b/.test(normalizedWords);
+
+  if (hasDaCapo && hasFine) {
+    marks.push({ type: 'DA_CAPO_AL_FINE', measureId, label: normalizedWords });
+    return marks;
+  }
+
+  if (hasDaCapo) {
+    marks.push({ type: 'DA_CAPO', measureId, label: normalizedWords });
+    return marks;
+  }
+
+  if (hasDalSegno && hasAlCoda) {
+    marks.push({ type: 'DAL_SEGNO_AL_CODA', measureId, label: normalizedWords });
+    return marks;
+  }
+
+  if (hasDalSegno && hasFine) {
+    marks.push({ type: 'DAL_SEGNO_AL_FINE', measureId, label: normalizedWords });
+    return marks;
+  }
+
+  if (hasDalSegno) {
+    marks.push({ type: 'DAL_SEGNO', measureId, label: normalizedWords });
+    return marks;
+  }
+
+  if (hasToCoda) {
+    marks.push({ type: 'TO_CODA', measureId, label: normalizedWords });
+  }
+
+  if (normalizedWords === 'fine') {
+    marks.push({ type: 'FINE', measureId, label: normalizedWords });
+  }
+
+  if (hasSegno && !hasDalSegno) {
+    marks.push({ type: 'SEGNO', measureId, label: normalizedWords });
+  }
+
+  if (hasCoda && !hasToCoda && !hasAlCoda) {
+    marks.push({ type: 'CODA', measureId, label: normalizedWords });
+  }
+
+  return marks;
+}
+
+function parseDirectionSoundMarks(sound: Element | undefined, normalizedWords: string, measureId: string): Array<Omit<NavigationMark, 'id'>> {
+  if (!sound) {
+    return [];
+  }
+
+  const marks: Array<Omit<NavigationMark, 'id'>> = [];
+  const hasFinePhrase = /\bfine\b/.test(normalizedWords);
+  const hasCodaPhrase = /\bal coda\b/.test(normalizedWords);
+
+  if (sound.getAttribute('dacapo') === 'yes') {
+    marks.push({ type: hasFinePhrase || sound.getAttribute('fine') === 'yes' ? 'DA_CAPO_AL_FINE' : 'DA_CAPO', measureId });
+  }
+
+  if (sound.getAttribute('dalsegno')) {
+    if (hasCodaPhrase || sound.getAttribute('tocoda')) {
+      marks.push({ type: 'DAL_SEGNO_AL_CODA', measureId });
+    } else if (hasFinePhrase || sound.getAttribute('fine') === 'yes') {
+      marks.push({ type: 'DAL_SEGNO_AL_FINE', measureId });
+    } else {
+      marks.push({ type: 'DAL_SEGNO', measureId });
+    }
+  }
+
+  if (sound.getAttribute('segno')) {
+    marks.push({ type: 'SEGNO', measureId, label: sound.getAttribute('segno') ?? undefined });
+  }
+
+  if (sound.getAttribute('coda')) {
+    marks.push({ type: 'CODA', measureId, label: sound.getAttribute('coda') ?? undefined });
+  }
+
+  if (sound.getAttribute('tocoda')) {
+    marks.push({ type: 'TO_CODA', measureId, label: sound.getAttribute('tocoda') ?? undefined });
+  }
+
+  if (sound.getAttribute('fine') === 'yes' && normalizedWords === 'fine') {
+    marks.push({ type: 'FINE', measureId });
+  }
+
+  return marks;
+}
+
+function parseEndingNumbers(value: string | null): number[] | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  const endingNumbers = value
+    .split(/[^0-9]+/)
+    .map((token) => Number.parseInt(token, 10))
+    .filter((token) => Number.isFinite(token));
+
+  return endingNumbers.length > 0 ? endingNumbers : undefined;
+}
+
+function parseOptionalInteger(value: string | null): number | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function normalizeWords(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/d\.\s*c\./g, 'd c')
+    .replace(/d\.\s*s\./g, 'd s')
+    .replace(/[.,:;!?()[\]"]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 function textContent(parent: Element, localName: string): string | undefined {

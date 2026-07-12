@@ -11,7 +11,8 @@ export function App() {
             CueNote
           </Link>
           <p className="app-subtitle">
-            MusicXML sample library and viewer for Phase 1. Scores open locally, render in the browser, and keep a stable measure focus.
+            MusicXML sample library and viewer for Phase 2. Bundled scores render locally, expand repeat navigation, and support
+            BPM-based playback order in the browser.
           </p>
         </div>
       </header>

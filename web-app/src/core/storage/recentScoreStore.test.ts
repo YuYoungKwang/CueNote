@@ -36,7 +36,11 @@ describe('createRecentScoreStore', () => {
       title: 'Simple Duet',
       lastOpenedAt: 1700000000000,
       currentMeasureId: 'simple-duet:p1:m2:sd-m2',
-      zoom: 1.2
+      currentPerformanceMeasureId: 'simple-duet:p1:m2:sd-m2::1',
+      zoom: 1.2,
+      bpm: 96,
+      countInMeasures: 1,
+      playbackStatus: 'PAUSED'
     });
 
     await expect(store.load('simple-duet')).resolves.toEqual({
@@ -44,7 +48,11 @@ describe('createRecentScoreStore', () => {
       title: 'Simple Duet',
       lastOpenedAt: 1700000000000,
       currentMeasureId: 'simple-duet:p1:m2:sd-m2',
-      zoom: 1.2
+      currentPerformanceMeasureId: 'simple-duet:p1:m2:sd-m2::1',
+      zoom: 1.2,
+      bpm: 96,
+      countInMeasures: 1,
+      playbackStatus: 'PAUSED'
     });
   });
 });
