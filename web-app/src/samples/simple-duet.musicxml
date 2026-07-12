@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<score-partwise version="4.0" xmlns="http://www.musicxml.org/ns/musicxml">
+  <work>
+    <work-title>Simple Duet</work-title>
+  </work>
+  <identification>
+    <creator type="composer">CueNote Team</creator>
+  </identification>
+  <part-list>
+    <score-part id="P1">
+      <part-name>Melody</part-name>
+      <part-abbreviation>Mel.</part-abbreviation>
+    </score-part>
+  </part-list>
+  <part id="P1">
+    <measure number="1" xml:id="sd-m1">
+      <attributes>
+        <divisions>1</divisions>
+        <key>
+          <fifths>0</fifths>
+        </key>
+        <time>
+          <beats>4</beats>
+          <beat-type>4</beat-type>
+        </time>
+        <clef>
+          <sign>G</sign>
+          <line>2</line>
+        </clef>
+      </attributes>
+      <note xml:id="sd-m1-n1">
+        <pitch>
+          <step>C</step>
+          <octave>4</octave>
+        </pitch>
+        <duration>1</duration>
+        <type>quarter</type>
+      </note>
+      <note xml:id="sd-m1-n2">
+        <pitch>
+          <step>D</step>
+          <octave>4</octave>
+        </pitch>
+        <duration>1</duration>
+        <type>quarter</type>
+      </note>
+      <note xml:id="sd-m1-n3">
+        <pitch>
+          <step>E</step>
+          <octave>4</octave>
+        </pitch>
+        <duration>1</duration>
+        <type>quarter</type>
+      </note>
+      <note xml:id="sd-m1-n4">
+        <pitch>
+          <step>G</step>
+          <octave>4</octave>
+        </pitch>
+        <duration>1</duration>
+        <type>quarter</type>
+      </note>
+    </measure>
+    <measure number="2" xml:id="sd-m2">
+      <note xml:id="sd-m2-n1">
+        <pitch>
+          <step>F</step>
+          <octave>4</octave>
+        </pitch>
+        <duration>2</duration>
+        <type>half</type>
+      </note>
+      <note xml:id="sd-m2-n2">
+        <rest />
+        <duration>2</duration>
+        <type>half</type>
+      </note>
+    </measure>
+  </part>
+</score-partwise>

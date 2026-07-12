@@ -1,78 +1,73 @@
-# Phase 0 Plan
+# Phase 1 Plan
 
 ## Scope
 
-Implement only ROADMAP Phase 0 for the current Web PWA-first repository:
+Implement only ROADMAP Phase 1:
 
-- Monorepo foundation
-- `web-app` React + TypeScript + Vite
-- PWA manifest and Service Worker
-- `src/app`, `src/core`, `src/domain`, `src/features`, `src/ai`, `src/workers`
-- IndexedDB adapter interface
-- `MockOMRService`
-- Vitest basic tests
-- Playwright basic E2E
-- Java 21 Spring Boot backend
-- PostgreSQL Docker Compose
-- Flyway V1
-- Testcontainers integration test
-- K3s namespace, Deployment, Service, Ingress, Secret example
-- `.env.example`
-- GitHub Actions frontend/backend test
+- Sample MusicXML fixtures bundled into the web app
+- MusicXML parser and domain translation
+- Minimal `ScoreDocument` / `ScoreVersion` / `ScorePart` / `Measure` model support in `packages/score-domain`
+- Score renderer adapter behind an app-facing interface
+- Measure-to-renderer mapping, highlight, scroll, and zoom
+- Library and viewer routes for sample scores
+- IndexedDB recent-score persistence
+- Parser, mapping, storage, and E2E coverage
 
 ## Out of Scope
 
-- Real OMR
-- Real ONNX model connection
-- Real score rendering
-- Real ensemble WebSocket
-- Note editor
-- Authentication provider implementation
-- Native iOS implementation in the active product path
+- OMR
+- Repeat expansion
+- Canvas handwriting
+- Backend API integration
+- WebSocket ensemble sync
+- Score editing
 
 ## Implementation Order
 
-1. Create the web-app workspace and shared monorepo scaffolding.
-2. Add PWA manifest, Service Worker, capability detection, storage adapter, and mock OMR service.
-3. Add Vitest unit coverage and Playwright E2E smoke coverage.
-4. Keep the existing Spring Boot backend, health API, common responses, Flyway migration, and Testcontainers test aligned.
-5. Add Docker Compose, K3s drafts, `.env.example`, and frontend/backend GitHub Actions workflows.
-6. Validate build, tests, compose, and YAML parsing.
+1. Add Phase 1 sample MusicXML fixtures and bundle them into the app.
+2. Extend `packages/score-domain` with the minimum score document types.
+3. Implement the MusicXML parser with clear parse/unsupported-structure errors.
+4. Add a renderer adapter and choose a rendering library behind it.
+5. Build the library and viewer routes with measure selection, highlight, scroll, and zoom.
+6. Persist recent score state in IndexedDB without blocking score loading.
+7. Add unit tests and Playwright smoke coverage.
+8. Run build, test, E2E, and markdown-link verification.
 
 ## Decisions
 
-### Frontend Stack
+### Renderer Choice
 
-Use React + TypeScript + Vite for the first implementation.
+Use Verovio for the Phase 1 renderer adapter.
 
-Reason: The roadmap now treats Web PWA as the first platform, and Vite keeps the workspace small and fast to iterate on.
+Reason: Verovio can render MusicXML to SVG in the browser, supports JavaScript toolkit usage, and exposes element-to-page lookup and SVG HTML5 attributes for JS interaction. That gives us a clearer path to stable measure mapping than a renderer that leaves more of the interaction model implicit.
 
-Impact: The repository becomes a real monorepo with a browser-first application entrypoint instead of an iOS app shell.
+Impact: The app can keep the domain model separate from renderer internals while still scrolling, highlighting, and relinking measures after rerender.
 
-Alternative: Keep the legacy iOS app as the active path. Rejected because the current product direction is Web PWA-first.
+Alternative: OpenSheetMusicDisplay. Rejected for Phase 1 because the Verovio toolkit exposes page and element lookup APIs that fit this viewer-first milestone more directly.
 
-### Legacy iOS Placement
+### Routing
 
-Move the previous iOS Phase 0 output into `legacy/ios-app`.
+Add the smallest browser router needed for `/` and `/scores/:scoreId`.
 
-Reason: Preserve the old implementation for long-term Phase 11 reference without mixing it into the active product path.
+Reason: The viewer needs stable deep links, but Phase 1 should not create unrelated pages.
 
-Impact: Active development, docs, and CI should not treat the legacy iOS code as a build target.
+Impact: Library navigation and score viewing become shareable without expanding the app surface.
 
-Alternative: Keep `ios-app` at the root and mark it as unused. Rejected because it continues to imply active support.
+Alternative: Manual window-location handling. Rejected because the phase already needs route params and browser navigation, and React Router keeps the code clearer.
 
-### Backend Build Validation
+### Sample Scores
 
-Use a Dockerized Maven 21 image for backend validation in this environment.
+Bundle two self-authored MusicXML fixtures in the app.
 
-Reason: The host has no Maven installed and only Java 17 locally.
+Reason: The phase requires offline, license-safe demo material and E2E-ready input.
 
-Impact: Backend tests remain reproducible without changing the source tree.
+Impact: The viewer works without backend calls and can be tested deterministically.
 
-Alternative: Add a Maven wrapper. Rejected for Phase 0 because the repo already has a working Docker path for validation.
+Alternative: Fetch samples from the network. Rejected because this phase must work offline and avoid external dependencies.
 
 ## Risks
 
-- Testcontainers inside Docker needs host override settings in this environment.
-- iOS build validation cannot be run here.
-- The repository still contains legacy iOS source for reference, but it is intentionally excluded from active development.
+- Verovio integration can require careful SVG and DOM handling for measure mapping.
+- MusicXML parser coverage must stay intentionally small and fail clearly for unsupported structures.
+- Recent-score persistence must not block score loading if IndexedDB is unavailable.
+- The repository still contains backend and legacy iOS code, but Phase 1 must not modify them.

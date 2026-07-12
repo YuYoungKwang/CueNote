@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<score-partwise version="4.0" xmlns="http://www.musicxml.org/ns/musicxml">
+  <work>
+    <work-title>Lyrics and Chords</work-title>
+  </work>
+  <identification>
+    <creator type="composer">CueNote Team</creator>
+  </identification>
+  <part-list>
+    <score-part id="P1">
+      <part-name>Lead</part-name>
+      <part-abbreviation>Ld.</part-abbreviation>
+    </score-part>
+  </part-list>
+  <part id="P1">
+    <measure number="1" xml:id="lc-m1">
+      <attributes>
+        <divisions>1</divisions>
+        <key>
+          <fifths>2</fifths>
+        </key>
+        <time>
+          <beats>4</beats>
+          <beat-type>4</beat-type>
+        </time>
+        <clef>
+          <sign>G</sign>
+          <line>2</line>
+        </clef>
+      </attributes>
+      <harmony xml:id="lc-m1-h1">
+        <root>
+          <root-step>C</root-step>
+        </root>
+        <kind text="major">major</kind>
+      </harmony>
+      <note xml:id="lc-m1-n1">
+        <pitch>
+          <step>E</step>
+          <octave>4</octave>
+        </pitch>
+        <duration>1</duration>
+        <type>quarter</type>
+        <lyric>
+          <syllabic>single</syllabic>
+          <text>Sing</text>
+        </lyric>
+      </note>
+      <note xml:id="lc-m1-n2">
+        <pitch>
+          <step>G</step>
+          <octave>4</octave>
+        </pitch>
+        <duration>1</duration>
+        <type>quarter</type>
+        <lyric>
+          <syllabic>single</syllabic>
+          <text>with</text>
+        </lyric>
+      </note>
+      <note xml:id="lc-m1-n3">
+        <pitch>
+          <step>A</step>
+          <octave>4</octave>
+        </pitch>
+        <duration>1</duration>
+        <type>quarter</type>
+        <lyric>
+          <syllabic>single</syllabic>
+          <text>me</text>
+        </lyric>
+      </note>
+      <note xml:id="lc-m1-n4">
+        <rest />
+        <duration>1</duration>
+        <type>quarter</type>
+      </note>
+    </measure>
+    <measure number="2" xml:id="lc-m2">
+      <harmony xml:id="lc-m2-h1">
+        <root>
+          <root-step>F</root-step>
+        </root>
+        <kind text="major seventh">major-seventh</kind>
+      </harmony>
+      <note xml:id="lc-m2-n1">
+        <pitch>
+          <step>F</step>
+          <octave>4</octave>
+        </pitch>
+        <duration>2</duration>
+        <type>half</type>
+        <lyric>
+          <syllabic>single</syllabic>
+          <text>we</text>
+        </lyric>
+      </note>
+      <note xml:id="lc-m2-n2">
+        <pitch>
+          <step>G</step>
+          <octave>4</octave>
+        </pitch>
+        <duration>2</duration>
+        <type>half</type>
+        <lyric>
+          <syllabic>single</syllabic>
+          <text>go</text>
+        </lyric>
+      </note>
+    </measure>
+  </part>
+</score-partwise>
