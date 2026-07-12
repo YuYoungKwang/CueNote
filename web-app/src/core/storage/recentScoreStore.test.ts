@@ -14,6 +14,11 @@ describe('createRecentScoreStore', () => {
       get: async <T>(storeName, key) => {
         return records.get(`${storeName}:${String(key)}`) as T | undefined;
       },
+      getAll: async <T>(storeName) => {
+        return Array.from(records.entries())
+          .filter(([key]) => key.startsWith(`${storeName}:`))
+          .map(([, value]) => value as T);
+      },
       set: async <T>(storeName, key, value) => {
         records.set(`${storeName}:${String(key)}`, value);
       },

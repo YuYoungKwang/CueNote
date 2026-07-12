@@ -346,6 +346,10 @@ a {
   letter-spacing: 0.06em;
 }
 
+.score-page__surface {
+  position: relative;
+}
+
 .measure-list {
   display: grid;
   gap: 8px;
@@ -393,9 +397,137 @@ a {
   max-width: 640px;
 }
 
+.score-stage__renderer {
+  min-height: 100%;
+}
+
+.annotation-toolbar {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 14px;
+  padding: 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.annotation-toolbar__row,
+.annotation-toolbar__status {
+  display: grid;
+  gap: 10px;
+}
+
+.annotation-toolbar__grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.annotation-toolbar__buttons,
+.annotation-filter-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.annotation-filter-list label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.annotation-toolbar__status {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.annotation-toolbar__notice {
+  margin: 0;
+  color: #92400e;
+  font-size: 14px;
+}
+
+.annotation-inline-state,
+.annotation-overlay-status {
+  margin-top: 8px;
+  color: #475569;
+  font-size: 14px;
+}
+
+.annotation-page-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.annotation-page-overlay.is-interactive {
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.annotation-page-overlay__canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.annotation-text-note,
+.annotation-text-editor {
+  position: absolute;
+  z-index: 2;
+}
+
+.annotation-text-note {
+  display: block;
+  overflow: hidden;
+  padding: 8px 10px;
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #0f172a;
+  text-align: left;
+  cursor: pointer;
+}
+
+.annotation-text-editor {
+  display: grid;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid #93c5fd;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.14);
+}
+
+.annotation-text-editor textarea {
+  width: 100%;
+  min-height: 80px;
+  resize: vertical;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font: inherit;
+}
+
+.annotation-text-editor__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .score-stage svg [data-measure-id].is-selected,
 .score-stage svg [data-measure-id].is-selected * {
   filter: drop-shadow(0 0 0.25rem rgba(29, 78, 216, 0.45));
+}
+
+.control-button.is-active {
+  border-color: #1d4ed8;
+  background: #eff6ff;
 }
 
 .score-stage svg [data-measure-id].is-selected {

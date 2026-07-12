@@ -1,4 +1,5 @@
-import { createIndexedDbAdapter, type IndexedDbAdapter } from './indexedDbAdapter';
+import { createCueNoteDbAdapter, RECENT_SCORES_STORE } from './cuenoteDb';
+import type { IndexedDbAdapter } from './indexedDbAdapter';
 
 export interface RecentScoreRecord {
   scoreId: string;
@@ -18,47 +19,28 @@ export interface RecentScoreStore {
   list(): Promise<RecentScoreRecord[]>;
 }
 
-const STORE_NAME = 'recent_scores';
-
-export function createRecentScoreStore(adapter: IndexedDbAdapter = createIndexedDbAdapter({ name: 'cuenote', version: 1, upgrade })) : RecentScoreStore {
+export function createRecentScoreStore(adapter: IndexedDbAdapter = createCueNoteDbAdapter()): RecentScoreStore {
   return {
     async save(record) {
       try {
-        await adapter.set(STORE_NAME, record.scoreId, record);
+        await adapter.set(RECENT_SCORES_STORE, record.scoreId, record);
       } catch {
         // Persistence should never block the viewer.
       }
     },
     async load(scoreId) {
       try {
-        return (await adapter.get<RecentScoreRecord>(STORE_NAME, scoreId)) ?? null;
+        return (await adapter.get<RecentScoreRecord>(RECENT_SCORES_STORE, scoreId)) ?? null;
       } catch {
         return null;
       }
     },
     async list() {
       try {
-        const db = await adapter.open();
-        return await new Promise<RecentScoreRecord[]>((resolve, reject) => {
-          const transaction = db.transaction(STORE_NAME, 'readonly');
-          const request = transaction.objectStore(STORE_NAME).getAll();
-          request.onsuccess = () => resolve(request.result as RecentScoreRecord[]);
-          request.onerror = () => reject(request.error ?? new Error('IndexedDB list failed'));
-          transaction.oncomplete = () => db.close();
-          transaction.onerror = () => {
-            db.close();
-            reject(transaction.error ?? new Error('IndexedDB list transaction failed'));
-          };
-        });
+        return await adapter.getAll<RecentScoreRecord>(RECENT_SCORES_STORE);
       } catch {
         return [];
       }
     }
   };
-}
-
-function upgrade(database: IDBDatabase) {
-  if (!database.objectStoreNames.contains(STORE_NAME)) {
-    database.createObjectStore(STORE_NAME);
-  }
 }

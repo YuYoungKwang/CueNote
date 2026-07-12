@@ -3,6 +3,7 @@ export interface IndexedDbAdapter {
   readonly version: number;
   open(): Promise<IDBDatabase>;
   get<T>(storeName: string, key: IDBValidKey): Promise<T | undefined>;
+  getAll<T>(storeName: string): Promise<T[]>;
   set<T>(storeName: string, key: IDBValidKey, value: T): Promise<void>;
   delete(storeName: string, key: IDBValidKey): Promise<void>;
   clear(storeName: string): Promise<void>;
@@ -54,6 +55,9 @@ export function createIndexedDbAdapter(options: IndexedDbAdapterOptions): Indexe
     open: openDatabase,
     async get<T>(storeName, key) {
       return run<T | undefined>(storeName, 'readonly', (store) => store.get(key));
+    },
+    async getAll<T>(storeName) {
+      return run<T[]>(storeName, 'readonly', (store) => store.getAll());
     },
     async set<T>(storeName, key, value) {
       await run(storeName, 'readwrite', (store) => store.put(value, key));

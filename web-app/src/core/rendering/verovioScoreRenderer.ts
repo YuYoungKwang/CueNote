@@ -141,7 +141,9 @@ class VerovioScoreRenderer implements ScoreRenderer {
       pages.push(`
         <section class="score-page" data-page-number="${page}">
           <div class="score-page__label">Page ${page}</div>
-          ${toolkit.renderToSVG(page)}
+          <div class="score-page__surface" data-page-number="${page}">
+            ${toolkit.renderToSVG(page)}
+          </div>
         </section>
       `);
     }
@@ -181,7 +183,7 @@ class VerovioScoreRenderer implements ScoreRenderer {
     pageSections.forEach((pageSection) => {
       const pageNumber = Number.parseInt(pageSection.dataset.pageNumber ?? '1', 10) || 1;
       const pageMeasures = linksByPage.get(pageNumber) ?? [];
-      const renderedMeasures = Array.from(pageSection.querySelectorAll<SVGGElement>('svg g.measure:not(.bounding-box)'));
+      const renderedMeasures = Array.from(pageSection.querySelectorAll<SVGGElement>('.score-page__surface svg g.measure:not(.bounding-box)'));
       const assignmentCount = Math.min(pageMeasures.length, renderedMeasures.length);
 
       for (let index = 0; index < assignmentCount; index += 1) {

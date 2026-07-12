@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
+  type Annotation,
+  type AnnotationAnchor,
+  type AnnotationLayerFilterState,
+  type AnnotationScope,
   PlaybackTimeline,
   analyzeRepresentativePartWarnings,
   expandRepeats,
@@ -15,8 +19,12 @@ import {
 } from '@cuenote/score-domain';
 import { createBrowserPlaybackClock, subscribeToPlaybackClock } from '../../core/playback/browserPlaybackClock';
 import { createMusicXMLService } from '../../core/musicxml/parser';
+import { createAnnotationGeometryProvider } from '../../core/rendering/annotationGeometryProvider';
 import { createVerovioScoreRenderer } from '../../core/rendering/verovioScoreRenderer';
+import { createAnnotationPreferenceStore } from '../../core/storage/annotationPreferenceStore';
+import { createAnnotationRepository } from '../../core/storage/annotationRepository';
 import { createRecentScoreStore } from '../../core/storage/recentScoreStore';
+import { AnnotationOverlay, type ViewerAnnotationTool, type ViewerInteractionMode } from './AnnotationOverlay';
 import { getSampleById } from '../../samples/catalog';
 
 const DEFAULT_BPM = 80;
@@ -43,6 +51,19 @@ type RendererState =
   | { kind: 'ready' }
   | { kind: 'error'; message: string };
 
+type AnnotationLoadState = { kind: 'idle' } | { kind: 'loading' } | { kind: 'ready' } | { kind: 'error'; message: string };
+type AnnotationSaveState =
+  | { kind: 'idle'; message: string }
+  | { kind: 'saving'; message: string }
+  | { kind: 'saved'; message: string }
+  | { kind: 'error'; message: string };
+
+const DEFAULT_LAYER_FILTERS: AnnotationLayerFilterState = {
+  privateVisible: true,
+  partVisible: true,
+  ensembleVisible: true
+};
+
 export function ScoreViewerPage() {
   const { scoreId = '' } = useParams();
   const navigate = useNavigate();
@@ -52,6 +73,8 @@ export function ScoreViewerPage() {
   const selectedMeasureIdRef = useRef<StableMeasureId | null>(null);
   const playbackClock = useMemo(() => createBrowserPlaybackClock(), []);
   const recentStore = useMemo(() => createRecentScoreStore(), []);
+  const annotationRepository = useMemo(() => createAnnotationRepository(), []);
+  const annotationPreferenceStore = useMemo(() => createAnnotationPreferenceStore(), []);
   const musicXmlService = useMemo(() => createMusicXMLService(), []);
   const sample = useMemo(() => getSampleById(scoreId), [scoreId]);
   const [status, setStatus] = useState<ViewerStatus>({ kind: 'loading' });
@@ -61,6 +84,15 @@ export function ScoreViewerPage() {
   const [zoom, setZoom] = useState(1);
   const [bpm, setBpm] = useState(DEFAULT_BPM);
   const [countInMeasures, setCountInMeasures] = useState(DEFAULT_COUNT_IN_MEASURES);
+  const [annotations, setAnnotations] = useState<Annotation[]>([]);
+  const [annotationLoadState, setAnnotationLoadState] = useState<AnnotationLoadState>({ kind: 'idle' });
+  const [annotationSaveState, setAnnotationSaveState] = useState<AnnotationSaveState>({ kind: 'idle', message: 'Annotations idle.' });
+  const [interactionMode, setInteractionMode] = useState<ViewerInteractionMode>('VIEW');
+  const [annotationTool, setAnnotationTool] = useState<ViewerAnnotationTool>('SELECT');
+  const [annotationScope, setAnnotationScope] = useState<AnnotationScope>('PRIVATE');
+  const [annotationAnchorType, setAnnotationAnchorType] = useState<AnnotationAnchor['type']>('MEASURE');
+  const [annotationFilters, setAnnotationFilters] = useState<AnnotationLayerFilterState>(DEFAULT_LAYER_FILTERS);
+  const [currentPartId, setCurrentPartId] = useState<string | null>(null);
   const [playbackSnapshot, setPlaybackSnapshot] = useState<PlaybackSnapshot>({
     status: 'STOPPED',
     bpm: DEFAULT_BPM,
@@ -81,6 +113,8 @@ export function ScoreViewerPage() {
     if (!sample) {
       timelineRef.current = null;
       setRendererState({ kind: 'idle' });
+      setAnnotationLoadState({ kind: 'idle' });
+      setAnnotations([]);
       setStatus({ kind: 'not-found' });
       return;
     }
@@ -88,6 +122,8 @@ export function ScoreViewerPage() {
     let cancelled = false;
     setRendererRetryKey(0);
     setRendererState({ kind: 'idle' });
+    setAnnotationLoadState({ kind: 'idle' });
+    setAnnotations([]);
     setStatus({ kind: 'loading' });
 
     try {
@@ -163,6 +199,88 @@ export function ScoreViewerPage() {
   }, [musicXmlService, playbackClock, recentStore, sample]);
 
   useEffect(() => {
+    if (status.kind !== 'ready') {
+      return;
+    }
+
+    let cancelled = false;
+    const representativePartId = status.version.parts[0]?.id ?? null;
+    setAnnotationLoadState({ kind: 'loading' });
+    setAnnotationSaveState({ kind: 'idle', message: 'Loading annotations…' });
+    setInteractionMode('VIEW');
+    setAnnotationTool('SELECT');
+
+    void Promise.all([
+      annotationRepository.listByScore(status.document.id, status.version.id),
+      annotationPreferenceStore.load(status.document.id, status.version.id)
+    ])
+      .then(([storedAnnotations, storedPreferences]) => {
+        if (cancelled) {
+          return;
+        }
+
+        const nextPartId =
+          storedPreferences?.currentPartId && status.version.parts.some((part) => part.id === storedPreferences.currentPartId)
+            ? storedPreferences.currentPartId
+            : representativePartId;
+
+        setAnnotations(storedAnnotations);
+        setCurrentPartId(nextPartId);
+        setAnnotationScope(storedPreferences?.activeScope ?? 'PRIVATE');
+        setAnnotationAnchorType(storedPreferences?.activeAnchorType ?? 'MEASURE');
+        setAnnotationFilters(storedPreferences?.filters ?? DEFAULT_LAYER_FILTERS);
+        setAnnotationLoadState({ kind: 'ready' });
+        setAnnotationSaveState({ kind: 'idle', message: 'Annotations ready.' });
+      })
+      .catch((error) => {
+        if (cancelled) {
+          return;
+        }
+
+        setAnnotationLoadState({
+          kind: 'error',
+          message: error instanceof Error ? error.message : 'Annotation storage failed to load.'
+        });
+        setAnnotationSaveState({ kind: 'error', message: 'Annotation storage failed to load.' });
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [annotationPreferenceStore, annotationRepository, status]);
+
+  useEffect(() => {
+    if (status.kind !== 'ready' || annotationLoadState.kind !== 'ready') {
+      return;
+    }
+
+    void annotationPreferenceStore
+      .save({
+        scoreId: status.document.id,
+        scoreVersionId: status.version.id,
+        currentPartId,
+        activeScope: annotationScope,
+        activeAnchorType: annotationAnchorType,
+        filters: annotationFilters
+      })
+      .catch(() => {
+        // Preference persistence should not block the viewer.
+      });
+  }, [annotationAnchorType, annotationFilters, annotationLoadState.kind, annotationPreferenceStore, annotationScope, currentPartId, status]);
+
+  useEffect(() => {
+    if (annotationSaveState.kind !== 'saved') {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setAnnotationSaveState({ kind: 'idle', message: 'Annotations ready.' });
+    }, 1800);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [annotationSaveState]);
+
+  useEffect(() => {
     if (status.kind !== 'ready' || !containerRef.current) {
       return;
     }
@@ -213,6 +331,15 @@ export function ScoreViewerPage() {
       }
     };
   }, [rendererRetryKey, status.kind, status.kind === 'ready' ? status.version.id : null]);
+
+  useEffect(() => {
+    if (rendererState.kind === 'ready' && annotationAnchorType === 'ELEMENT' && containerRef.current) {
+      const supportsElementAnchors = createAnnotationGeometryProvider(containerRef.current).supportsElementAnchors();
+      if (!supportsElementAnchors) {
+        setAnnotationAnchorType('MEASURE');
+      }
+    }
+  }, [annotationAnchorType, rendererState.kind]);
 
   useEffect(() => {
     if (status.kind !== 'ready' || rendererState.kind !== 'ready' || !rendererRef.current || !selectedMeasureId) {
@@ -441,6 +568,34 @@ export function ScoreViewerPage() {
     setRendererRetryKey((value) => value + 1);
   };
 
+  const upsertAnnotation = async (annotation: Annotation) => {
+    setAnnotationSaveState({ kind: 'saving', message: 'Saving annotation locally…' });
+
+    try {
+      await annotationRepository.upsert(annotation);
+      setAnnotations((current) => upsertAnnotationRecord(current, annotation));
+      setAnnotationSaveState({ kind: 'saved', message: 'Annotation saved locally.' });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Annotation save failed.';
+      setAnnotationSaveState({ kind: 'error', message });
+      throw error;
+    }
+  };
+
+  const deleteAnnotation = async (annotationId: string) => {
+    setAnnotationSaveState({ kind: 'saving', message: 'Deleting annotation locally…' });
+
+    try {
+      await annotationRepository.delete(annotationId);
+      setAnnotations((current) => current.filter((annotation) => annotation.id !== annotationId));
+      setAnnotationSaveState({ kind: 'saved', message: 'Annotation deleted locally.' });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Annotation delete failed.';
+      setAnnotationSaveState({ kind: 'error', message });
+      throw error;
+    }
+  };
+
   if (status.kind === 'not-found') {
     return (
       <section className="panel state-panel" data-testid="score-viewer-error">
@@ -494,6 +649,16 @@ export function ScoreViewerPage() {
   }
 
   const isRendererReady = rendererState.kind === 'ready';
+  const representativePartId = status.version.parts[0]?.id ?? null;
+  const elementAnchorSupported =
+    rendererState.kind === 'ready' && containerRef.current ? createAnnotationGeometryProvider(containerRef.current).supportsElementAnchors() : false;
+  const performanceAnchorAvailable = playbackSnapshot.currentPerformanceMeasureId != null;
+  const annotationInputBlocked = playbackSnapshot.status === 'PLAYING' || playbackSnapshot.status === 'COUNT_IN';
+  const annotationInputMessage = annotationInputBlocked
+    ? 'Pause or stop playback before creating or editing annotations.'
+    : interactionMode === 'VIEW'
+      ? 'Viewer gestures stay active in view mode.'
+      : 'Annotation input is active.';
 
   return (
     <main className="viewer-layout" data-testid={isRendererReady ? 'score-viewer-ready' : 'score-viewer-loading'}>
@@ -684,6 +849,128 @@ export function ScoreViewerPage() {
           ) : null}
         </div>
 
+        <div className="annotation-toolbar" data-testid="annotation-toolbar">
+          <div className="annotation-toolbar__row">
+            <span className="summary-label">Mode</span>
+            <div className="annotation-toolbar__buttons">
+              <button
+                type="button"
+                className={`control-button${interactionMode === 'VIEW' ? ' is-active' : ''}`}
+                onClick={() => setInteractionMode('VIEW')}
+              >
+                View mode
+              </button>
+              <button
+                type="button"
+                className={`control-button${interactionMode === 'ANNOTATE' ? ' is-active' : ''}`}
+                onClick={() => setInteractionMode('ANNOTATE')}
+              >
+                Annotate mode
+              </button>
+            </div>
+          </div>
+
+          <div className="annotation-toolbar__grid">
+            <label className="field">
+              <span>Tool</span>
+              <select value={annotationTool} onChange={(event) => setAnnotationTool(event.target.value as ViewerAnnotationTool)}>
+                <option value="SELECT">Select</option>
+                <option value="PEN">Pen</option>
+                <option value="HIGHLIGHTER">Highlighter</option>
+                <option value="ERASER">Eraser</option>
+                <option value="TEXT">Text note</option>
+              </select>
+            </label>
+
+            <label className="field">
+              <span>Scope</span>
+              <select value={annotationScope} onChange={(event) => setAnnotationScope(event.target.value as AnnotationScope)}>
+                <option value="PRIVATE">Private</option>
+                <option value="PART">Part</option>
+                <option value="ENSEMBLE">Ensemble</option>
+              </select>
+            </label>
+
+            <label className="field">
+              <span>Anchor</span>
+              <select
+                value={annotationAnchorType}
+                onChange={(event) => setAnnotationAnchorType(event.target.value as AnnotationAnchor['type'])}
+              >
+                <option value="MEASURE">Measure</option>
+                <option value="ELEMENT" disabled={!elementAnchorSupported}>
+                  Element
+                </option>
+                <option value="PERFORMANCE_MEASURE" disabled={!performanceAnchorAvailable}>
+                  Performance measure
+                </option>
+              </select>
+            </label>
+
+            <label className="field">
+              <span>Current part</span>
+              <select value={currentPartId ?? representativePartId ?? ''} onChange={(event) => setCurrentPartId(event.target.value || null)}>
+                {status.version.parts.map((part) => (
+                  <option key={part.id} value={part.id}>
+                    {part.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          <div className="annotation-toolbar__row">
+            <span className="summary-label">Layer filters</span>
+            <div className="annotation-filter-list">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={annotationFilters.privateVisible}
+                  onChange={(event) => setAnnotationFilters((current) => ({ ...current, privateVisible: event.target.checked }))}
+                />
+                Private
+              </label>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={annotationFilters.partVisible}
+                  onChange={(event) => setAnnotationFilters((current) => ({ ...current, partVisible: event.target.checked }))}
+                />
+                Part
+              </label>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={annotationFilters.ensembleVisible}
+                  onChange={(event) => setAnnotationFilters((current) => ({ ...current, ensembleVisible: event.target.checked }))}
+                />
+                Ensemble
+              </label>
+            </div>
+          </div>
+
+          <div className="annotation-toolbar__status">
+            <div>
+              <span className="summary-label">Input</span>
+              <strong>{annotationInputMessage}</strong>
+            </div>
+            <div>
+              <span className="summary-label">Save status</span>
+              <strong data-testid="annotation-save-status">{annotationSaveState.message}</strong>
+            </div>
+            <div>
+              <span className="summary-label">Annotations</span>
+              <strong>{annotations.length}</strong>
+            </div>
+          </div>
+
+          {!elementAnchorSupported ? (
+            <p className="annotation-toolbar__notice">
+              Element anchors are unavailable for the current parser and fixtures because no stable source element IDs are exposed yet.
+            </p>
+          ) : null}
+        </div>
+
         {rendererState.kind === 'loading' ? (
           <div className="panel state-panel stage-state" data-testid="score-renderer-loading">
             <h3>Loading renderer</h3>
@@ -700,8 +987,39 @@ export function ScoreViewerPage() {
             </button>
           </div>
         ) : null}
-
-        <div className="score-stage" ref={containerRef} data-testid="score-renderer" />
+        <div className="score-stage">
+          <div className="score-stage__renderer" ref={containerRef} data-testid="score-renderer" />
+          {annotationLoadState.kind === 'loading' ? (
+            <div className="annotation-inline-state">
+              <p>Loading annotations…</p>
+            </div>
+          ) : null}
+          {annotationLoadState.kind === 'error' ? (
+            <div className="annotation-inline-state" data-testid="annotation-overlay-error">
+              <p>{annotationLoadState.message}</p>
+            </div>
+          ) : null}
+          {annotationLoadState.kind === 'ready' ? (
+            <AnnotationOverlay
+              stageRef={containerRef}
+              rendererReady={rendererState.kind === 'ready'}
+              scoreId={status.document.id}
+              scoreVersionId={status.version.id}
+              annotations={annotations}
+              filters={annotationFilters}
+              currentPartId={currentPartId}
+              currentPerformanceMeasureId={playbackSnapshot.currentPerformanceMeasureId}
+              playbackStatus={playbackSnapshot.status}
+              mode={interactionMode}
+              tool={annotationTool}
+              scope={annotationScope}
+              anchorType={annotationAnchorType}
+              onUpsertAnnotation={upsertAnnotation}
+              onDeleteAnnotation={deleteAnnotation}
+              onRequestViewMode={() => setInteractionMode('VIEW')}
+            />
+          ) : null}
+        </div>
       </section>
 
       <aside className="viewer-sidebar panel">
@@ -748,6 +1066,17 @@ export function ScoreViewerPage() {
       </aside>
     </main>
   );
+}
+
+function upsertAnnotationRecord(current: Annotation[], next: Annotation): Annotation[] {
+  const existingIndex = current.findIndex((annotation) => annotation.id === next.id);
+  if (existingIndex === -1) {
+    return [...current, next].sort((left, right) => left.createdAt - right.createdAt || left.id.localeCompare(right.id));
+  }
+
+  const updated = [...current];
+  updated[existingIndex] = next;
+  return updated.sort((left, right) => left.createdAt - right.createdAt || left.id.localeCompare(right.id));
 }
 
 function clampBpm(value: number): number {
