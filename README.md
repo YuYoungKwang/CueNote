@@ -16,6 +16,8 @@ score-flow/
 ├─ deploy/
 │  ├─ docker/
 │  └─ k8s/
+├─ legacy/
+│  └─ ios-app/
 ├─ docs/
 └─ README.md
 ```
@@ -27,6 +29,7 @@ score-flow/
 - `ai-training`: 데이터셋 검사, 합성 데이터 생성, PyTorch 학습, 평가, ONNX 변환
 - `packages/score-domain`: 플랫폼 독립 악보 타입, 반복 펼치기 엔진, 재생 타임라인, 합주 메시지 타입, JSON Schema
 - `deploy`: Docker Compose, K3s 매니페스트
+- `legacy/ios-app`: 이전 iOS Phase 0 산출물 보관
 - `docs`: 제품, 아키텍처, API, OMR, 동기화, 로드맵, 검증 문서
 
 ## 문서 순서
