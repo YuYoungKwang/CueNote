@@ -442,3 +442,35 @@ Phase 11 선택적 네이티브 앱 검토만 수행하라.
 Phase 8 must stop at browser OMR runtime infrastructure: contracts, manifest, system crop tensor preprocessing, ONNX Runtime Web worker execution, WebGPU/WASM fallback, Cache Storage model delivery, IndexedDB job/result/correction persistence, review UI foundation, `TEST_RUNTIME_MODEL`, `PRODUCT_MODEL_NOT_INSTALLED`, and ai-training scaffolds.
 
 Do not complete or claim production layout/symbol recognition, pitch/duration inference, structure assembly, MusicXML draft generation, or Phase 6 editor handoff in Phase 8. Those belong to Phase 9 and Phase 10.
+
+## Phase 9 Dataset And Model Development Prompt
+
+```text
+Implement only Phase 9 OMR dataset and model development.
+
+Start with data contracts:
+
+- class taxonomy
+- annotation schema
+- dataset manifest
+- source/license schema
+- source-group split policy
+- leakage validation
+- evaluation metrics
+- failure categories
+- model input/output contract
+
+Do not train on data without provenance and license records. Treat UNKNOWN license as excluded by default.
+
+Build a fixture dataset from copyright-safe generated material, then run:
+
+- dataset validation
+- license validation
+- leakage validation
+- layout smoke train/evaluate/export
+- symbol smoke train/evaluate/export
+- ONNX manifest/hash validation
+- browser runtime inference for actual layout and symbol ONNX files
+
+Smoke models must be marked EXPERIMENTAL. Do not mark synthetic-only models as PRODUCT. Do not implement Phase 10 pitch/duration inference, structure assembly, EditableScoreDocument, MusicXML draft generation, or editor handoff.
+```

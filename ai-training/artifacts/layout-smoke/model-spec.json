@@ -1,0 +1,187 @@
+{
+  "schemaVersion": 1,
+  "modelId": "cuenote-layout-smoke",
+  "modelVersion": "0.9.0-smoke.1",
+  "modelStatus": "EXPERIMENTAL",
+  "task": "LAYOUT_DETECTION",
+  "architecture": "deterministic-fixture-constant-detector",
+  "statusReason": "Synthetic fixture smoke model for runtime validation only; no real scan/photo product accuracy claim.",
+  "datasetId": "cuenote-fixture-omr",
+  "datasetVersion": "phase9-smoke-1",
+  "trainedAt": "2026-07-13T00:00:00.000Z",
+  "gitCommit": "d6b0ede",
+  "randomSeed": 90210,
+  "input": {
+    "width": 320,
+    "height": 160,
+    "channels": 1,
+    "tensorLayout": "NCHW",
+    "resizeMode": "LETTERBOX",
+    "valueRange": "ZERO_TO_ONE"
+  },
+  "output": {
+    "name": "detections",
+    "format": "BOX_XYWH_CONF_CLASS",
+    "coordinateSpace": "SYSTEM_NORMALIZED",
+    "shape": [
+      9,
+      6
+    ]
+  },
+  "classes": [
+    {
+      "id": "system.region",
+      "displayName": "System region",
+      "index": 0,
+      "blockingReview": true
+    },
+    {
+      "id": "staff.region",
+      "displayName": "Staff region",
+      "index": 1,
+      "blockingReview": true
+    },
+    {
+      "id": "measure.region",
+      "displayName": "Measure region",
+      "index": 2,
+      "blockingReview": true
+    },
+    {
+      "id": "barline.single",
+      "displayName": "Single barline",
+      "index": 3,
+      "blockingReview": true
+    },
+    {
+      "id": "barline.double",
+      "displayName": "Double barline",
+      "index": 4,
+      "blockingReview": true
+    },
+    {
+      "id": "barline.repeat_start",
+      "displayName": "Repeat start barline",
+      "index": 5,
+      "blockingReview": true
+    },
+    {
+      "id": "barline.repeat_end",
+      "displayName": "Repeat end barline",
+      "index": 6,
+      "blockingReview": true
+    }
+  ],
+  "trainingData": {
+    "trainItems": 3,
+    "validationItems": 1,
+    "realScanItems": 0,
+    "syntheticItems": 4
+  },
+  "detections": [
+    {
+      "classId": "system.region",
+      "classIndex": 0,
+      "confidence": 0.91,
+      "bounds": {
+        "x": 0.058594,
+        "y": 0.210938,
+        "width": 0.890625,
+        "height": 0.359375
+      }
+    },
+    {
+      "classId": "staff.region",
+      "classIndex": 1,
+      "confidence": 0.91,
+      "bounds": {
+        "x": 0.082031,
+        "y": 0.292969,
+        "width": 0.835938,
+        "height": 0.179688
+      }
+    },
+    {
+      "classId": "measure.region",
+      "classIndex": 2,
+      "confidence": 0.91,
+      "bounds": {
+        "x": 0.082031,
+        "y": 0.257813,
+        "width": 0.238281,
+        "height": 0.25
+      }
+    },
+    {
+      "classId": "measure.region",
+      "classIndex": 2,
+      "confidence": 0.91,
+      "bounds": {
+        "x": 0.320313,
+        "y": 0.257813,
+        "width": 0.238281,
+        "height": 0.25
+      }
+    },
+    {
+      "classId": "measure.region",
+      "classIndex": 2,
+      "confidence": 0.91,
+      "bounds": {
+        "x": 0.558594,
+        "y": 0.257813,
+        "width": 0.359375,
+        "height": 0.25
+      }
+    },
+    {
+      "classId": "barline.single",
+      "classIndex": 3,
+      "confidence": 0.91,
+      "bounds": {
+        "x": 0.080078,
+        "y": 0.28125,
+        "width": 0.005859,
+        "height": 0.203125
+      }
+    },
+    {
+      "classId": "barline.single",
+      "classIndex": 3,
+      "confidence": 0.91,
+      "bounds": {
+        "x": 0.318359,
+        "y": 0.28125,
+        "width": 0.007813,
+        "height": 0.203125
+      }
+    },
+    {
+      "classId": "barline.double",
+      "classIndex": 4,
+      "confidence": 0.91,
+      "bounds": {
+        "x": 0.556641,
+        "y": 0.28125,
+        "width": 0.007813,
+        "height": 0.203125
+      }
+    },
+    {
+      "classId": "barline.double",
+      "classIndex": 4,
+      "confidence": 0.91,
+      "bounds": {
+        "x": 0.914063,
+        "y": 0.28125,
+        "width": 0.009766,
+        "height": 0.203125
+      }
+    }
+  ],
+  "reproducibility": {
+    "runtime": "Node.js standard library smoke baseline",
+    "checkpointPolicy": "No heavyweight checkpoint is committed. Smoke spec is reproducible from fixture dataset.",
+    "augmentationConfig": "No random augmentation in smoke run; fixture geometry is deterministic."
+  }
+}

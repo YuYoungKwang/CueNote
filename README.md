@@ -26,7 +26,7 @@ CueNote/
 
 - `web-app`: React, TypeScript, PWA, 렌더링, 필기, 로컬 OMR, 합주 UI
 - `backend`: 개발 인증, 악보 공유, 버전 관리, 팀 메모 동기화, 향후 합주 WebSocket
-- `ai-training`: 데이터셋 검사, 합성 데이터 생성, PyTorch 학습, 평가, ONNX 변환
+- `ai-training`: 데이터셋 검사, 합성 데이터 생성, smoke 학습, 평가, ONNX 변환, 향후 PyTorch/GPU 학습 준비
 - `packages/score-domain`: 플랫폼 독립 악보 타입, 반복 펼치기 엔진, 재생 타임라인, 합주 메시지 타입, JSON Schema
 - `deploy`: Docker Compose, K3s 매니페스트
 - `legacy/ios-app`: 이전 iOS Phase 0 산출물 보관
@@ -66,6 +66,13 @@ CueNote/
 - 브라우저 WebSocket API
 - Vitest
 - Playwright
+
+### Phase 9 OMR Model Development Status
+
+- `ai-training` now defines the Phase 9 class taxonomy, annotation schema, dataset manifest, source/license schema, split/leakage policy, evaluation reports, and smoke pipeline.
+- The checked-in fixture dataset is synthetic and copyright-safe; it contains no third-party score material and no real scan/photo corpus.
+- `layout-smoke.onnx` and `symbol-smoke.onnx` are `EXPERIMENTAL` browser runtime models for ONNX/output-decoding validation only.
+- Product OMR accuracy is not evaluated, and no model is promoted to `PRODUCT`.
 
 ### Backend
 

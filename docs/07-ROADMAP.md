@@ -391,6 +391,14 @@ Phase 8 does not implement production layout model training, production symbol m
 - Phase 9C: symbol model training/evaluation/export for notehead, stem, rest, accidental, clef, augmentation dot, repeat barline, and navigation symbol classes
 - Phase 9D: browser optimization and parity validation for ONNX, WebGPU, WASM, quantization, model size, load time, inference time, and accuracy/performance tradeoffs
 
+Phase 9 implementation status:
+
+- `ai-training` contains runnable Node-based fixture dataset build, dataset/license/leakage validation, smoke training, smoke evaluation, ONNX export, and model-manifest validation.
+- The fixture dataset is synthetic-only and uses code-generated images with explicit CC0 source records.
+- Layout and symbol smoke models are exported as browser-loadable ONNX files with `status: EXPERIMENTAL`.
+- Product layout and symbol candidates are not ready because no licensed real scan/photo corpus, GPU training run, or fixed product-quality test split exists in the current environment.
+- Phase 8 runtime can execute the experimental layout/symbol ONNX files and display detections, but Phase 10 structure assembly remains deferred.
+
 ### Phase 10 — OMR Structure And MusicXML Draft
 
 - consume evaluated Phase 9 model outputs

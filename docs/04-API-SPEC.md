@@ -723,3 +723,7 @@ Server behavior:
 - Writes a new object-storage key and inserts a new append-only `score_versions` row.
 - Updates `scores.current_version_id` and increments `scores.revision`.
 - Does not mutate or overwrite existing score-version MusicXML.
+
+## Phase 9 API Note
+
+Phase 9 does not add backend inference APIs. Experimental OMR smoke models are delivered as static PWA model assets under `web-app/public/models/omr` and loaded by the browser worker through the Phase 8 model manifest/cache path.

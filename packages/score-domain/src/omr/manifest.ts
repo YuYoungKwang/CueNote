@@ -52,6 +52,18 @@ export function validateOmrManifest(manifest: OmrModelManifest): OmrInferenceWar
   if (manifest.classes.length === 0) {
     warnings.push({ code: 'MODEL_MANIFEST_INVALID', message: 'OMR manifest must declare class mapping, even for runtime smoke models.', severity: 'error' });
   }
+  if (manifest.status && !['EXPERIMENTAL', 'CANDIDATE', 'PRODUCT'].includes(manifest.status)) {
+    warnings.push({ code: 'MODEL_MANIFEST_INVALID', message: 'OMR model status must be EXPERIMENTAL, CANDIDATE, or PRODUCT.', severity: 'error' });
+  }
+  if (manifest.task !== 'RUNTIME_SMOKE') {
+    const output = manifest.outputs?.[0];
+    if (!output || output.format !== 'BOX_XYWH_CONF_CLASS') {
+      warnings.push({ code: 'MODEL_MANIFEST_INVALID', message: 'Detection models must declare a BOX_XYWH_CONF_CLASS output.', severity: 'error' });
+    }
+    if (manifest.status === 'PRODUCT' && (!manifest.datasetVersion || !manifest.evaluationReport)) {
+      warnings.push({ code: 'MODEL_MANIFEST_INVALID', message: 'PRODUCT OMR models must include datasetVersion and evaluationReport.', severity: 'error' });
+    }
+  }
 
   try {
     createOmrClassIndexMap(manifest);

@@ -83,3 +83,13 @@ WebGPU on Windows Edge: 미검증 - 자동 테스트 환경 미구성
 ```
 
 검증하지 않은 항목을 “지원”으로 표시하지 않는다.
+
+## Phase 9 Browser Model Check
+
+Phase 9 adds experimental layout and symbol ONNX model checks.
+
+- Chromium Playwright verifies actual `layout-smoke.onnx` and `symbol-smoke.onnx` loading through the worker.
+- WASM fallback is accepted when WebGPU is unavailable or blocked.
+- Offline cached model reuse is verified after an initial online load.
+- macOS Safari, iPad Safari, Android Chrome, and real WebGPU performance remain `검증 필요` unless tested on those devices.
+- Synthetic smoke detections are not product OMR accuracy results.

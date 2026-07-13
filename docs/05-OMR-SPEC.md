@@ -473,3 +473,18 @@ Phase 8 implements browser OMR runtime infrastructure only.
 - Test model output must not be converted into notes, rests, pitch, duration, structure assembly, MusicXML, or Phase 6 editor handoff.
 - Product layout/symbol model development is Phase 9.
 - Structure assembly and MusicXML draft generation are Phase 10.
+
+## Phase 9 Dataset And Experimental Model Boundary
+
+Phase 9 adds dataset and model-development infrastructure without claiming product OMR accuracy.
+
+- Class taxonomy is split into `LAYOUT_DETECTION` and `SYMBOL_DETECTION`.
+- Source annotations use pixel `x/y/width/height`; exported browser detections use normalized system coordinates.
+- `UNKNOWN` or unverified licenses are excluded from training by default.
+- Train/validation/test split is source-group based, not page-random.
+- Synthetic and real data are reported separately.
+- `layout-smoke.onnx` and `symbol-smoke.onnx` are `EXPERIMENTAL` smoke models generated from copyright-safe fixtures.
+- Browser runtime verifies manifest parsing, SHA-256, Cache Storage reuse, ONNX Runtime Web execution, output decoding, coordinate mapping, and overlay rendering.
+- Product candidates remain `NOT READY` until real licensed data, fixed test-split metrics, per-class reports, WebGPU/WASM verification, reproducible training config, and checkpoint preservation exist.
+
+Phase 9 still does not implement pitch inference, duration inference, notehead/stem structure assembly, `EditableScoreDocument`, MusicXML draft generation, or Phase 6 editor handoff.

@@ -1,0 +1,302 @@
+{
+  "schemaVersion": 1,
+  "modelId": "cuenote-symbol-smoke",
+  "modelVersion": "0.9.0-smoke.1",
+  "modelStatus": "EXPERIMENTAL",
+  "task": "SYMBOL_DETECTION",
+  "architecture": "deterministic-fixture-constant-detector",
+  "statusReason": "Synthetic fixture smoke model for runtime validation only; no real scan/photo product accuracy claim.",
+  "datasetId": "cuenote-fixture-omr",
+  "datasetVersion": "phase9-smoke-1",
+  "trainedAt": "2026-07-13T00:00:00.000Z",
+  "gitCommit": "d6b0ede",
+  "randomSeed": 90210,
+  "input": {
+    "width": 320,
+    "height": 160,
+    "channels": 1,
+    "tensorLayout": "NCHW",
+    "resizeMode": "LETTERBOX",
+    "valueRange": "ZERO_TO_ONE"
+  },
+  "output": {
+    "name": "detections",
+    "format": "BOX_XYWH_CONF_CLASS",
+    "coordinateSpace": "SYSTEM_NORMALIZED",
+    "shape": [
+      14,
+      6
+    ]
+  },
+  "classes": [
+    {
+      "id": "notehead.filled",
+      "displayName": "Filled notehead",
+      "index": 0,
+      "blockingReview": false
+    },
+    {
+      "id": "notehead.hollow",
+      "displayName": "Hollow notehead",
+      "index": 1,
+      "blockingReview": false
+    },
+    {
+      "id": "stem.up",
+      "displayName": "Up stem",
+      "index": 2,
+      "blockingReview": false
+    },
+    {
+      "id": "stem.down",
+      "displayName": "Down stem",
+      "index": 3,
+      "blockingReview": false
+    },
+    {
+      "id": "rest.whole",
+      "displayName": "Whole rest",
+      "index": 4,
+      "blockingReview": false
+    },
+    {
+      "id": "rest.half",
+      "displayName": "Half rest",
+      "index": 5,
+      "blockingReview": false
+    },
+    {
+      "id": "rest.quarter",
+      "displayName": "Quarter rest",
+      "index": 6,
+      "blockingReview": false
+    },
+    {
+      "id": "rest.eighth",
+      "displayName": "Eighth rest",
+      "index": 7,
+      "blockingReview": false
+    },
+    {
+      "id": "accidental.sharp",
+      "displayName": "Sharp accidental",
+      "index": 8,
+      "blockingReview": false
+    },
+    {
+      "id": "accidental.flat",
+      "displayName": "Flat accidental",
+      "index": 9,
+      "blockingReview": false
+    },
+    {
+      "id": "accidental.natural",
+      "displayName": "Natural accidental",
+      "index": 10,
+      "blockingReview": false
+    },
+    {
+      "id": "clef.treble",
+      "displayName": "Treble clef",
+      "index": 11,
+      "blockingReview": false
+    },
+    {
+      "id": "clef.bass",
+      "displayName": "Bass clef",
+      "index": 12,
+      "blockingReview": false
+    },
+    {
+      "id": "dot.augmentation",
+      "displayName": "Augmentation dot",
+      "index": 13,
+      "blockingReview": false
+    },
+    {
+      "id": "tie",
+      "displayName": "Tie",
+      "index": 14,
+      "blockingReview": false
+    },
+    {
+      "id": "navigation.segno",
+      "displayName": "Segno",
+      "index": 15,
+      "blockingReview": false
+    },
+    {
+      "id": "navigation.coda",
+      "displayName": "Coda",
+      "index": 16,
+      "blockingReview": false
+    }
+  ],
+  "trainingData": {
+    "trainItems": 3,
+    "validationItems": 1,
+    "realScanItems": 0,
+    "syntheticItems": 4
+  },
+  "detections": [
+    {
+      "classId": "clef.treble",
+      "classIndex": 11,
+      "confidence": 0.91,
+      "bounds": {
+        "x": 0.101563,
+        "y": 0.257813,
+        "width": 0.046875,
+        "height": 0.210938
+      }
+    },
+    {
+      "classId": "notehead.filled",
+      "classIndex": 0,
+      "confidence": 0.91,
+      "bounds": {
+        "x": 0.21875,
+        "y": 0.421875,
+        "width": 0.027344,
+        "height": 0.039063
+      }
+    },
+    {
+      "classId": "stem.up",
+      "classIndex": 2,
+      "confidence": 0.91,
+      "bounds": {
+        "x": 0.242188,
+        "y": 0.257813,
+        "width": 0.005859,
+        "height": 0.179688
+      }
+    },
+    {
+      "classId": "notehead.hollow",
+      "classIndex": 1,
+      "confidence": 0.91,
+      "bounds": {
+        "x": 0.304688,
+        "y": 0.402344,
+        "width": 0.027344,
+        "height": 0.039063
+      }
+    },
+    {
+      "classId": "stem.up",
+      "classIndex": 2,
+      "confidence": 0.91,
+      "bounds": {
+        "x": 0.328125,
+        "y": 0.238281,
+        "width": 0.005859,
+        "height": 0.179688
+      }
+    },
+    {
+      "classId": "notehead.filled",
+      "classIndex": 0,
+      "confidence": 0.91,
+      "bounds": {
+        "x": 0.414063,
+        "y": 0.382813,
+        "width": 0.027344,
+        "height": 0.039063
+      }
+    },
+    {
+      "classId": "stem.up",
+      "classIndex": 2,
+      "confidence": 0.91,
+      "bounds": {
+        "x": 0.4375,
+        "y": 0.21875,
+        "width": 0.005859,
+        "height": 0.179688
+      }
+    },
+    {
+      "classId": "notehead.filled",
+      "classIndex": 0,
+      "confidence": 0.91,
+      "bounds": {
+        "x": 0.503906,
+        "y": 0.363281,
+        "width": 0.027344,
+        "height": 0.039063
+      }
+    },
+    {
+      "classId": "stem.up",
+      "classIndex": 2,
+      "confidence": 0.91,
+      "bounds": {
+        "x": 0.527344,
+        "y": 0.199219,
+        "width": 0.005859,
+        "height": 0.179688
+      }
+    },
+    {
+      "classId": "stem.down",
+      "classIndex": 3,
+      "confidence": 0.91,
+      "bounds": {
+        "x": 0.587891,
+        "y": 0.382813,
+        "width": 0.005859,
+        "height": 0.164063
+      }
+    },
+    {
+      "classId": "rest.quarter",
+      "classIndex": 6,
+      "confidence": 0.91,
+      "bounds": {
+        "x": 0.644531,
+        "y": 0.335938,
+        "width": 0.027344,
+        "height": 0.109375
+      }
+    },
+    {
+      "classId": "rest.half",
+      "classIndex": 5,
+      "confidence": 0.91,
+      "bounds": {
+        "x": 0.703125,
+        "y": 0.367188,
+        "width": 0.039063,
+        "height": 0.039063
+      }
+    },
+    {
+      "classId": "accidental.sharp",
+      "classIndex": 8,
+      "confidence": 0.91,
+      "bounds": {
+        "x": 0.171875,
+        "y": 0.34375,
+        "width": 0.027344,
+        "height": 0.109375
+      }
+    },
+    {
+      "classId": "accidental.flat",
+      "classIndex": 9,
+      "confidence": 0.91,
+      "bounds": {
+        "x": 0.367188,
+        "y": 0.3125,
+        "width": 0.023438,
+        "height": 0.117188
+      }
+    }
+  ],
+  "reproducibility": {
+    "runtime": "Node.js standard library smoke baseline",
+    "checkpointPolicy": "No heavyweight checkpoint is committed. Smoke spec is reproducible from fixture dataset.",
+    "augmentationConfig": "No random augmentation in smoke run; fixture geometry is deterministic."
+  }
+}

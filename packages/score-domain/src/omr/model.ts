@@ -2,6 +2,7 @@ import type { ImportPageId, ImportProjectId, ImportRegionId, NormalizedRect } fr
 
 export type OmrExecutionProvider = 'WEBGPU' | 'WASM';
 export type OmrModelTask = 'LAYOUT_DETECTION' | 'SYMBOL_DETECTION' | 'RUNTIME_SMOKE';
+export type OmrModelStatus = 'EXPERIMENTAL' | 'CANDIDATE' | 'PRODUCT';
 export type OmrTensorLayout = 'NCHW' | 'NHWC';
 export type OmrResizeMode = 'LETTERBOX' | 'STRETCH';
 export type OmrValueRange = 'ZERO_TO_ONE' | 'MINUS_ONE_TO_ONE' | 'ZERO_TO_255';
@@ -39,11 +40,19 @@ export interface OmrModelClass {
   blockingReview?: boolean;
 }
 
+export interface OmrModelOutput {
+  name: string;
+  format: 'BOX_XYWH_CONF_CLASS' | 'RUNTIME_SMOKE_VECTOR';
+  coordinateSpace: 'SYSTEM_NORMALIZED' | 'TENSOR_NORMALIZED';
+  shape: number[];
+}
+
 export interface OmrModelManifest {
   schemaVersion: 1;
   modelId: string;
   version: string;
   task: OmrModelTask;
+  status?: OmrModelStatus;
   file: string;
   sha256: string;
   sizeBytes: number;
@@ -55,6 +64,7 @@ export interface OmrModelManifest {
     resizeMode: OmrResizeMode;
     valueRange: OmrValueRange;
   };
+  outputs?: OmrModelOutput[];
   executionProviders: OmrExecutionProvider[];
   classes: OmrModelClass[];
   postprocessing: {
@@ -63,7 +73,10 @@ export interface OmrModelManifest {
     autoAcceptThreshold?: number;
     lowConfidenceThreshold?: number;
   };
+  datasetVersion?: string;
+  evaluationReport?: string;
   minimumAppVersion: string;
+  createdAt?: string;
   fixtureDetector?: boolean;
 }
 

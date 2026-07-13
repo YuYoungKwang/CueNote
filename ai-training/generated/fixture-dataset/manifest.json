@@ -1,0 +1,273 @@
+{
+  "schemaVersion": 1,
+  "datasetId": "cuenote-fixture-omr",
+  "version": "phase9-smoke-1",
+  "createdAt": "2026-07-13T00:00:00.000Z",
+  "itemCount": 12,
+  "tasks": [
+    "LAYOUT_DETECTION",
+    "SYMBOL_DETECTION"
+  ],
+  "classes": [
+    {
+      "id": "system.region",
+      "displayName": "System region",
+      "task": "LAYOUT_DETECTION"
+    },
+    {
+      "id": "staff.region",
+      "displayName": "Staff region",
+      "task": "LAYOUT_DETECTION"
+    },
+    {
+      "id": "measure.region",
+      "displayName": "Measure region",
+      "task": "LAYOUT_DETECTION"
+    },
+    {
+      "id": "barline.single",
+      "displayName": "Single barline",
+      "task": "LAYOUT_DETECTION"
+    },
+    {
+      "id": "barline.double",
+      "displayName": "Double barline",
+      "task": "LAYOUT_DETECTION"
+    },
+    {
+      "id": "barline.repeat_start",
+      "displayName": "Repeat start barline",
+      "task": "LAYOUT_DETECTION"
+    },
+    {
+      "id": "barline.repeat_end",
+      "displayName": "Repeat end barline",
+      "task": "LAYOUT_DETECTION"
+    },
+    {
+      "id": "notehead.filled",
+      "displayName": "Filled notehead",
+      "task": "SYMBOL_DETECTION"
+    },
+    {
+      "id": "notehead.hollow",
+      "displayName": "Hollow notehead",
+      "task": "SYMBOL_DETECTION"
+    },
+    {
+      "id": "stem.up",
+      "displayName": "Up stem",
+      "task": "SYMBOL_DETECTION"
+    },
+    {
+      "id": "stem.down",
+      "displayName": "Down stem",
+      "task": "SYMBOL_DETECTION"
+    },
+    {
+      "id": "rest.whole",
+      "displayName": "Whole rest",
+      "task": "SYMBOL_DETECTION"
+    },
+    {
+      "id": "rest.half",
+      "displayName": "Half rest",
+      "task": "SYMBOL_DETECTION"
+    },
+    {
+      "id": "rest.quarter",
+      "displayName": "Quarter rest",
+      "task": "SYMBOL_DETECTION"
+    },
+    {
+      "id": "rest.eighth",
+      "displayName": "Eighth rest",
+      "task": "SYMBOL_DETECTION"
+    },
+    {
+      "id": "accidental.sharp",
+      "displayName": "Sharp accidental",
+      "task": "SYMBOL_DETECTION"
+    },
+    {
+      "id": "accidental.flat",
+      "displayName": "Flat accidental",
+      "task": "SYMBOL_DETECTION"
+    },
+    {
+      "id": "accidental.natural",
+      "displayName": "Natural accidental",
+      "task": "SYMBOL_DETECTION"
+    },
+    {
+      "id": "clef.treble",
+      "displayName": "Treble clef",
+      "task": "SYMBOL_DETECTION"
+    },
+    {
+      "id": "clef.bass",
+      "displayName": "Bass clef",
+      "task": "SYMBOL_DETECTION"
+    },
+    {
+      "id": "dot.augmentation",
+      "displayName": "Augmentation dot",
+      "task": "SYMBOL_DETECTION"
+    },
+    {
+      "id": "tie",
+      "displayName": "Tie",
+      "task": "SYMBOL_DETECTION"
+    },
+    {
+      "id": "navigation.segno",
+      "displayName": "Segno",
+      "task": "SYMBOL_DETECTION"
+    },
+    {
+      "id": "navigation.coda",
+      "displayName": "Coda",
+      "task": "SYMBOL_DETECTION"
+    }
+  ],
+  "splits": {
+    "train": {
+      "itemCount": 6,
+      "sourceGroupIds": [
+        "fixture-train-alpha",
+        "fixture-train-beta",
+        "fixture-train-gamma"
+      ]
+    },
+    "validation": {
+      "itemCount": 2,
+      "sourceGroupIds": [
+        "fixture-validation-delta"
+      ]
+    },
+    "test": {
+      "itemCount": 4,
+      "sourceGroupIds": [
+        "fixture-test-epsilon",
+        "fixture-test-zeta"
+      ]
+    }
+  },
+  "sourceSummary": {
+    "byType": {
+      "SYNTHETIC": 6
+    },
+    "sourceGroups": 6
+  },
+  "licenseSummary": {
+    "trainingAllowed": 6,
+    "trainingExcluded": 0,
+    "unknownOrRestricted": 0,
+    "byLicense": {
+      "CC0-1.0": 6
+    }
+  },
+  "licensePolicy": {
+    "unknownExcludedByDefault": true,
+    "sourceLevelSplitRequired": true,
+    "allowedSourceTypes": [
+      "SYNTHETIC",
+      "GENERATED_AUGMENTATION"
+    ]
+  },
+  "checksum": "6310651e44674fcddf97055284c9f08ce8da92089fc3c479a0564896eb659934",
+  "generatorVersion": "phase9-node-fixture-v1",
+  "validationResult": {
+    "status": "NOT_RUN",
+    "report": "reports/dataset-validation.json"
+  },
+  "items": [
+    {
+      "itemId": "fixture-train-alpha-layout",
+      "task": "LAYOUT_DETECTION",
+      "split": "train",
+      "annotationFile": "annotations/layout.jsonl",
+      "imageReference": "images/fixture-train-alpha-layout.ppm"
+    },
+    {
+      "itemId": "fixture-train-alpha-symbol",
+      "task": "SYMBOL_DETECTION",
+      "split": "train",
+      "annotationFile": "annotations/symbol.jsonl",
+      "imageReference": "images/fixture-train-alpha-symbol.ppm"
+    },
+    {
+      "itemId": "fixture-train-beta-layout",
+      "task": "LAYOUT_DETECTION",
+      "split": "train",
+      "annotationFile": "annotations/layout.jsonl",
+      "imageReference": "images/fixture-train-beta-layout.ppm"
+    },
+    {
+      "itemId": "fixture-train-beta-symbol",
+      "task": "SYMBOL_DETECTION",
+      "split": "train",
+      "annotationFile": "annotations/symbol.jsonl",
+      "imageReference": "images/fixture-train-beta-symbol.ppm"
+    },
+    {
+      "itemId": "fixture-train-gamma-layout",
+      "task": "LAYOUT_DETECTION",
+      "split": "train",
+      "annotationFile": "annotations/layout.jsonl",
+      "imageReference": "images/fixture-train-gamma-layout.ppm"
+    },
+    {
+      "itemId": "fixture-train-gamma-symbol",
+      "task": "SYMBOL_DETECTION",
+      "split": "train",
+      "annotationFile": "annotations/symbol.jsonl",
+      "imageReference": "images/fixture-train-gamma-symbol.ppm"
+    },
+    {
+      "itemId": "fixture-validation-delta-layout",
+      "task": "LAYOUT_DETECTION",
+      "split": "validation",
+      "annotationFile": "annotations/layout.jsonl",
+      "imageReference": "images/fixture-validation-delta-layout.ppm"
+    },
+    {
+      "itemId": "fixture-validation-delta-symbol",
+      "task": "SYMBOL_DETECTION",
+      "split": "validation",
+      "annotationFile": "annotations/symbol.jsonl",
+      "imageReference": "images/fixture-validation-delta-symbol.ppm"
+    },
+    {
+      "itemId": "fixture-test-epsilon-layout",
+      "task": "LAYOUT_DETECTION",
+      "split": "test",
+      "annotationFile": "annotations/layout.jsonl",
+      "imageReference": "images/fixture-test-epsilon-layout.ppm"
+    },
+    {
+      "itemId": "fixture-test-epsilon-symbol",
+      "task": "SYMBOL_DETECTION",
+      "split": "test",
+      "annotationFile": "annotations/symbol.jsonl",
+      "imageReference": "images/fixture-test-epsilon-symbol.ppm"
+    },
+    {
+      "itemId": "fixture-test-zeta-layout",
+      "task": "LAYOUT_DETECTION",
+      "split": "test",
+      "annotationFile": "annotations/layout.jsonl",
+      "imageReference": "images/fixture-test-zeta-layout.ppm"
+    },
+    {
+      "itemId": "fixture-test-zeta-symbol",
+      "task": "SYMBOL_DETECTION",
+      "split": "test",
+      "annotationFile": "annotations/symbol.jsonl",
+      "imageReference": "images/fixture-test-zeta-symbol.ppm"
+    }
+  ],
+  "sources": [
+    "sources.json"
+  ]
+}

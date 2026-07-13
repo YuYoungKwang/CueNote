@@ -166,3 +166,14 @@ manifest fetch
 - 모델 파일은 SHA-256으로 검증한다.
 - manifest 자체도 HTTPS로만 제공한다.
 - 공급망 보안을 위해 학습 artifact, 변환 artifact, 배포 artifact의 version을 연결해 기록한다.
+
+## 14. Phase 9 Experimental Model Delivery
+
+Phase 9 smoke models use the same delivery path as future product models, but their manifest status is `EXPERIMENTAL`.
+
+- `layout-smoke.onnx` and `symbol-smoke.onnx` are small checked-in test artifacts for CI/browser validation.
+- They must not be renamed or presented as product models.
+- Manifest fields include `status`, `outputs`, `datasetVersion`, `evaluationReport`, `createdAt`, SHA-256, size, classes, provider list, and postprocessing thresholds.
+- Detection model output format is `BOX_XYWH_CONF_CLASS`.
+- Cache Storage hash validation and offline reuse are required for experimental and product models.
+- Product promotion still requires fixed test-split metrics, real/synthetic data separation, WebGPU/WASM validation, known failure reports, reproducible training config, and checkpoint preservation.

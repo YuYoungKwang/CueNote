@@ -360,3 +360,28 @@ Explicit Phase 8 non-goals:
 - MusicXML automatic draft: DEFERRED TO PHASE 10
 - Phase 6 editor handoff from OMR: DEFERRED TO PHASE 10
 - OMR product accuracy: NOT EVALUATED
+
+## Phase 9 Acceptance Criteria
+
+Phase 9 is partial product-model readiness and complete smoke-pipeline readiness.
+
+- PASS required: class taxonomy exists for layout and symbol detection with stable string IDs.
+- PASS required: annotation schema, dataset manifest schema, source/license schema, split policy, metric/failure report contract, and model IO contract are documented and executable.
+- PASS required: license validation rejects `UNKNOWN` or unapproved sources by default.
+- PASS required: source-group leakage validation blocks the same source group across train/validation/test.
+- PASS required: fixture dataset build uses copyright-safe generated data with provenance.
+- PASS required: fixture dataset validation checks images, checksums, class IDs, bounds, duplicate item IDs, duplicate image checksums, source records, and split leakage.
+- PASS required: layout smoke training, evaluation, ONNX export, manifest generation, and validation run successfully.
+- PASS required: symbol smoke training, evaluation, ONNX export, manifest generation, and validation run successfully.
+- PASS required: exported smoke manifests use `status: EXPERIMENTAL`, not `PRODUCT`.
+- PASS required: browser E2E loads actual layout and symbol ONNX models through the Phase 8 worker and decodes detections.
+- PASS required: offline cached model reuse is verified after first successful load.
+- PASS required: Phase 10 draft route remains deferred and no automatic MusicXML is generated.
+- PASS required: Phase 1-8 regression tests still pass.
+
+Phase 9 product gates:
+
+- layout product candidate: NOT READY until real licensed scan/photo data and fixed test metrics exist.
+- symbol product candidate: NOT READY until real licensed scan/photo data and fixed test metrics exist.
+- product OMR accuracy: NOT EVALUATED for synthetic-only smoke models.
+- Phase 10 readiness: NOT READY until product candidate model output quality is evaluated.

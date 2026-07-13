@@ -464,3 +464,12 @@ Synchronization is based on `performanceMeasureId`, `sourceMeasureId`, `occurren
 - IndexedDB version 5 adds `score_edit_drafts` and `score_edit_preferences` for local autosave and UI restore.
 - Backend publish reuses multipart `POST /api/v1/scores/{scoreId}/versions` with `baseScoreVersionId`, `editSummary`, `annotationMigrationPolicy`, and `expectedScoreRevision`.
 - Flyway V4 adds score revision and edit metadata while keeping `score_versions` append-only.
+
+## Phase 9 OMR Training Architecture
+
+- `ai-training` owns class taxonomy, source/license records, annotation schema, dataset manifest, fixture dataset generation, validation, smoke training, evaluation, ONNX export, and model-manifest validation.
+- `web-app/public/models/omr` contains only tiny experimental smoke ONNX files and manifests for browser validation.
+- `web-app/src/workers/omr.worker.ts` remains the ONNX execution boundary.
+- `web-app/src/core/omr/postprocessing.ts` decodes manifest-driven detection tensors and maps normalized system coordinates back to page coordinates.
+- Experimental layout/symbol models keep `PRODUCT_MODEL_NOT_INSTALLED`; only a future manifest with `status: PRODUCT` may become product-ready.
+- No Phase 9 code assembles pitch, duration, voices, repeats, `EditableScoreDocument`, or MusicXML drafts.

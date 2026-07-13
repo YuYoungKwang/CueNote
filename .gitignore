@@ -11,6 +11,9 @@ playwright-report/
 test-results/
 *.tsbuildinfo
 
+# AI training
+ai-training/artifacts/checkpoints/
+
 # Backend
 backend/target/
 

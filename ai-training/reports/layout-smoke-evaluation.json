@@ -1,0 +1,133 @@
+{
+  "schemaVersion": 1,
+  "modelId": "cuenote-layout-smoke",
+  "modelVersion": "0.9.0-smoke.1",
+  "modelStatus": "EXPERIMENTAL",
+  "datasetId": "cuenote-fixture-omr",
+  "datasetVersion": "phase9-smoke-1",
+  "gitCommit": "d6b0ede",
+  "evaluatedAt": "2026-07-13T00:00:00.000Z",
+  "task": "LAYOUT_DETECTION",
+  "split": "test",
+  "overallMetrics": {
+    "precision": 0.9,
+    "recall": 0.933333,
+    "f1": 0.893333,
+    "ap50": 0.893333,
+    "meanIoU": 1
+  },
+  "perClassMetrics": [
+    {
+      "classId": "system.region",
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "ap50": 1,
+      "meanIoU": 1,
+      "support": 2
+    },
+    {
+      "classId": "staff.region",
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "ap50": 1,
+      "meanIoU": 1,
+      "support": 2
+    },
+    {
+      "classId": "measure.region",
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "ap50": 1,
+      "meanIoU": 1,
+      "support": 6
+    },
+    {
+      "classId": "barline.single",
+      "precision": 1,
+      "recall": 0.666667,
+      "f1": 0.8,
+      "ap50": 0.8,
+      "meanIoU": 1,
+      "support": 6
+    },
+    {
+      "classId": "barline.double",
+      "precision": 0.5,
+      "recall": 1,
+      "f1": 0.666667,
+      "ap50": 0.666667,
+      "meanIoU": 1,
+      "support": 2
+    },
+    {
+      "classId": "barline.repeat_start",
+      "precision": 0,
+      "recall": 0,
+      "f1": 0,
+      "ap50": 0,
+      "meanIoU": 0,
+      "support": 0
+    },
+    {
+      "classId": "barline.repeat_end",
+      "precision": 0,
+      "recall": 0,
+      "f1": 0,
+      "ap50": 0,
+      "meanIoU": 0,
+      "support": 0
+    }
+  ],
+  "perQualityMetrics": {
+    "CLEAN_SCAN": {
+      "precision": 0.9,
+      "recall": 0.933333,
+      "f1": 0.893333,
+      "ap50": 0.893333,
+      "meanIoU": 1
+    },
+    "SYNTHETIC_ONLY": {
+      "precision": 0.9,
+      "recall": 0.933333,
+      "f1": 0.893333,
+      "ap50": 0.893333,
+      "meanIoU": 1
+    },
+    "REAL_SCAN": "NOT_EVALUATED"
+  },
+  "confusionMatrix": [],
+  "latency": {
+    "nodeSmokeMs": 1,
+    "browserMedianMs": 0,
+    "notes": "Browser median is filled by E2E/runtime validation, not by Node smoke evaluation."
+  },
+  "modelSize": {
+    "fp32Bytes": 441,
+    "fp16Bytes": 0,
+    "int8Bytes": 0,
+    "notes": "Filled after ONNX export. Quantization is not run for constant smoke models."
+  },
+  "browserCompatibility": [
+    {
+      "browser": "Chromium Playwright",
+      "provider": "WASM",
+      "status": "PASS",
+      "notes": "Phase 9 E2E loaded the actual ONNX model through the worker, decoded detections, rendered overlay, and verified offline cache reuse. WebGPU may be attempted first and fall back to WASM."
+    },
+    {
+      "browser": "Chromium Playwright",
+      "provider": "WEBGPU",
+      "status": "NOT_RUN",
+      "notes": "The automated test environment does not require WebGPU success; fallback reason is accepted when WebGPU is unavailable."
+    }
+  ],
+  "knownFailures": [
+    "synthetic_only_no_photo_scan_coverage",
+    "constant_detector_not_robust_to_layout_variation",
+    "no_product_checkpoint"
+  ],
+  "promotionRecommendation": "EXPERIMENTAL"
+}

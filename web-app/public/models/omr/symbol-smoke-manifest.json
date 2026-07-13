@@ -1,0 +1,148 @@
+{
+  "schemaVersion": 1,
+  "modelId": "cuenote-symbol-smoke",
+  "version": "0.9.0-smoke.1",
+  "task": "SYMBOL_DETECTION",
+  "status": "EXPERIMENTAL",
+  "file": "symbol-smoke.onnx",
+  "sha256": "b142d5840efa7a287e8cbfb66c0c73c9a6d15d9774fdb3fcbefa647aaf02027f",
+  "sizeBytes": 561,
+  "input": {
+    "width": 320,
+    "height": 160,
+    "channels": 1,
+    "tensorLayout": "NCHW",
+    "resizeMode": "LETTERBOX",
+    "valueRange": "ZERO_TO_ONE"
+  },
+  "outputs": [
+    {
+      "name": "detections",
+      "format": "BOX_XYWH_CONF_CLASS",
+      "coordinateSpace": "SYSTEM_NORMALIZED",
+      "shape": [
+        14,
+        6
+      ]
+    }
+  ],
+  "executionProviders": [
+    "WEBGPU",
+    "WASM"
+  ],
+  "classes": [
+    {
+      "id": "notehead.filled",
+      "index": 0,
+      "label": "Filled notehead",
+      "blockingReview": false
+    },
+    {
+      "id": "notehead.hollow",
+      "index": 1,
+      "label": "Hollow notehead",
+      "blockingReview": false
+    },
+    {
+      "id": "stem.up",
+      "index": 2,
+      "label": "Up stem",
+      "blockingReview": false
+    },
+    {
+      "id": "stem.down",
+      "index": 3,
+      "label": "Down stem",
+      "blockingReview": false
+    },
+    {
+      "id": "rest.whole",
+      "index": 4,
+      "label": "Whole rest",
+      "blockingReview": false
+    },
+    {
+      "id": "rest.half",
+      "index": 5,
+      "label": "Half rest",
+      "blockingReview": false
+    },
+    {
+      "id": "rest.quarter",
+      "index": 6,
+      "label": "Quarter rest",
+      "blockingReview": false
+    },
+    {
+      "id": "rest.eighth",
+      "index": 7,
+      "label": "Eighth rest",
+      "blockingReview": false
+    },
+    {
+      "id": "accidental.sharp",
+      "index": 8,
+      "label": "Sharp accidental",
+      "blockingReview": false
+    },
+    {
+      "id": "accidental.flat",
+      "index": 9,
+      "label": "Flat accidental",
+      "blockingReview": false
+    },
+    {
+      "id": "accidental.natural",
+      "index": 10,
+      "label": "Natural accidental",
+      "blockingReview": false
+    },
+    {
+      "id": "clef.treble",
+      "index": 11,
+      "label": "Treble clef",
+      "blockingReview": false
+    },
+    {
+      "id": "clef.bass",
+      "index": 12,
+      "label": "Bass clef",
+      "blockingReview": false
+    },
+    {
+      "id": "dot.augmentation",
+      "index": 13,
+      "label": "Augmentation dot",
+      "blockingReview": false
+    },
+    {
+      "id": "tie",
+      "index": 14,
+      "label": "Tie",
+      "blockingReview": false
+    },
+    {
+      "id": "navigation.segno",
+      "index": 15,
+      "label": "Segno",
+      "blockingReview": false
+    },
+    {
+      "id": "navigation.coda",
+      "index": 16,
+      "label": "Coda",
+      "blockingReview": false
+    }
+  ],
+  "postprocessing": {
+    "confidenceThreshold": 0.4,
+    "nmsThreshold": 0.5,
+    "autoAcceptThreshold": 0.92,
+    "lowConfidenceThreshold": 0.55
+  },
+  "datasetVersion": "phase9-smoke-1",
+  "evaluationReport": "/ai-training/reports/symbol-smoke-evaluation.json",
+  "minimumAppVersion": "0.9.0",
+  "createdAt": "2026-07-13T00:00:00.000Z",
+  "fixtureDetector": true
+}

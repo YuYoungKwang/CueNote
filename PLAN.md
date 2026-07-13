@@ -1,108 +1,98 @@
-# Phase 8 Implementation Plan
+# Phase 9 Implementation Plan
 
-Phase 8 implements browser-local OMR runtime infrastructure. It does not implement production-quality layout or symbol models, structure assembly, pitch/duration inference, automatic MusicXML drafts, or Phase 6 editor handoff.
+Phase 9 builds the OMR dataset, validation, smoke training, evaluation, ONNX export, and browser execution path. It does not implement Phase 10 structure interpretation, pitch/duration inference, `EditableScoreDocument`, automatic MusicXML draft generation, or editor handoff.
 
 ## Repository Analysis
 
 - The primary platform is the React + TypeScript + Vite Web PWA.
 - `legacy/ios-app` is Phase 11 archival material and remains out of scope.
-- Phase 1-7 already provide MusicXML parsing/rendering, repeat playback, annotations, server sharing, rehearsal sync, limited score editing, PDF/image import, page preprocessing, baseline layout detection, user layout corrections, and local ImportProject storage.
-- `packages/score-domain/src/import` owns Phase 7 page/system/measure regions in normalized canonical page coordinates.
-- `web-app/src/workers/omr.worker.ts` is still Phase 0 mock plumbing and will become the Phase 8 worker boundary.
-- IndexedDB schema version 6 stores recent scores, annotations, rehearsal preferences, score edit drafts, and Phase 7 import records. Phase 8 will add OMR model metadata, jobs, detection results, corrections, and preferences.
-- The backend is not required for Phase 8 because model manifests and the test ONNX model can be served as static PWA assets.
+- Phase 8 already provides browser-local ONNX Runtime Web loading, model manifest/hash/cache/offline reuse, WebGPU-first/WASM fallback, `TEST_RUNTIME_MODEL`, system-crop tensor preprocessing, coordinate mapping, and OMR review persistence.
+- `packages/score-domain/src/omr` defines the runtime manifest, class mapping, confidence/review types, and detection result contracts.
+- `web-app/src/core/omr` owns manifest parsing, cache delivery, tensor building, ONNX Runtime Web execution, coordinate mapping, and postprocessing.
+- `web-app/src/workers/omr.worker.ts` is the model execution boundary.
+- `web-app/public/models/omr` currently contains only the Phase 8 runtime smoke model.
+- `ai-training` is a Phase 8 scaffold and must become a runnable Phase 9 pipeline.
+- Python is not available in the current local environment, and no licensed real scan/photo corpus or GPU is present. Phase 9 therefore can create reproducible fixture data and experimental smoke models, but cannot honestly produce a product OMR model.
 
-## Revised Scope
+## Scope
 
-- Add OMR model input/output contracts.
-- Add model manifest schema and class-index mapping validation.
-- Build tensors from Phase 7 reviewed SYSTEM crops, not whole pages.
-- Implement manifest-driven tensor preprocessing and coordinate reverse mapping.
-- Add ONNX Runtime Web adapter used only from `omr.worker.ts`.
-- Attempt WebGPU first and fall back to WASM when WebGPU is unavailable, session creation fails, or inference fails.
-- Add model download/cache/hash/rollback with model binaries in Cache Storage and metadata in IndexedDB.
-- Add a tiny ONNX test model for runtime verification only. UI and tests must identify it as `TEST_RUNTIME_MODEL`.
-- Add layout/symbol model adapter interfaces so Phase 9 production models can replace the test path.
-- Add detection result, confidence, and review decision domain types.
-- Add detection overlay and correction UI foundations with a clear `PRODUCT_MODEL_NOT_INSTALLED` state.
-- Persist OMR jobs, results, corrections, model metadata, and preferences in IndexedDB.
-- Restore OMR runtime/review state after reload.
-- Connect Phase 7 OMR preparation manifests to Phase 8 system-crop model inputs.
-- Add `ai-training` skeletons for dataset, train, evaluate, export, validate, and evaluation report schemas.
-- Preserve Phase 1-7 behavior with regression tests.
+- Define stable class taxonomy for layout and symbol detection.
+- Define source/license schema, annotation schema, dataset manifest, split policy, leakage policy, metrics, failure categories, and model input/output contract before model export.
+- Build a copyright-safe synthetic fixture dataset with explicit provenance and license records.
+- Validate dataset items, licenses, duplicate checksums, source-group split leakage, class IDs, geometry, and distribution.
+- Add deterministic smoke training/evaluation for layout and symbol models.
+- Export tiny experimental ONNX models that emit manifest-driven detections.
+- Generate model manifests with status `EXPERIMENTAL`, hash, class map, output contract, dataset version, and evaluation report links.
+- Connect experimental layout and symbol manifests to the Phase 8 runtime without marking them as product models.
+- Add browser E2E coverage for actual ONNX execution, output decode, coordinate mapping, overlay display, cache reuse, and Phase 10 deferred state.
+- Update docs and acceptance criteria to reflect what is implemented and what remains unavailable.
 
 ## Explicitly Out of Scope
 
-- Production layout model training.
-- Production symbol model training.
-- Presenting fixture detections as real OMR output.
-- Completing notehead/stem recognition, pitch inference, duration inference, or structure assembly.
-- Automatic MusicXML draft generation.
-- Passing fake MusicXML into the Phase 6 editor.
-- Claiming OMR accuracy without a dataset and evaluated product model.
-- Server GPU OMR.
-- Code OCR or Hangul lyric OCR.
+- Full PyTorch or GPU training.
+- Real scan/photo dataset ingestion without verified licenses.
+- Product model promotion.
+- Pitch inference, duration inference, notehead/stem association, voice assignment, repeat semantic assembly, or MusicXML draft generation.
+- Server-side GPU OMR.
+- OCR for lyrics or chords.
 - Native iOS/Core ML work and `legacy/ios-app` changes.
 
-## Roadmap Adjustment
+## Data Contract Decisions
 
-### Phase 9: OMR Dataset And Model Development
+### Class Taxonomy
 
-Phase 9A defines dataset specs, label schema, source-level train/validation/test splits, leakage prevention, synthetic MusicXML-rendered data, scan/photo augmentation, license records, dataset validation, and class distribution reports.
+Decision: Maintain separate layout and symbol taxonomies with stable string IDs. Numeric class indices are assigned only in generated model manifests.
 
-Phase 9B trains and evaluates the layout model for system, staff, measure, and barline classes, then exports a browser-compatible ONNX model and manifest.
+Reason: Phase 8 requires manifest-driven class index mapping, and Phase 9 must avoid hardcoded class indices.
 
-Phase 9C trains and evaluates the symbol model for noteheads, stems, rests, accidentals, clefs, augmentation dots, repeat barlines, and navigation symbols.
+### Annotation Coordinates
 
-Phase 9D validates browser optimization: ONNX parity, operator compatibility, WebGPU/WASM behavior, quantization, model size, load time, inference time, and accuracy/performance tradeoffs.
+Decision: Source annotations use pixel coordinates with mandatory image width/height. Exported model detections use normalized system coordinates.
 
-### Phase 10: OMR Structure And MusicXML Draft
+Reason: Pixel labels are easier to validate against original images, while browser runtime mapping already works with normalized system/page coordinates.
 
-Phase 10 consumes real Phase 9 model outputs and implements layout/symbol assignment, notehead/stem association, pitch inference, duration inference, accidental application, voice/rhythm assembly, repeats/navigation, `EditableScoreDocument`, MusicXML draft generation, and Phase 6 editor handoff.
+### License Policy
 
-## Design Decisions
+Decision: `UNKNOWN` and unverified licenses are excluded by default. Training requires `allowedForTraining: true`, source provenance, and non-empty license metadata.
 
-### Test ONNX Model Boundary
+Reason: The project cannot treat web-collected scores as safe training data without explicit rights.
 
-Decision: The checked-in ONNX model is a runtime smoke model only. It verifies `InferenceSession` creation, tensor input transfer, output reception, worker protocol, provider fallback, cache/hash, cancellation, stale-result handling, and coordinate adapter plumbing.
+### Split Policy
 
-Reason: No production OMR dataset, checkpoint, or evaluated model exists yet.
+Decision: Split by `sourceGroupId`, `compositionId`, `editionId`, `originalDocumentId`, and `syntheticTemplateId`; page-level random split is not allowed.
 
-Alternative: Use fixture detections to complete symbol detection and MusicXML generation. Rejected because it would make Phase 8 appear to complete product OMR without a real model.
+Reason: Synthetic variants and pages from the same score leak visual and structural information across splits.
 
-### Model Delivery
+### Model Status
 
-Decision: Store model binaries in Cache Storage and store only metadata/results/corrections/preferences in IndexedDB.
+Decision: Generated fixture models are `EXPERIMENTAL`. `PRODUCT` requires a fixed real/synthetic test split, per-class metrics, browser execution, WebGPU/WASM verification, known failures, reproducible training config, and checkpoint preservation.
 
-Reason: This follows the PWA offline and model delivery specs while avoiding base64 model blobs in IndexedDB JSON.
+Reason: Synthetic-only smoke models validate infrastructure, not product OMR accuracy.
 
-### Model Input Unit
+## Model Baseline Decision
 
-Decision: Build tensors from reviewed system crops, with manifest-driven preprocessing.
+Decision: Use a deterministic Node.js smoke baseline in this environment. It writes a reproducible model specification from fixture labels, evaluates against the fixture test split, and exports constant-output ONNX models for browser validation.
 
-Reason: Phase 7 produces reviewed page/system/measure regions. System crops reduce memory pressure and match the Phase 8 contract.
+Reason: The local environment has no Python executable, GPU, or licensed real dataset. Installing global Python or claiming product training would be unsafe. The smoke baseline still exercises dataset validation, evaluation reports, model manifests, ONNX Runtime Web, output decoding, and offline cache behavior.
 
-### Product Model State
-
-Decision: UI exposes `PRODUCT_MODEL_NOT_INSTALLED` when only the test runtime model is available.
-
-Reason: Users and tests must distinguish infrastructure readiness from product OMR capability.
+Alternative: Add a PyTorch/YOLO training stack immediately. Deferred because it cannot be run or verified in this environment and would create unvalidated code paths.
 
 ## Implementation Order
 
-1. Align docs and roadmap with the revised Phase 8/9/10 split.
-2. Add OMR domain model, manifest, confidence, and correction types without MusicXML draft claims.
-3. Add model manifest validation, cache/hash delivery, tensor preprocessing, coordinate mapping, and worker protocol.
-4. Add OMR IndexedDB stores and repository.
-5. Replace the OMR worker with ONNX Runtime loading, provider fallback, cancellation, and stale-result handling.
-6. Add OMR prepare/review foundation routes and link them from Phase 7 import review.
-7. Add model manifest/static test ONNX asset and AI training skeleton.
-8. Add unit tests and Playwright E2E for ONNX browser load, fallback reporting, offline cache, job persistence, and correction persistence.
-9. Run requested build, unit tests, E2E, manifest validation, Markdown link check, Docker config, and diff checks.
+1. Replace the Phase 8 plan with this Phase 9 plan.
+2. Add taxonomy, source/license schema, annotation schema, dataset manifest updates, evaluation report updates, and metric gate documentation.
+3. Add Node-based dataset build, validation, smoke training, evaluation, ONNX export, ONNX manifest validation, and pipeline runner.
+4. Generate the fixture dataset, validation reports, smoke model specs, evaluation reports, experimental ONNX binaries, and browser manifests.
+5. Extend OMR manifest/domain types with model status and detection output contracts.
+6. Extend postprocessing to decode manifest-driven detection tensors for layout and symbol tasks.
+7. Expose experimental model selection in the OMR runtime UI while preserving `PRODUCT_MODEL_NOT_INSTALLED`.
+8. Add unit and E2E tests for detection decoding and actual layout/symbol model browser execution.
+9. Update README, OMR docs, roadmap, acceptance criteria, model delivery docs, and `ai-training/README.md`.
+10. Run AI pipeline, frontend build/test/E2E, Markdown links, Docker config, diff checks, and legacy/backend/deploy change checks.
 
 ## Risks
 
-- Browser WebGPU support varies. The implementation must report the attempted provider and fallback reason rather than assuming WebGPU success.
-- The checked-in ONNX model is not useful for OMR recognition.
-- Detection review UI in Phase 8 is an infrastructure shell until Phase 9 supplies product models.
-- Offline model use depends on Cache Storage availability and successful prior hash verification.
+- Fixture data is synthetic and tiny; metrics are useful only as pipeline checks.
+- Browser WebGPU availability depends on the test browser and cross-origin isolation. WASM fallback remains the reliable baseline.
+- ONNX models are tiny constant-output smoke models, not learned product models.
+- Phase 10 cannot start until real product candidate metrics and failure analysis are available.

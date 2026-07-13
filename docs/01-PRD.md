@@ -291,3 +291,9 @@
 ## Phase 8 Product Boundary
 
 Phase 8 validates browser-local ONNX Runtime infrastructure with `TEST_RUNTIME_MODEL`. Production OMR recognition, measured product accuracy, structure assembly, MusicXML draft generation, and Phase 6 editor handoff are not Phase 8 deliverables.
+
+## Phase 9 Product Boundary
+
+Phase 9 adds OMR dataset contracts, license validation, source-group leakage prevention, synthetic fixture generation, smoke training/evaluation, ONNX export, and browser inference for experimental layout/symbol models.
+
+The current Phase 9 fixture data is synthetic-only. Product OMR accuracy is not evaluated, and layout/symbol product candidates are not ready until licensed real scan/photo data and fixed test-split metrics exist.

@@ -1,0 +1,26 @@
+name: AI smoke
+
+on:
+  push:
+    paths:
+      - 'ai-training/**'
+      - 'web-app/public/models/omr/**'
+      - 'packages/score-domain/src/omr/**'
+      - '.github/workflows/ai-smoke.yml'
+  pull_request:
+    paths:
+      - 'ai-training/**'
+      - 'web-app/public/models/omr/**'
+      - 'packages/score-domain/src/omr/**'
+      - '.github/workflows/ai-smoke.yml'
+
+jobs:
+  ai-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run Phase 9 AI smoke pipeline
+        run: node ai-training/scripts/run-smoke-pipeline.mjs

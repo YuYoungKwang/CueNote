@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "checkedAt": "2026-07-13T00:00:00.000Z",
+  "status": "PASS",
+  "records": [
+    {
+      "modelId": "cuenote-layout-smoke",
+      "modelVersion": "0.9.0-smoke.1",
+      "status": "PASS"
+    },
+    {
+      "modelId": "cuenote-symbol-smoke",
+      "modelVersion": "0.9.0-smoke.1",
+      "status": "PASS"
+    }
+  ],
+  "scope": [
+    "manifest parse",
+    "SHA-256 model delivery",
+    "Cache Storage reuse",
+    "worker ONNX Runtime execution",
+    "output decode",
+    "coordinate mapping",
+    "detection overlay",
+    "Phase 10 deferred state"
+  ]
+}

@@ -3,37 +3,123 @@
   "$id": "https://cuenote.local/schemas/omr-dataset-manifest.schema.json",
   "title": "CueNote OMR Dataset Manifest",
   "type": "object",
-  "required": ["schemaVersion", "datasetId", "licensePolicy", "splits", "classes"],
+  "required": [
+    "schemaVersion",
+    "datasetId",
+    "version",
+    "createdAt",
+    "itemCount",
+    "tasks",
+    "classes",
+    "splits",
+    "sourceSummary",
+    "licenseSummary",
+    "licensePolicy",
+    "checksum",
+    "generatorVersion",
+    "validationResult"
+  ],
   "properties": {
     "schemaVersion": { "const": 1 },
     "datasetId": { "type": "string", "minLength": 1 },
-    "licensePolicy": {
-      "type": "object",
-      "required": ["allowedSources", "sourceLevelSplitRequired"],
-      "properties": {
-        "allowedSources": { "type": "array", "items": { "type": "string" } },
-        "sourceLevelSplitRequired": { "const": true }
-      }
+    "version": { "type": "string", "minLength": 1 },
+    "createdAt": { "type": "string", "minLength": 1 },
+    "itemCount": { "type": "integer", "minimum": 0 },
+    "tasks": {
+      "type": "array",
+      "items": { "enum": ["LAYOUT_DETECTION", "SYMBOL_DETECTION"] },
+      "minItems": 1
+    },
+    "classes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/class" },
+      "minItems": 1
     },
     "splits": {
       "type": "object",
       "required": ["train", "validation", "test"],
       "properties": {
-        "train": { "type": "array", "items": { "type": "string" } },
-        "validation": { "type": "array", "items": { "type": "string" } },
-        "test": { "type": "array", "items": { "type": "string" } }
+        "train": { "$ref": "#/$defs/splitSummary" },
+        "validation": { "$ref": "#/$defs/splitSummary" },
+        "test": { "$ref": "#/$defs/splitSummary" }
       }
     },
-    "classes": { "type": "array", "items": { "$ref": "#/$defs/class" } }
+    "sourceSummary": {
+      "type": "object",
+      "required": ["byType", "sourceGroups"],
+      "properties": {
+        "byType": { "type": "object" },
+        "sourceGroups": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "licenseSummary": {
+      "type": "object",
+      "required": ["trainingAllowed", "trainingExcluded", "unknownOrRestricted"],
+      "properties": {
+        "trainingAllowed": { "type": "integer", "minimum": 0 },
+        "trainingExcluded": { "type": "integer", "minimum": 0 },
+        "unknownOrRestricted": { "type": "integer", "minimum": 0 },
+        "byLicense": { "type": "object" }
+      }
+    },
+    "licensePolicy": {
+      "type": "object",
+      "required": ["unknownExcludedByDefault", "sourceLevelSplitRequired", "allowedSourceTypes"],
+      "properties": {
+        "unknownExcludedByDefault": { "const": true },
+        "sourceLevelSplitRequired": { "const": true },
+        "allowedSourceTypes": {
+          "type": "array",
+          "items": { "enum": ["SYNTHETIC", "SCAN", "PHOTO", "SCREENSHOT", "GENERATED_AUGMENTATION"] }
+        }
+      }
+    },
+    "checksum": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "generatorVersion": { "type": "string", "minLength": 1 },
+    "validationResult": {
+      "type": "object",
+      "required": ["status", "report"],
+      "properties": {
+        "status": { "enum": ["PASS", "FAIL", "NOT_RUN"] },
+        "report": { "type": "string" }
+      }
+    },
+    "items": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/itemRef" }
+    },
+    "sources": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
   },
   "$defs": {
     "class": {
       "type": "object",
-      "required": ["id", "index", "task"],
+      "required": ["id", "task"],
       "properties": {
         "id": { "type": "string" },
-        "index": { "type": "integer", "minimum": 0 },
+        "displayName": { "type": "string" },
         "task": { "enum": ["LAYOUT_DETECTION", "SYMBOL_DETECTION"] }
+      }
+    },
+    "splitSummary": {
+      "type": "object",
+      "required": ["itemCount", "sourceGroupIds"],
+      "properties": {
+        "itemCount": { "type": "integer", "minimum": 0 },
+        "sourceGroupIds": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "itemRef": {
+      "type": "object",
+      "required": ["itemId", "task", "split", "annotationFile", "imageReference"],
+      "properties": {
+        "itemId": { "type": "string" },
+        "task": { "enum": ["LAYOUT_DETECTION", "SYMBOL_DETECTION"] },
+        "split": { "enum": ["train", "validation", "test"] },
+        "annotationFile": { "type": "string" },
+        "imageReference": { "type": "string" }
       }
     }
   }

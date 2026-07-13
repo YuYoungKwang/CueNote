@@ -1,0 +1,110 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuenote.local/schemas/omr-annotation-item.schema.json",
+  "title": "CueNote OMR Annotation Item",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "itemId",
+    "sourceGroupId",
+    "split",
+    "imageReference",
+    "width",
+    "height",
+    "task",
+    "annotations",
+    "provenance",
+    "quality",
+    "preprocessing"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "itemId": { "type": "string", "minLength": 1 },
+    "sourceGroupId": { "type": "string", "minLength": 1 },
+    "compositionId": { "type": "string" },
+    "editionId": { "type": "string" },
+    "originalDocumentId": { "type": "string" },
+    "syntheticTemplateId": { "type": "string" },
+    "split": { "enum": ["train", "validation", "test"] },
+    "imageReference": { "type": "string", "minLength": 1 },
+    "imageChecksum": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "width": { "type": "integer", "minimum": 1 },
+    "height": { "type": "integer", "minimum": 1 },
+    "task": { "enum": ["LAYOUT_DETECTION", "SYMBOL_DETECTION"] },
+    "annotations": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/annotation" }
+    },
+    "provenance": {
+      "type": "object",
+      "required": ["sourceId", "sourceType", "license"],
+      "properties": {
+        "sourceId": { "type": "string" },
+        "sourceType": { "enum": ["SYNTHETIC", "SCAN", "PHOTO", "SCREENSHOT", "GENERATED_AUGMENTATION"] },
+        "license": { "type": "string" },
+        "generatedBy": { "type": "string" }
+      }
+    },
+    "quality": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "CLEAN_SCAN",
+          "LOW_CONTRAST",
+          "SKEWED",
+          "PERSPECTIVE",
+          "BLURRED",
+          "CROPPED",
+          "HANDWRITTEN_MARKS",
+          "SHADOW",
+          "GLARE",
+          "LOW_RESOLUTION",
+          "MULTI_STAFF",
+          "DENSE_NOTATION",
+          "EMPTY_PAGE",
+          "NON_SCORE"
+        ]
+      }
+    },
+    "preprocessing": {
+      "type": "object",
+      "required": ["coordinateSpace", "augmentationSeed"],
+      "properties": {
+        "coordinateSpace": { "const": "PIXEL_XYWH" },
+        "augmentationSeed": { "type": "integer" },
+        "rotationDegrees": { "type": "number" },
+        "contrast": { "type": "number" },
+        "brightness": { "type": "number" }
+      }
+    }
+  },
+  "$defs": {
+    "annotation": {
+      "type": "object",
+      "required": ["id", "classId", "bounds", "attributes", "occluded", "truncated", "ignored", "annotator", "reviewStatus"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "classId": { "type": "string", "minLength": 1 },
+        "bounds": {
+          "type": "object",
+          "required": ["x", "y", "width", "height"],
+          "properties": {
+            "x": { "type": "number", "minimum": 0 },
+            "y": { "type": "number", "minimum": 0 },
+            "width": { "type": "number", "exclusiveMinimum": 0 },
+            "height": { "type": "number", "exclusiveMinimum": 0 }
+          }
+        },
+        "polygon": { "type": "array" },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "attributes": { "type": "object" },
+        "occluded": { "type": "boolean" },
+        "truncated": { "type": "boolean" },
+        "ignored": { "type": "boolean" },
+        "annotator": { "type": "string" },
+        "reviewedBy": { "type": "string" },
+        "reviewStatus": { "enum": ["AUTO_GENERATED", "REVIEWED", "REJECTED"] }
+      }
+    }
+  }
+}

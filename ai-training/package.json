@@ -1,0 +1,18 @@
+{
+  "name": "cuenote-ai-training",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:fixture": "node scripts/build-fixture-dataset.mjs",
+    "validate:dataset": "node scripts/validate-dataset.mjs",
+    "train:layout": "node scripts/train-smoke-model.mjs --task LAYOUT_DETECTION",
+    "train:symbol": "node scripts/train-smoke-model.mjs --task SYMBOL_DETECTION",
+    "evaluate:layout": "node scripts/evaluate-smoke-model.mjs --task LAYOUT_DETECTION",
+    "evaluate:symbol": "node scripts/evaluate-smoke-model.mjs --task SYMBOL_DETECTION",
+    "export:layout": "node scripts/export-onnx.mjs --task LAYOUT_DETECTION",
+    "export:symbol": "node scripts/export-onnx.mjs --task SYMBOL_DETECTION",
+    "validate:onnx": "node scripts/validate-onnx.mjs",
+    "record:browser": "node scripts/record-browser-validation.mjs",
+    "smoke": "node scripts/run-smoke-pipeline.mjs"
+  }
+}

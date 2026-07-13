@@ -668,6 +668,13 @@ a {
   background: rgba(217, 119, 6, 0.08);
 }
 
+.import-region--omr-detection {
+  border-color: rgba(124, 58, 237, 0.8);
+  background: rgba(124, 58, 237, 0.1);
+  color: #3b0764;
+  cursor: default;
+}
+
 .import-region.is-selected {
   border-color: #dc2626;
   box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.18);

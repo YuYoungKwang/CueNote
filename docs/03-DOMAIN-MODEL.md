@@ -574,3 +574,15 @@ Participants can be `FOLLOWING_LEADER` or `BROWSING_INDEPENDENTLY`. Independent 
 Validation issues carry `code`, `severity`, `message`, optional part/measure/event IDs, and `blocking`. Blocking issues prevent publish.
 
 Annotation migration is explicit. The implemented safe policy migrates only `MEASURE` anchors and skips element/performance-measure anchors by default.
+
+## Phase 9 OMR Dataset And Model Domain
+
+`OmrModelManifest` can include `status`, `outputs`, `datasetVersion`, `evaluationReport`, and `createdAt`.
+
+Model status values are `EXPERIMENTAL`, `CANDIDATE`, and `PRODUCT`. Phase 9 smoke models are `EXPERIMENTAL`.
+
+Detection outputs use manifest-declared `BOX_XYWH_CONF_CLASS` tensors. Class IDs are stable strings; class indexes are manifest-local and must not be hardcoded.
+
+Dataset annotations use pixel source bounds, while runtime detections persist normalized `boundsInSystem` and `boundsInPage`.
+
+Dataset source records include source/license fields and default to exclusion when license permission is unknown.

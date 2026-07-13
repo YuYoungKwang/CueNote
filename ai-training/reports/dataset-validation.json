@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "datasetId": "cuenote-fixture-omr",
+  "datasetVersion": "phase9-smoke-1",
+  "status": "PASS",
+  "checkedAt": "2026-07-13T12:16:59.439Z",
+  "itemCount": 12,
+  "sourceCount": 6,
+  "failures": [],
+  "warnings": [],
+  "classDistribution": {
+    "accidental.flat": 5,
+    "accidental.natural": 1,
+    "accidental.sharp": 6,
+    "barline.double": 6,
+    "barline.repeat_end": 1,
+    "barline.repeat_start": 1,
+    "barline.single": 16,
+    "clef.bass": 1,
+    "clef.treble": 5,
+    "dot.augmentation": 6,
+    "measure.region": 18,
+    "navigation.coda": 1,
+    "navigation.segno": 5,
+    "notehead.filled": 18,
+    "notehead.hollow": 6,
+    "rest.eighth": 1,
+    "rest.half": 5,
+    "rest.quarter": 6,
+    "staff.region": 7,
+    "stem.down": 6,
+    "stem.up": 24,
+    "system.region": 6,
+    "tie": 6
+  },
+  "licenseValidation": {
+    "status": "PASS",
+    "unknownExcludedByDefault": true,
+    "trainingAllowedSources": 6,
+    "unknownOrRestrictedSources": 0
+  },
+  "leakageValidation": {
+    "status": "PASS",
+    "checkedKeys": [
+      "sourceGroupId",
+      "compositionId",
+      "editionId",
+      "originalDocumentId",
+      "syntheticTemplateId"
+    ]
+  }
+}

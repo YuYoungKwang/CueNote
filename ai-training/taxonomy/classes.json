@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "taxonomyId": "cuenote-omr-taxonomy-v1",
+  "indexPolicy": "Class indexes are assigned by export manifests and must not be hardcoded by training or browser code.",
+  "tasks": {
+    "LAYOUT_DETECTION": [
+      { "id": "system.region", "displayName": "System region" },
+      { "id": "staff.region", "displayName": "Staff region" },
+      { "id": "measure.region", "displayName": "Measure region" },
+      { "id": "barline.single", "displayName": "Single barline" },
+      { "id": "barline.double", "displayName": "Double barline" },
+      { "id": "barline.repeat_start", "displayName": "Repeat start barline" },
+      { "id": "barline.repeat_end", "displayName": "Repeat end barline" }
+    ],
+    "SYMBOL_DETECTION": [
+      { "id": "notehead.filled", "displayName": "Filled notehead" },
+      { "id": "notehead.hollow", "displayName": "Hollow notehead" },
+      { "id": "stem.up", "displayName": "Up stem" },
+      { "id": "stem.down", "displayName": "Down stem" },
+      { "id": "rest.whole", "displayName": "Whole rest" },
+      { "id": "rest.half", "displayName": "Half rest" },
+      { "id": "rest.quarter", "displayName": "Quarter rest" },
+      { "id": "rest.eighth", "displayName": "Eighth rest" },
+      { "id": "accidental.sharp", "displayName": "Sharp accidental" },
+      { "id": "accidental.flat", "displayName": "Flat accidental" },
+      { "id": "accidental.natural", "displayName": "Natural accidental" },
+      { "id": "clef.treble", "displayName": "Treble clef" },
+      { "id": "clef.bass", "displayName": "Bass clef" },
+      { "id": "dot.augmentation", "displayName": "Augmentation dot" },
+      { "id": "tie", "displayName": "Tie" },
+      { "id": "navigation.segno", "displayName": "Segno" },
+      { "id": "navigation.coda", "displayName": "Coda" }
+    ]
+  }
+}

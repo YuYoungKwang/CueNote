@@ -13,7 +13,11 @@ import type { OmrWorkerResponse } from '../../core/omr/workerProtocol';
 import { createImportProjectRepository, type ImportProjectBundle } from '../../core/storage/importProjectRepository';
 import { createOmrRepository, type OmrAnalysisJobRecord } from '../../core/storage/omrRepository';
 
-const TEST_MANIFEST_URL = '/models/omr/test-runtime-manifest.json';
+const MODEL_OPTIONS = [
+  { id: 'TEST_RUNTIME_MODEL', label: 'TEST_RUNTIME_MODEL', url: '/models/omr/test-runtime-manifest.json' },
+  { id: 'LAYOUT_SMOKE_MODEL', label: 'LAYOUT_SMOKE_MODEL', url: '/models/omr/layout-smoke-manifest.json' },
+  { id: 'SYMBOL_SMOKE_MODEL', label: 'SYMBOL_SMOKE_MODEL', url: '/models/omr/symbol-smoke-manifest.json' }
+] as const;
 
 type ModelState =
   | { kind: 'idle' }
@@ -33,7 +37,10 @@ export function OmrRuntimePage({ mode = 'runtime' }: { mode?: 'runtime' | 'revie
   const [modelState, setModelState] = useState<ModelState>({ kind: 'idle' });
   const [runState, setRunState] = useState<RunState>({ kind: 'idle' });
   const [storedResults, setStoredResults] = useState<OmrDetectionResult[]>([]);
-  const [status, setStatus] = useState('Load the TEST_RUNTIME_MODEL to verify browser OMR infrastructure.');
+  const [selectedModelId, setSelectedModelId] = useState<(typeof MODEL_OPTIONS)[number]['id']>('TEST_RUNTIME_MODEL');
+  const [status, setStatus] = useState('Load a model to verify browser OMR infrastructure.');
+
+  const selectedModel = MODEL_OPTIONS.find((option) => option.id === selectedModelId) ?? MODEL_OPTIONS[0];
 
   useEffect(() => {
     void importRepository.loadProject(projectId).then(setBundle);
@@ -69,7 +76,11 @@ export function OmrRuntimePage({ mode = 'runtime' }: { mode?: 'runtime' | 'revie
         cacheHit: message.cacheHit,
         productState: message.readiness.modelState
       });
-      setStatus('TEST_RUNTIME_MODEL loaded. Product OMR model is not installed.');
+      setStatus(
+        message.manifest.status === 'PRODUCT'
+          ? `${message.manifest.modelId} loaded.`
+          : `${message.manifest.modelId} loaded as ${message.manifest.status ?? 'RUNTIME_SMOKE'}. Product OMR model is not installed.`
+      );
     } else if (message.type === 'MODEL_FAILED') {
       setModelState({ kind: 'error', message: message.error });
     } else if (message.type === 'JOB_STARTED' || message.type === 'JOB_PROGRESS') {
@@ -79,7 +90,7 @@ export function OmrRuntimePage({ mode = 'runtime' }: { mode?: 'runtime' | 'revie
       const nextResults = await omrRepository.loadResults(projectId);
       setStoredResults(nextResults);
       setRunState({ kind: 'ready', result: message.result, outputNames: message.runtimeOutputNames });
-      setStatus('ONNX Runtime smoke inference completed. No product detections were generated.');
+      setStatus(`ONNX inference completed with ${message.result.detections.length} detections. Phase 10 MusicXML draft remains deferred.`);
     } else if (message.type === 'JOB_CANCELLED') {
       setRunState({ kind: 'idle' });
       setStatus('OMR runtime job cancelled.');
@@ -106,7 +117,7 @@ export function OmrRuntimePage({ mode = 'runtime' }: { mode?: 'runtime' | 'revie
   const loadModel = () => {
     const jobId = createJobId('load');
     latestJobRef.current = jobId;
-    workerClient.post({ type: 'LOAD_MODEL', jobId, manifestUrl: TEST_MANIFEST_URL });
+    workerClient.post({ type: 'LOAD_MODEL', jobId, manifestUrl: selectedModel.url });
   };
 
   const runSystem = async () => {
@@ -155,7 +166,7 @@ export function OmrRuntimePage({ mode = 'runtime' }: { mode?: 'runtime' | 'revie
     await omrRepository.saveJob(job);
     await omrRepository.savePreferences({
       projectId: bundle.project.id,
-      modelManifestUrl: TEST_MANIFEST_URL,
+      modelManifestUrl: selectedModel.url,
       selectedResultId: undefined,
       confidenceFilter: 'ALL',
       updatedAt: Date.now()
@@ -205,7 +216,11 @@ export function OmrRuntimePage({ mode = 'runtime' }: { mode?: 'runtime' | 'revie
         <div className="viewer-summary">
           <div>
             <span className="summary-label">Runtime model</span>
-            <strong data-testid="omr-model-kind">TEST_RUNTIME_MODEL</strong>
+            <strong data-testid="omr-model-kind">{selectedModel.id}</strong>
+          </div>
+          <div>
+            <span className="summary-label">Model status</span>
+            <strong data-testid="omr-model-status">{modelState.kind === 'ready' ? modelState.manifest.status ?? 'RUNTIME_SMOKE' : 'not loaded'}</strong>
           </div>
           <div>
             <span className="summary-label">Product model</span>
@@ -222,8 +237,28 @@ export function OmrRuntimePage({ mode = 'runtime' }: { mode?: 'runtime' | 'revie
         </div>
 
         <div className="import-toolbar">
+          <label className="field-label" htmlFor="omr-model-select">
+            Model
+          </label>
+          <select
+            id="omr-model-select"
+            className="select-input"
+            value={selectedModelId}
+            onChange={(event) => {
+              setSelectedModelId(event.target.value as (typeof MODEL_OPTIONS)[number]['id']);
+              setModelState({ kind: 'idle' });
+              setRunState({ kind: 'idle' });
+            }}
+            data-testid="omr-model-select"
+          >
+            {MODEL_OPTIONS.map((option) => (
+              <option key={option.id} value={option.id}>
+                {option.label}
+              </option>
+            ))}
+          </select>
           <button type="button" className="primary-link" onClick={loadModel} data-testid="omr-load-model">
-            Load test model
+            Load model
           </button>
           <button type="button" className="primary-link" onClick={() => void runSystem()} disabled={modelState.kind !== 'ready' || !systemRegion} data-testid="omr-run-system">
             Run system crop
@@ -248,6 +283,19 @@ export function OmrRuntimePage({ mode = 'runtime' }: { mode?: 'runtime' | 'revie
           {firstPage?.page.thumbnailDataUrl ? <img src={firstPage.page.thumbnailDataUrl} alt="" className="import-page-image" /> : <div className="import-page-placeholder">No reviewed page</div>}
           <div className="import-region-overlay">
             {systemRegion ? <div className="import-region import-region--system is-selected" style={regionStyle(systemRegion)}>SYSTEM crop</div> : null}
+            {runState.kind === 'ready'
+              ? runState.result.detections.map((detection) => (
+                  <div
+                    key={detection.id}
+                    className="import-region import-region--omr-detection"
+                    style={rectStyle(detection.boundsInPage)}
+                    data-testid="omr-detection-box"
+                    title={`${detection.classId} ${Math.round(detection.confidence * 100)}%`}
+                  >
+                    {detection.classId}
+                  </div>
+                ))
+              : null}
           </div>
         </div>
       </section>
@@ -263,6 +311,17 @@ export function OmrRuntimePage({ mode = 'runtime' }: { mode?: 'runtime' | 'revie
               {result.modelId} {result.modelVersion} / {result.executionProvider} / {result.detections.length} detections
             </li>
           ))}
+        </ul>
+        <p className="eyebrow">Current detections</p>
+        <ul className="measure-list" data-testid="omr-detection-list">
+          {runState.kind !== 'ready' || runState.result.detections.length === 0 ? <li>No detections from the current run.</li> : null}
+          {runState.kind === 'ready'
+            ? runState.result.detections.map((detection) => (
+                <li key={detection.id}>
+                  {detection.classId} {Math.round(detection.confidence * 100)}%
+                </li>
+              ))
+            : null}
         </ul>
         <p className="eyebrow">Phase 10</p>
         <p>Structure assembly and MusicXML draft handoff are deferred.</p>
@@ -309,11 +368,15 @@ function loadImage(src: string): Promise<HTMLImageElement> {
 }
 
 function regionStyle(region: ImportRegion) {
+  return rectStyle(region.rect);
+}
+
+function rectStyle(rect: { x: number; y: number; width: number; height: number }) {
   return {
-    left: `${region.rect.x * 100}%`,
-    top: `${region.rect.y * 100}%`,
-    width: `${region.rect.width * 100}%`,
-    height: `${region.rect.height * 100}%`
+    left: `${rect.x * 100}%`,
+    top: `${rect.y * 100}%`,
+    width: `${rect.width * 100}%`,
+    height: `${rect.height * 100}%`
   };
 }
 

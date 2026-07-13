@@ -4,7 +4,7 @@ import type { OmrModelManifest } from '@cuenote/score-domain';
 import { fetchOmrModelManifest } from '../core/omr/modelManifest';
 import { createOmrModelRepository, type OmrModelCacheMetadata } from '../core/omr/modelRepository';
 import { createOnnxRuntimeAdapter, type LoadedOmrModel } from '../core/omr/onnxRuntimeAdapter';
-import { createRuntimeSmokeDetectionResult } from '../core/omr/postprocessing';
+import { createOmrDetectionResult } from '../core/omr/postprocessing';
 import { buildOmrTensorFromImageData } from '../core/omr/tensorBuilder';
 import type { OmrWorkerRequest, OmrWorkerResponse } from '../core/omr/workerProtocol';
 
@@ -82,12 +82,12 @@ async function loadModel(jobId: string, manifestUrl: string) {
     readiness: {
       id: `${parsed.manifest.modelId}:${parsed.manifest.version}`,
       projectId: 'runtime',
-      modelState: parsed.manifest.task === 'RUNTIME_SMOKE' ? 'PRODUCT_MODEL_NOT_INSTALLED' : 'PRODUCT_MODEL_READY',
+      modelState: parsed.manifest.status === 'PRODUCT' ? 'PRODUCT_MODEL_READY' : 'PRODUCT_MODEL_NOT_INSTALLED',
       testRuntimeModelExecuted: false,
       lastProvider: model.provider,
-      warnings: parsed.manifest.task === 'RUNTIME_SMOKE'
-        ? [{ code: 'PRODUCT_MODEL_NOT_INSTALLED', message: 'Only the TEST_RUNTIME_MODEL is installed.', severity: 'warning' }]
-        : [],
+      warnings: parsed.manifest.status === 'PRODUCT'
+        ? []
+        : [{ code: 'PRODUCT_MODEL_NOT_INSTALLED', message: `${parsed.manifest.modelId} is not a PRODUCT OMR model.`, severity: 'warning' }],
       createdAt: Date.now(),
       updatedAt: Date.now()
     }
@@ -108,7 +108,7 @@ async function analyzeSystem(request: Extract<OmrWorkerRequest, { type: 'ANALYZE
   post({ type: 'JOB_PROGRESS', jobId: request.jobId, progress: 0.85 });
   if (isCancelled(request.jobId)) return;
 
-  const result = createRuntimeSmokeDetectionResult(request.input.projectId, request.input, loadedManifest, raw);
+  const result = createOmrDetectionResult(request.input.projectId, request.input, loadedManifest, raw, tensor);
   loadedMetadata = loadedMetadata ?? {
     id: `${loadedManifest.modelId}:${loadedManifest.version}`,
     modelId: loadedManifest.modelId,

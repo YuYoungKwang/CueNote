@@ -1,0 +1,88 @@
+{
+  "schemaVersion": 1,
+  "modelId": "cuenote-layout-smoke",
+  "version": "0.9.0-smoke.1",
+  "task": "LAYOUT_DETECTION",
+  "status": "EXPERIMENTAL",
+  "file": "layout-smoke.onnx",
+  "sha256": "953b0c2165a8e9459528c0561cf0759a7c2b9bdd4d5a7fbbf4eaf423a9926824",
+  "sizeBytes": 441,
+  "input": {
+    "width": 320,
+    "height": 160,
+    "channels": 1,
+    "tensorLayout": "NCHW",
+    "resizeMode": "LETTERBOX",
+    "valueRange": "ZERO_TO_ONE"
+  },
+  "outputs": [
+    {
+      "name": "detections",
+      "format": "BOX_XYWH_CONF_CLASS",
+      "coordinateSpace": "SYSTEM_NORMALIZED",
+      "shape": [
+        9,
+        6
+      ]
+    }
+  ],
+  "executionProviders": [
+    "WEBGPU",
+    "WASM"
+  ],
+  "classes": [
+    {
+      "id": "system.region",
+      "index": 0,
+      "label": "System region",
+      "blockingReview": true
+    },
+    {
+      "id": "staff.region",
+      "index": 1,
+      "label": "Staff region",
+      "blockingReview": true
+    },
+    {
+      "id": "measure.region",
+      "index": 2,
+      "label": "Measure region",
+      "blockingReview": true
+    },
+    {
+      "id": "barline.single",
+      "index": 3,
+      "label": "Single barline",
+      "blockingReview": true
+    },
+    {
+      "id": "barline.double",
+      "index": 4,
+      "label": "Double barline",
+      "blockingReview": true
+    },
+    {
+      "id": "barline.repeat_start",
+      "index": 5,
+      "label": "Repeat start barline",
+      "blockingReview": true
+    },
+    {
+      "id": "barline.repeat_end",
+      "index": 6,
+      "label": "Repeat end barline",
+      "blockingReview": true
+    }
+  ],
+  "postprocessing": {
+    "confidenceThreshold": 0.4,
+    "nmsThreshold": 0.5,
+    "autoAcceptThreshold": 0.92,
+    "lowConfidenceThreshold": 0.55
+  },
+  "datasetVersion": "phase9-smoke-1",
+  "evaluationReport": "/ai-training/reports/layout-smoke-evaluation.json",
+  "minimumAppVersion": "0.9.0",
+  "createdAt": "2026-07-13T00:00:00.000Z",
+  "fixtureDetector": true
+}

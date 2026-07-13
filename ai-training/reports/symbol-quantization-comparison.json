@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "modelId": "cuenote-symbol-smoke",
+  "fp32": {
+    "status": "EXPORTED_AFTER_ONNX_STEP"
+  },
+  "fp16": {
+    "status": "NOT_RUN",
+    "reason": "No real product model and no quantization runtime in this environment."
+  },
+  "int8": {
+    "status": "NOT_RUN",
+    "reason": "INT8 browser benefit is not assumed without measured provider support and accuracy delta."
+  }
+}
