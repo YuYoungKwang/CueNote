@@ -13,7 +13,7 @@ def export_yolo_onnx(checkpoint: Path, config: dict[str, Any], output_dir: Path)
         raise RuntimeError("Ultralytics is not installed.") from error
     output_dir.mkdir(parents=True, exist_ok=True)
     model = YOLO(str(checkpoint))
-    exported = model.export(format="onnx", opset=13, imgsz=int(config["inputSize"]), simplify=True, dynamic=False)
+    exported = model.export(format="onnx", opset=18, imgsz=int(config["inputSize"]), simplify=True, dynamic=False)
     exported_path = Path(exported)
     target = output_dir / f"{config['modelId']}-{config['modelVersion']}.onnx"
     exported_path.replace(target)
@@ -36,6 +36,10 @@ def validate_onnx_file(onnx_path: Path) -> dict[str, Any]:
         "checkedAt": utc_now(),
         "inputs": [value.name for value in model.graph.input],
         "outputs": [value.name for value in model.graph.output],
+        "opsets": [
+            {"domain": opset.domain, "version": opset.version}
+            for opset in model.opset_import
+        ],
     }
 
 

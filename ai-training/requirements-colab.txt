@@ -2,7 +2,7 @@ ultralytics==8.3.40
 onnx==1.17.0
 onnxscript
 onnxslim==0.1.94
-onnxruntime==1.20.1
+onnxruntime-gpu==1.27.0
 pycocotools==2.0.8
 jsonschema==4.23.0
 PyYAML==6.0.2
