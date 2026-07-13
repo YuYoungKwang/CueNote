@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
 from typing import Any
 
@@ -25,13 +26,14 @@ def train_yolo(
     set_seed(int(config.get("seed", 90210)))
     output_dir.mkdir(parents=True, exist_ok=True)
     checkpoint_meta = output_dir / "checkpoint-metadata.json"
-    local_last_checkpoint = output_dir / "train" / "weights" / "last.pt"
-    checkpoint_to_resume = resume_checkpoint if resume_checkpoint and resume_checkpoint.exists() else local_last_checkpoint
-    should_resume = resume and checkpoint_to_resume.exists()
+    checkpoint_to_resume = resume_checkpoint if resume_checkpoint and resume_checkpoint.exists() else None
+    should_resume = resume and checkpoint_to_resume is not None
     resume_skipped_reason = None
-    if should_resume and checkpoint_finished_target_epochs(checkpoint_to_resume, int(config["epochs"])):
+    if should_resume and checkpoint_to_resume and checkpoint_finished_target_epochs(checkpoint_to_resume, int(config["epochs"])):
         should_resume = False
         resume_skipped_reason = "checkpoint_already_reached_target_epochs"
+    if not should_resume:
+        shutil.rmtree(output_dir / "train", ignore_errors=True)
     model = YOLO(str(checkpoint_to_resume) if should_resume else config["pretrainedWeights"])
     args = {
         "data": str(dataset_yaml),
@@ -65,7 +67,7 @@ def train_yolo(
         "bestCheckpoint": str(output_dir / "train" / "weights" / "best.pt"),
         "recentEpochCheckpoints": [str(path) for path in kept_epoch_checkpoints],
         "createdAt": utc_now(),
-        "resultSummary": str(results),
+        "resultSummary": metrics_summary(results),
         "resumedFrom": str(checkpoint_to_resume) if should_resume else None,
         "resumeSkippedReason": resume_skipped_reason,
     }
@@ -102,12 +104,43 @@ def evaluate_yolo(checkpoint: Path, dataset_yaml: Path, config: dict[str, Any], 
         "status": config.get("status", "EXPERIMENTAL"),
         "task": config["task"],
         "evaluatedAt": utc_now(),
-        "metricsSummary": str(metrics),
+        "metricsSummary": metrics_summary(metrics),
         "promotionRecommendation": "EXPERIMENTAL",
         "knownFailures": ["requires_manual_metric_review_before_candidate_promotion"],
     }
     atomic_write_json(report_dir / f"{config['modelId']}-evaluation.json", report)
     return report
+
+
+def metrics_summary(metrics: Any) -> dict[str, Any]:
+    summary: dict[str, Any] = {}
+    for attr in ["results_dict", "speed", "names", "fitness"]:
+        try:
+            value = getattr(metrics, attr)
+            summary[attr] = json_safe(value() if callable(value) else value)
+        except Exception as error:
+            summary[f"{attr}Error"] = str(error)
+    box = getattr(metrics, "box", None)
+    if box is not None:
+        for attr in ["mp", "mr", "map50", "map", "maps"]:
+            try:
+                value = getattr(box, attr)
+                summary[f"box_{attr}"] = json_safe(value() if callable(value) else value)
+            except Exception as error:
+                summary[f"box_{attr}Error"] = str(error)
+    return summary
+
+
+def json_safe(value: Any) -> Any:
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    if isinstance(value, dict):
+        return {str(key): json_safe(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [json_safe(item) for item in value]
+    if hasattr(value, "tolist"):
+        return json_safe(value.tolist())
+    return repr(value)
 
 
 def prune_epoch_checkpoints(weights_dir: Path, *, keep_recent: int) -> list[Path]:
