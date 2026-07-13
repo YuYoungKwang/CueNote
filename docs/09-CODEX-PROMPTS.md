@@ -436,3 +436,9 @@ Phase 11 선택적 네이티브 앱 검토만 수행하라.
 6. 알려진 제한
 7. 다음 작업의 결정 사항
 ```
+
+## Phase 8 Scope Correction Prompt
+
+Phase 8 must stop at browser OMR runtime infrastructure: contracts, manifest, system crop tensor preprocessing, ONNX Runtime Web worker execution, WebGPU/WASM fallback, Cache Storage model delivery, IndexedDB job/result/correction persistence, review UI foundation, `TEST_RUNTIME_MODEL`, `PRODUCT_MODEL_NOT_INSTALLED`, and ai-training scaffolds.
+
+Do not complete or claim production layout/symbol recognition, pitch/duration inference, structure assembly, MusicXML draft generation, or Phase 6 editor handoff in Phase 8. Those belong to Phase 9 and Phase 10.

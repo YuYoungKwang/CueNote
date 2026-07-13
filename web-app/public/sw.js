@@ -1,4 +1,5 @@
 const CACHE_NAME = 'cuenote-phase1';
+const PRESERVED_CACHE_NAMES = new Set([CACHE_NAME, 'cuenote-omr-models-v1']);
 
 self.addEventListener('install', () => {
   self.skipWaiting();
@@ -10,7 +11,7 @@ self.addEventListener('activate', (event) => {
       const cacheNames = await caches.keys();
       await Promise.all(
         cacheNames
-          .filter((cacheName) => cacheName.startsWith('cuenote-') && cacheName !== CACHE_NAME)
+          .filter((cacheName) => cacheName.startsWith('cuenote-') && !PRESERVED_CACHE_NAMES.has(cacheName))
           .map((cacheName) => caches.delete(cacheName))
       );
       await self.clients.claim();

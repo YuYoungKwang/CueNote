@@ -462,3 +462,14 @@ Page
 - 브라우저 UI 메인 스레드에서 무거운 추론을 실행하지 않는다.
 - 브라우저에서 모델을 학습한다고 설명하지 않는다.
 - 데이터셋과 모델 라이선스를 확인하지 않고 배포하지 않는다.
+
+## Phase 8 Runtime Boundary
+
+Phase 8 implements browser OMR runtime infrastructure only.
+
+- The model input unit is a reviewed SYSTEM crop from the Phase 7 OMR preparation manifest.
+- The checked-in ONNX model is `TEST_RUNTIME_MODEL` and exists only to verify `InferenceSession`, tensor transfer, output reception, worker protocol, cache/hash, fallback, cancellation, and stale-result handling.
+- When no evaluated product model is installed, UI must show `PRODUCT_MODEL_NOT_INSTALLED`.
+- Test model output must not be converted into notes, rests, pitch, duration, structure assembly, MusicXML, or Phase 6 editor handoff.
+- Product layout/symbol model development is Phase 9.
+- Structure assembly and MusicXML draft generation are Phase 10.

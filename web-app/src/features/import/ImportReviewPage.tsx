@@ -206,6 +206,9 @@ export function ImportReviewPage() {
           <Link className="secondary-link" to="/imports">
             Imports
           </Link>
+          <Link className="primary-link" to={`/imports/${bundle.project.id}/omr`} data-testid="open-omr-runtime">
+            OMR runtime
+          </Link>
         </div>
 
         <div className="import-toolbar">

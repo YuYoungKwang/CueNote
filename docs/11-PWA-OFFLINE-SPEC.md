@@ -30,6 +30,8 @@ CueNote Web PWA는 네트워크가 없어도 기존 악보 열람, 개인 연습
 - JavaScript, CSS, HTML 앱 셸
 - 렌더러 asset
 - ONNX 모델 파일
+
+Phase 8 stores OMR model binaries and model manifests in Cache Storage for offline reuse after a successful online verification. IndexedDB stores only model metadata, runtime jobs, detection results, corrections, and preferences.
 - 모델 manifest snapshot
 
 ### OPFS 후보

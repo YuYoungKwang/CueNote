@@ -287,3 +287,7 @@
 - Existing `ScoreVersion` object keys and MusicXML content are immutable.
 - Active rehearsal sessions remain fixed to the old `scoreVersionId`.
 - Phase 6 does not implement OMR, PDF/image import, ONNX inference, or realtime collaborative score editing.
+
+## Phase 8 Product Boundary
+
+Phase 8 validates browser-local ONNX Runtime infrastructure with `TEST_RUNTIME_MODEL`. Production OMR recognition, measured product accuracy, structure assembly, MusicXML draft generation, and Phase 6 editor handoff are not Phase 8 deliverables.

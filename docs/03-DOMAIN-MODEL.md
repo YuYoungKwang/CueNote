@@ -522,6 +522,12 @@ JSONB:
 - 버전별 전체 악보 문서
 - PerformanceOrder
 - OMR confidence detail
+
+## Phase 8 OMR Runtime Domain
+
+Phase 8 adds OMR runtime records for model manifests, model cache metadata, analysis jobs, detection results, detection corrections, and preferences. Detection coordinates are stored as normalized `boundsInSystem` and `boundsInPage`; tensor pixel coordinates are not persisted.
+
+`EditableScoreDocument` generation from OMR output is deferred to Phase 10 after Phase 9 product models exist.
 - Annotation payload
 
 MVP에서는 음표마다 테이블을 과도하게 분리하지 않는다.

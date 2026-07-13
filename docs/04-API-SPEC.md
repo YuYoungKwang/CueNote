@@ -557,6 +557,8 @@ GET /ws/rehearsals/{sessionId}
 
 브라우저가 사용할 ONNX 모델 목록과 호환성을 반환한다. 클라이언트는 manifest의 hash가 변경된 경우에만 모델을 다시 다운로드한다.
 
+Phase 8 uses static PWA assets for `TEST_RUNTIME_MODEL` and does not require this backend API. A backend model manifest API remains optional for a later product model delivery phase.
+
 Response:
 
 ```json

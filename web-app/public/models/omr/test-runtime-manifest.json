@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "modelId": "cuenote-test-runtime",
+  "version": "0.1.0",
+  "task": "RUNTIME_SMOKE",
+  "file": "test-runtime-identity.onnx",
+  "sha256": "f6dac9c9427dbcfbd1fc584e6c7575f59fba0b51f424d4bb046aeee0fcc955e8",
+  "sizeBytes": 188,
+  "input": {
+    "width": 1,
+    "height": 1,
+    "channels": 1,
+    "tensorLayout": "NCHW",
+    "resizeMode": "STRETCH",
+    "valueRange": "ZERO_TO_ONE"
+  },
+  "executionProviders": [
+    "WEBGPU",
+    "WASM"
+  ],
+  "classes": [
+    {
+      "id": "runtime.identity",
+      "index": 0,
+      "label": "Runtime smoke output"
+    }
+  ],
+  "postprocessing": {
+    "confidenceThreshold": 0.5,
+    "nmsThreshold": 0.45,
+    "autoAcceptThreshold": 0.85,
+    "lowConfidenceThreshold": 0.5
+  },
+  "minimumAppVersion": "0.8.0",
+  "fixtureDetector": false
+}

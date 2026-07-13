@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuenote.local/schemas/omr-evaluation-report.schema.json",
+  "title": "CueNote OMR Evaluation Report",
+  "type": "object",
+  "required": ["schemaVersion", "modelId", "version", "datasetId", "split", "metrics", "browserCompatibility"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "modelId": { "type": "string" },
+    "version": { "type": "string" },
+    "datasetId": { "type": "string" },
+    "split": { "enum": ["validation", "test"] },
+    "metrics": {
+      "type": "object",
+      "required": ["perClass", "macroAverage"],
+      "properties": {
+        "perClass": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["classId", "precision", "recall", "f1", "support"],
+            "properties": {
+              "classId": { "type": "string" },
+              "precision": { "type": "number", "minimum": 0, "maximum": 1 },
+              "recall": { "type": "number", "minimum": 0, "maximum": 1 },
+              "f1": { "type": "number", "minimum": 0, "maximum": 1 },
+              "support": { "type": "integer", "minimum": 0 }
+            }
+          }
+        },
+        "macroAverage": {
+          "type": "object",
+          "required": ["precision", "recall", "f1"],
+          "properties": {
+            "precision": { "type": "number", "minimum": 0, "maximum": 1 },
+            "recall": { "type": "number", "minimum": 0, "maximum": 1 },
+            "f1": { "type": "number", "minimum": 0, "maximum": 1 }
+          }
+        }
+      }
+    },
+    "browserCompatibility": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["browser", "provider", "status"],
+        "properties": {
+          "browser": { "type": "string" },
+          "provider": { "enum": ["WEBGPU", "WASM"] },
+          "status": { "enum": ["PASS", "FAIL"] },
+          "loadTimeMs": { "type": "number", "minimum": 0 },
+          "medianInferenceMs": { "type": "number", "minimum": 0 },
+          "notes": { "type": "string" }
+        }
+      }
+    }
+  }
+}

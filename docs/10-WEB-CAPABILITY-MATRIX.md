@@ -31,6 +31,10 @@ Mac 또는 iPad 실기기 접근이 없으면 해당 결과를 성공으로 기�
 |---|---|---|---|---|---|
 | WebGPU | 검증 필요 | 검증 필요 | 검증 필요 | 검증 필요 | 미지원 또는 실패 시 WASM fallback 필수 |
 | WebAssembly | 검증 필요 | 검증 필요 | 검증 필요 | 검증 필요 | ONNX Runtime Web fallback 경로 |
+
+## Phase 8 OMR Runtime Check
+
+Phase 8 treats WebGPU support as usable only after ONNX Runtime session creation and inference succeed. If WebGPU is unavailable or unusable, the worker reports the fallback reason and uses WASM. `navigator.gpu` alone is not accepted as success.
 | PWA 설치 | 검증 필요 | 검증 필요 | 검증 필요 | 검증 필요 | 설치 UX와 standalone 표시 방식은 브라우저별 차이 가능 |
 | Service Worker | 검증 필요 | 검증 필요 | 검증 필요 | 검증 필요 | 앱 셸 캐시와 offline fallback에 필요 |
 | IndexedDB | 검증 필요 | 검증 필요 | 검증 필요 | 검증 필요 | 악보 구조, 메모, 동기화 큐 저장 |

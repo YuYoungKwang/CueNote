@@ -358,3 +358,49 @@ Phase 6 is implemented as limited structured score editing for existing server-b
 - Publish creates a new immutable `ScoreVersion` and updates the score current-version pointer.
 - Existing versions are never overwritten.
 - OMR, PDF/image import, ONNX model integration, and realtime collaborative score editing remain future phases.
+
+## Phase 8/9/10 Scope Correction
+
+This section supersedes any earlier wording that implied Phase 8 completes production OMR symbol recognition, structure assembly, MusicXML draft generation, or Phase 6 editor handoff.
+
+### Phase 8 — Browser OMR Runtime Infrastructure
+
+- OMR model input/output contract
+- model manifest schema and class-index mapping
+- canonical system crop creation from Phase 7 reviewed SYSTEM regions
+- manifest-driven tensor preprocessing
+- ONNX Runtime Web adapter
+- WebGPU-first provider selection with WASM fallback
+- `omr.worker.ts` protocol, cancellation, and stale-result handling
+- model download, Cache Storage cache, SHA-256 verification, and rollback-ready metadata
+- actual ONNX Runtime execution using `TEST_RUNTIME_MODEL`
+- layout/symbol model adapter interfaces for future product models
+- detection result, confidence, and review decision domain
+- detection overlay and correction UI foundation
+- IndexedDB OMR job/result/correction/model metadata/preferences persistence
+- reload restoration and offline cached model handling
+- `PRODUCT_MODEL_NOT_INSTALLED` state when no evaluated product model is installed
+- `ai-training` dataset/train/evaluate/export/validate scaffold and evaluation report schema
+
+Phase 8 does not implement production layout model training, production symbol model training, fixture detections as product output, pitch/duration inference, structure assembly, automatic MusicXML draft generation, or Phase 6 editor handoff.
+
+### Phase 9 — OMR Dataset And Model Development
+
+- Phase 9A: dataset specification, label schema, source-level train/validation/test split, leakage prevention, synthetic rendered data plan, augmentation plan, license records, dataset validation, and class distribution reports
+- Phase 9B: layout model training/evaluation/export for system, staff, measure, and barline classes
+- Phase 9C: symbol model training/evaluation/export for notehead, stem, rest, accidental, clef, augmentation dot, repeat barline, and navigation symbol classes
+- Phase 9D: browser optimization and parity validation for ONNX, WebGPU, WASM, quantization, model size, load time, inference time, and accuracy/performance tradeoffs
+
+### Phase 10 — OMR Structure And MusicXML Draft
+
+- consume evaluated Phase 9 model outputs
+- layout/symbol assignment
+- notehead/stem association
+- pitch inference
+- duration inference
+- accidental application
+- voice/rhythm assembly
+- repeat/navigation interpretation
+- `EditableScoreDocument`
+- MusicXML draft generation
+- Phase 6 editor handoff

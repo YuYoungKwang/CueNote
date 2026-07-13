@@ -99,6 +99,8 @@ Phase 4 구현은 Spring Security adapter를 아직 도입하지 않고 명시�
 
 브라우저에서는 모델을 학습하지 않는다. 브라우저는 전달받은 ONNX 모델을 검증된 manifest와 hash 기준으로 다운로드하고 추론만 수행한다.
 
+Phase 8 implements only the browser runtime infrastructure. The app loads `TEST_RUNTIME_MODEL` in `omr.worker.ts`, reports `PRODUCT_MODEL_NOT_INSTALLED`, and does not create notes, pitch, duration, structure assembly, MusicXML drafts, or Phase 6 editor handoff from test model output.
+
 ### Infrastructure
 
 #### 로컬 개발

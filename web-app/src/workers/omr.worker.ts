@@ -1,15 +1,138 @@
 /// <reference lib="webworker" />
 
-import { MockOMRService } from '../ai/runtime/mockOMRService';
-import type { OMRSourcePage } from '../ai/runtime/types';
+import type { OmrModelManifest } from '@cuenote/score-domain';
+import { fetchOmrModelManifest } from '../core/omr/modelManifest';
+import { createOmrModelRepository, type OmrModelCacheMetadata } from '../core/omr/modelRepository';
+import { createOnnxRuntimeAdapter, type LoadedOmrModel } from '../core/omr/onnxRuntimeAdapter';
+import { createRuntimeSmokeDetectionResult } from '../core/omr/postprocessing';
+import { buildOmrTensorFromImageData } from '../core/omr/tensorBuilder';
+import type { OmrWorkerRequest, OmrWorkerResponse } from '../core/omr/workerProtocol';
 
 const scope = self as DedicatedWorkerGlobalScope;
-const service = new MockOMRService();
+const repository = createOmrModelRepository();
+const runtime = createOnnxRuntimeAdapter();
+const cancelledJobs = new Set<string>();
 
-scope.addEventListener('message', async (event: MessageEvent<{ pages?: OMRSourcePage[] }>) => {
-  const pages = event.data.pages ?? [];
-  const result = await service.recognize(pages);
-  scope.postMessage(result);
+let loadedManifest: OmrModelManifest | null = null;
+let loadedMetadata: OmrModelCacheMetadata | null = null;
+let loadedModel: LoadedOmrModel | null = null;
+let loadedManifestUrl: string | null = null;
+
+scope.addEventListener('message', (event: MessageEvent<OmrWorkerRequest>) => {
+  void handleRequest(event.data);
 });
+
+async function handleRequest(request: OmrWorkerRequest) {
+  if (request.type === 'CANCEL_JOB') {
+    cancelledJobs.add(request.jobId);
+    post({ type: 'JOB_CANCELLED', jobId: request.jobId });
+    return;
+  }
+
+  try {
+    if (request.type === 'LOAD_MODEL') {
+      await loadModel(request.jobId, request.manifestUrl);
+    } else if (request.type === 'ANALYZE_SYSTEM') {
+      await analyzeSystem(request);
+    } else if (request.type === 'DISPOSE_MODEL') {
+      await loadedModel?.dispose();
+      loadedModel = null;
+      loadedManifest = null;
+      loadedMetadata = null;
+    } else if (request.type === 'CLEAR_MODEL_CACHE') {
+      if (loadedManifest) {
+        await repository.clearModel(loadedManifest);
+      }
+      post({ type: 'MODEL_CACHE_CLEARED', jobId: request.jobId });
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'OMR worker request failed.';
+    post(request.type === 'LOAD_MODEL' ? { type: 'MODEL_FAILED', jobId: request.jobId, error: message } : { type: 'JOB_FAILED', jobId: request.jobId, error: message });
+  }
+}
+
+async function loadModel(jobId: string, manifestUrl: string) {
+  cancelledJobs.delete(jobId);
+  post({ type: 'MODEL_LOADING', jobId, progress: 0.1 });
+  const parsed = await fetchOmrModelManifest(manifestUrl);
+  if (isCancelled(jobId)) return;
+
+  const { bytes, cacheHit, metadata } = await repository.getModelBytes(parsed.manifest, manifestUrl);
+  loadedMetadata = metadata;
+  post({ type: 'MODEL_LOADING', jobId, progress: cacheHit ? 0.55 : 0.45 });
+  if (isCancelled(jobId)) return;
+
+  await loadedModel?.dispose();
+  const { model, fallbackReason } = await runtime.loadModel(parsed.manifest, bytes);
+  if (fallbackReason) {
+    post({ type: 'PROVIDER_FALLBACK', jobId, provider: 'WASM', reason: fallbackReason });
+  }
+  loadedModel = model;
+  loadedManifest = parsed.manifest;
+  loadedManifestUrl = manifestUrl;
+
+  post({
+    type: 'MODEL_READY',
+    jobId,
+    manifest: parsed.manifest,
+    provider: model.provider,
+    fallbackReason,
+    cacheHit,
+    metadata,
+    readiness: {
+      id: `${parsed.manifest.modelId}:${parsed.manifest.version}`,
+      projectId: 'runtime',
+      modelState: parsed.manifest.task === 'RUNTIME_SMOKE' ? 'PRODUCT_MODEL_NOT_INSTALLED' : 'PRODUCT_MODEL_READY',
+      testRuntimeModelExecuted: false,
+      lastProvider: model.provider,
+      warnings: parsed.manifest.task === 'RUNTIME_SMOKE'
+        ? [{ code: 'PRODUCT_MODEL_NOT_INSTALLED', message: 'Only the TEST_RUNTIME_MODEL is installed.', severity: 'warning' }]
+        : [],
+      createdAt: Date.now(),
+      updatedAt: Date.now()
+    }
+  });
+}
+
+async function analyzeSystem(request: Extract<OmrWorkerRequest, { type: 'ANALYZE_SYSTEM' }>) {
+  cancelledJobs.delete(request.jobId);
+  if (!loadedModel || !loadedManifest) {
+    throw new Error('MODEL_SESSION_FAILED');
+  }
+  post({ type: 'JOB_STARTED', jobId: request.jobId, progress: 0.05 });
+  const tensor = buildOmrTensorFromImageData(request.imageData, loadedManifest.input);
+  post({ type: 'JOB_PROGRESS', jobId: request.jobId, progress: 0.45 });
+  if (isCancelled(request.jobId)) return;
+
+  const raw = await runtime.run(loadedModel, tensor);
+  post({ type: 'JOB_PROGRESS', jobId: request.jobId, progress: 0.85 });
+  if (isCancelled(request.jobId)) return;
+
+  const result = createRuntimeSmokeDetectionResult(request.input.projectId, request.input, loadedManifest, raw);
+  loadedMetadata = loadedMetadata ?? {
+    id: `${loadedManifest.modelId}:${loadedManifest.version}`,
+    modelId: loadedManifest.modelId,
+    version: loadedManifest.version,
+    sha256: loadedManifest.sha256,
+    sizeBytes: loadedManifest.sizeBytes,
+    cachedAt: Date.now(),
+    verifiedAt: Date.now(),
+    sourceUrl: loadedManifestUrl ?? loadedManifest.file,
+    status: 'VERIFIED'
+  };
+  post({ type: 'JOB_COMPLETED', jobId: request.jobId, result, runtimeOutputNames: loadedModel.outputNames });
+}
+
+function isCancelled(jobId: string): boolean {
+  if (!cancelledJobs.has(jobId)) {
+    return false;
+  }
+  post({ type: 'JOB_CANCELLED', jobId });
+  return true;
+}
+
+function post(message: OmrWorkerResponse) {
+  scope.postMessage(message);
+}
 
 export {};

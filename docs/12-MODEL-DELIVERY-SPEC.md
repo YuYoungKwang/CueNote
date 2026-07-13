@@ -19,6 +19,15 @@
 
 모델 구성은 Phase 8 이후 검증 결과에 따라 변경될 수 있다.
 
+## Phase 8 Runtime Model Boundary
+
+Phase 8 ships only `TEST_RUNTIME_MODEL` for ONNX Runtime Web infrastructure validation. It is not a product layout or symbol model.
+
+- The test model may validate session creation, tensor input, output reception, provider fallback, cache/hash, rollback-ready metadata, and offline cached loading.
+- Product layout and symbol models are Phase 9 deliverables.
+- Structure assembly and MusicXML draft generation are Phase 10 deliverables.
+- UI and reports must distinguish `TEST_RUNTIME_MODEL` from an installed product model with `PRODUCT_MODEL_NOT_INSTALLED`.
+
 ## 3. Manifest
 
 ### Endpoint

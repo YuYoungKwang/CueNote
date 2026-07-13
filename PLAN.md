@@ -1,92 +1,108 @@
-# Phase 7 Implementation Plan
+# Phase 8 Implementation Plan
 
-Phase 7 implements PDF/image import and OMR layout preparation for the Web PWA. It does not implement Phase 8 symbol recognition, ONNX inference, WebGPU/WASM model execution, OCR, or MusicXML generation.
+Phase 8 implements browser-local OMR runtime infrastructure. It does not implement production-quality layout or symbol models, structure assembly, pitch/duration inference, automatic MusicXML drafts, or Phase 6 editor handoff.
 
 ## Repository Analysis
 
 - The primary platform is the React + TypeScript + Vite Web PWA.
 - `legacy/ios-app` is Phase 11 archival material and remains out of scope.
-- Phase 1-6 already provide MusicXML parsing/rendering, repeat playback, annotations, server sharing, rehearsal sync, and limited score editing.
-- `web-app/src/features/import/ImportFeature.tsx` is currently only a placeholder.
-- `web-app/src/workers/image.worker.ts` is currently an acknowledgement stub and can become the Phase 7 preprocessing worker.
-- `web-app/src/workers/omr.worker.ts` remains Phase 0 mock OMR plumbing and will not be converted into real OMR.
-- IndexedDB schema version 5 already stores recent scores, annotations, rehearsal preferences, and score edit drafts.
-- Backend score/version/object storage is not required for Phase 7 because import projects are local-first and server upload must not be forced.
+- Phase 1-7 already provide MusicXML parsing/rendering, repeat playback, annotations, server sharing, rehearsal sync, limited score editing, PDF/image import, page preprocessing, baseline layout detection, user layout corrections, and local ImportProject storage.
+- `packages/score-domain/src/import` owns Phase 7 page/system/measure regions in normalized canonical page coordinates.
+- `web-app/src/workers/omr.worker.ts` is still Phase 0 mock plumbing and will become the Phase 8 worker boundary.
+- IndexedDB schema version 6 stores recent scores, annotations, rehearsal preferences, score edit drafts, and Phase 7 import records. Phase 8 will add OMR model metadata, jobs, detection results, corrections, and preferences.
+- The backend is not required for Phase 8 because model manifests and the test ONNX model can be served as static PWA assets.
 
-## Scope
+## Revised Scope
 
-- Add platform-independent import project domain types in `packages/score-domain`.
-- Store original source metadata separately from page rasters, detection snapshots, user corrections, and review status.
-- Use normalized canonical page coordinates for systems, staves, and measures.
-- Add OPFS-first source storage with IndexedDB Blob fallback.
-- Add Phase 7 IndexedDB stores for import projects, pages, source blobs, detection snapshots, corrections, and preferences.
-- Add a typed worker protocol for `PREPROCESS_PAGE`, `DETECT_LAYOUT`, `CANCEL_JOB`, and `DISPOSE_PAGE`.
-- Implement deterministic baseline layout detection for systems, staves, and measures as an OMR preparation detector, not as AI inference.
-- Add import routes for `/imports`, `/imports/new`, and `/imports/:projectId/review`.
-- Add review UI for page selection, preprocessing settings, layout overlays, correction operations, warnings, review complete, reset, and manifest export preview.
-- Add focused unit tests and Playwright coverage for image/PDF import, review corrections, persistence, and offline-local behavior.
+- Add OMR model input/output contracts.
+- Add model manifest schema and class-index mapping validation.
+- Build tensors from Phase 7 reviewed SYSTEM crops, not whole pages.
+- Implement manifest-driven tensor preprocessing and coordinate reverse mapping.
+- Add ONNX Runtime Web adapter used only from `omr.worker.ts`.
+- Attempt WebGPU first and fall back to WASM when WebGPU is unavailable, session creation fails, or inference fails.
+- Add model download/cache/hash/rollback with model binaries in Cache Storage and metadata in IndexedDB.
+- Add a tiny ONNX test model for runtime verification only. UI and tests must identify it as `TEST_RUNTIME_MODEL`.
+- Add layout/symbol model adapter interfaces so Phase 9 production models can replace the test path.
+- Add detection result, confidence, and review decision domain types.
+- Add detection overlay and correction UI foundations with a clear `PRODUCT_MODEL_NOT_INSTALLED` state.
+- Persist OMR jobs, results, corrections, model metadata, and preferences in IndexedDB.
+- Restore OMR runtime/review state after reload.
+- Connect Phase 7 OMR preparation manifests to Phase 8 system-crop model inputs.
+- Add `ai-training` skeletons for dataset, train, evaluate, export, validate, and evaluation report schemas.
+- Preserve Phase 1-7 behavior with regression tests.
 
-## Out of Scope
+## Explicitly Out of Scope
 
-- Actual ONNX Runtime Web integration.
-- WebGPU/WASM model execution.
-- Note/rest/chord/lyrics OCR or symbol recognition.
-- MusicXML generation from imported images/PDFs.
-- Server `ImportProject` API or forced upload.
-- Backend, deployment, and `legacy/ios-app` changes.
-- OpenCV.js dependency. Canvas-based preprocessing is sufficient for this phase.
+- Production layout model training.
+- Production symbol model training.
+- Presenting fixture detections as real OMR output.
+- Completing notehead/stem recognition, pitch inference, duration inference, or structure assembly.
+- Automatic MusicXML draft generation.
+- Passing fake MusicXML into the Phase 6 editor.
+- Claiming OMR accuracy without a dataset and evaluated product model.
+- Server GPU OMR.
+- Code OCR or Hangul lyric OCR.
+- Native iOS/Core ML work and `legacy/ios-app` changes.
+
+## Roadmap Adjustment
+
+### Phase 9: OMR Dataset And Model Development
+
+Phase 9A defines dataset specs, label schema, source-level train/validation/test splits, leakage prevention, synthetic MusicXML-rendered data, scan/photo augmentation, license records, dataset validation, and class distribution reports.
+
+Phase 9B trains and evaluates the layout model for system, staff, measure, and barline classes, then exports a browser-compatible ONNX model and manifest.
+
+Phase 9C trains and evaluates the symbol model for noteheads, stems, rests, accidentals, clefs, augmentation dots, repeat barlines, and navigation symbols.
+
+Phase 9D validates browser optimization: ONNX parity, operator compatibility, WebGPU/WASM behavior, quantization, model size, load time, inference time, and accuracy/performance tradeoffs.
+
+### Phase 10: OMR Structure And MusicXML Draft
+
+Phase 10 consumes real Phase 9 model outputs and implements layout/symbol assignment, notehead/stem association, pitch inference, duration inference, accidental application, voice/rhythm assembly, repeats/navigation, `EditableScoreDocument`, MusicXML draft generation, and Phase 6 editor handoff.
 
 ## Design Decisions
 
-### PDF Rendering Adapter
+### Test ONNX Model Boundary
 
-Decision: Add a small `DocumentPageRenderer` contract and keep PDF handling behind the adapter. The UI will not import or store PDF.js objects directly.
+Decision: The checked-in ONNX model is a runtime smoke model only. It verifies `InferenceSession` creation, tensor input transfer, output reception, worker protocol, provider fallback, cache/hash, cancellation, stale-result handling, and coordinate adapter plumbing.
 
-Reason: The architecture requires replaceable components and page-by-page PDF processing. Keeping PDF.js behind an adapter prevents React components from depending on library internals.
+Reason: No production OMR dataset, checkpoint, or evaluated model exists yet.
 
-Alternative: Let the import page use PDF.js directly. Rejected because it would couple UI state to renderer internals and make worker migration harder.
+Alternative: Use fixture detections to complete symbol detection and MusicXML generation. Rejected because it would make Phase 8 appear to complete product OMR without a real model.
 
-### Layout Detector
+### Model Delivery
 
-Decision: Implement a deterministic baseline detector using image luminance projections and synthetic fallback regions. Label it as layout preparation, not AI or OMR inference.
+Decision: Store model binaries in Cache Storage and store only metadata/results/corrections/preferences in IndexedDB.
 
-Reason: Phase 7 must show reviewable system/staff/measure regions without starting Phase 8 model work.
+Reason: This follows the PWA offline and model delivery specs while avoiding base64 model blobs in IndexedDB JSON.
 
-Alternative: Mock fixed rectangles only. Rejected because it would not exercise preprocessing or correction flows meaningfully.
+### Model Input Unit
 
-### Coordinates
+Decision: Build tensors from reviewed system crops, with manifest-driven preprocessing.
 
-Decision: Store all region boxes as `NormalizedRect` in canonical page coordinates after page orientation/crop handling. Pixel conversion stays in geometry helpers and overlay rendering.
+Reason: Phase 7 produces reviewed page/system/measure regions. System crops reduce memory pressure and match the Phase 8 contract.
 
-Reason: This keeps results stable across zoom, canvas size, device pixel ratio, and future renderer changes.
+### Product Model State
 
-### Storage
+Decision: UI exposes `PRODUCT_MODEL_NOT_INSTALLED` when only the test runtime model is available.
 
-Decision: Use OPFS for original source bytes when available and IndexedDB Blob fallback otherwise. Store no Canvas, DOM node, ImageBitmap, or worker object in IndexedDB.
-
-Reason: The PWA offline spec lists OPFS as a candidate for large sources, with IndexedDB Blob fallback. It also protects the project model from browser object lifetimes.
-
-### Worker Boundary
-
-Decision: Use `image.worker.ts` for preprocessing and `layout.worker.ts` for layout detection through an explicit message protocol. Cancellation is job-id based.
-
-Reason: Heavy image work must not live in React components. Job IDs make cancellation and stale-result handling explicit.
+Reason: Users and tests must distinguish infrastructure readiness from product OMR capability.
 
 ## Implementation Order
 
-1. Add import domain model, geometry helpers, correction reducer, validation, and manifest round-trip helpers.
-2. Add import storage stores and repository with OPFS/IndexedDB Blob source handling.
-3. Implement document page renderer contract, file validation, checksum, and worker client.
-4. Replace the image worker stub and add a layout worker.
-5. Implement import library, new import, and review pages.
-6. Add routes and navigation entry points without touching unrelated Phase 1-6 flows.
-7. Add unit tests for domain, geometry, correction, validation, detector, storage, and worker-facing helpers.
-8. Add Playwright E2E for image/PDF import, layout review, corrections, persistence, and offline-local access.
-9. Run requested build, test, E2E, Markdown link, Docker config, and diff validations.
+1. Align docs and roadmap with the revised Phase 8/9/10 split.
+2. Add OMR domain model, manifest, confidence, and correction types without MusicXML draft claims.
+3. Add model manifest validation, cache/hash delivery, tensor preprocessing, coordinate mapping, and worker protocol.
+4. Add OMR IndexedDB stores and repository.
+5. Replace the OMR worker with ONNX Runtime loading, provider fallback, cancellation, and stale-result handling.
+6. Add OMR prepare/review foundation routes and link them from Phase 7 import review.
+7. Add model manifest/static test ONNX asset and AI training skeleton.
+8. Add unit tests and Playwright E2E for ONNX browser load, fallback reporting, offline cache, job persistence, and correction persistence.
+9. Run requested build, unit tests, E2E, manifest validation, Markdown link check, Docker config, and diff checks.
 
 ## Risks
 
-- Browser PDF rendering through PDF.js may require worker asset configuration in Vite. The adapter must expose failure states such as `PDF_WORKER_FAILED` rather than blank UI.
-- OPFS behavior differs by browser. IndexedDB Blob fallback remains required.
-- Synthetic test PDFs are intentionally simple and only validate Phase 7 page-by-page import plumbing, not real-world PDF fidelity.
-- Baseline layout detection is conservative and review-first. It must not be presented as model accuracy.
+- Browser WebGPU support varies. The implementation must report the attempted provider and fallback reason rather than assuming WebGPU success.
+- The checked-in ONNX model is not useful for OMR recognition.
+- Detection review UI in Phase 8 is an infrastructure shell until Phase 9 supplies product models.
+- Offline model use depends on Cache Storage availability and successful prior hash verification.

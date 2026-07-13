@@ -330,3 +330,33 @@ Cache Storage hit rate
 - LIMITATION: Current backend roles map edit publishing to `OWNER`/`ADMIN`; explicit `EDITOR`/`VIEWER` roles are future work.
 - LIMITATION: Unsupported MusicXML structures are warned or serialized through the supported subset, not fully opaque-preserved.
 - OUT OF SCOPE: OMR, PDF/image import, ONNX inference, full composition tooling, and realtime collaborative score editing.
+
+## Phase 8 Revised Acceptance Criteria
+
+Phase 8 is complete only when the runtime infrastructure is verified without claiming product OMR capability.
+
+- PASS required: `TEST_RUNTIME_MODEL` executes through actual ONNX Runtime Web in the browser.
+- PASS required: model manifest validation checks schema, file, size, SHA-256, minimum app version, provider list, and class-index mapping.
+- PASS required: model binaries are cached in Cache Storage, not base64 JSON in IndexedDB.
+- PASS required: model metadata, jobs, results, corrections, and preferences are stored in IndexedDB.
+- PASS required: hash mismatch removes corrupt cached model data and fails with a structured error.
+- PASS required: WebGPU is attempted only when the environment is actually usable; WASM fallback is reported with a reason.
+- PASS required: ONNX Runtime sessions are created in `omr.worker.ts`, not React components.
+- PASS required: model input is a canonical SYSTEM crop from Phase 7 reviewed regions, not a whole page.
+- PASS required: tensor preprocessing is manifest-driven and supports layout/range variants required by the contract.
+- PASS required: tensor pixel coordinates are not persisted; results expose `boundsInSystem` and `boundsInPage`.
+- PASS required: worker cancellation and stale job result handling are covered.
+- PASS required: offline cached manifest/model loading is verified after an initial successful online load.
+- PASS required: UI clearly shows `TEST_RUNTIME_MODEL` and `PRODUCT_MODEL_NOT_INSTALLED`.
+- PASS required: detection overlay and correction UI foundations exist without presenting fixture detections as product output.
+- PASS required: `ai-training` contains dataset/train/evaluate/export/validate scaffolds and an evaluation report schema.
+- PASS required: Phase 1-7 regression tests still pass.
+
+Explicit Phase 8 non-goals:
+
+- product layout model: NOT IMPLEMENTED
+- product symbol model: NOT IMPLEMENTED
+- structure assembly: DEFERRED TO PHASE 10
+- MusicXML automatic draft: DEFERRED TO PHASE 10
+- Phase 6 editor handoff from OMR: DEFERRED TO PHASE 10
+- OMR product accuracy: NOT EVALUATED

@@ -1,5 +1,6 @@
 import { Link, Route, Routes, Navigate } from 'react-router-dom';
 import { ImportLibraryPage } from '../features/import/ImportLibraryPage';
+import { OmrRuntimePage } from '../features/import/OmrRuntimePage';
 import { ImportReviewPage } from '../features/import/ImportReviewPage';
 import { NewImportPage } from '../features/import/NewImportPage';
 import { LibraryPage } from '../features/library/LibraryPage';
@@ -26,6 +27,9 @@ export function App() {
         <Route path="/imports" element={<ImportLibraryPage />} />
         <Route path="/imports/new" element={<NewImportPage />} />
         <Route path="/imports/:projectId/review" element={<ImportReviewPage />} />
+        <Route path="/imports/:projectId/omr" element={<OmrRuntimePage />} />
+        <Route path="/imports/:projectId/omr/review" element={<OmrRuntimePage mode="review" />} />
+        <Route path="/imports/:projectId/omr/draft" element={<OmrRuntimePage mode="draft" />} />
         <Route path="/scores/:scoreId" element={<ScoreViewerPage />} />
         <Route path="/scores/:scoreId/edit" element={<ScoreEditPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />

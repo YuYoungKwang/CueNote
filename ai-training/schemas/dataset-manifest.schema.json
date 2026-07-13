@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuenote.local/schemas/omr-dataset-manifest.schema.json",
+  "title": "CueNote OMR Dataset Manifest",
+  "type": "object",
+  "required": ["schemaVersion", "datasetId", "licensePolicy", "splits", "classes"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "datasetId": { "type": "string", "minLength": 1 },
+    "licensePolicy": {
+      "type": "object",
+      "required": ["allowedSources", "sourceLevelSplitRequired"],
+      "properties": {
+        "allowedSources": { "type": "array", "items": { "type": "string" } },
+        "sourceLevelSplitRequired": { "const": true }
+      }
+    },
+    "splits": {
+      "type": "object",
+      "required": ["train", "validation", "test"],
+      "properties": {
+        "train": { "type": "array", "items": { "type": "string" } },
+        "validation": { "type": "array", "items": { "type": "string" } },
+        "test": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "classes": { "type": "array", "items": { "$ref": "#/$defs/class" } }
+  },
+  "$defs": {
+    "class": {
+      "type": "object",
+      "required": ["id", "index", "task"],
+      "properties": {
+        "id": { "type": "string" },
+        "index": { "type": "integer", "minimum": 0 },
+        "task": { "enum": ["LAYOUT_DETECTION", "SYMBOL_DETECTION"] }
+      }
+    }
+  }
+}

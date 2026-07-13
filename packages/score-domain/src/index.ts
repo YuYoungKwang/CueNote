@@ -6,3 +6,4 @@ export * from './playback/playbackTimeline';
 export * from './rehearsal';
 export * from './editing';
 export * from './import';
+export * from './omr';

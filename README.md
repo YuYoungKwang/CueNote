@@ -127,3 +127,16 @@ Phase 6 adds a limited structured MusicXML editor for server-backed scores.
 - Current publish roles are `OWNER` and `ADMIN`; `MEMBER` cannot publish edits.
 - Active rehearsal sessions remain pinned to the original `scoreVersionId` and are not updated by score editing.
 - OMR, PDF/image import, ONNX model inference, and realtime collaborative score editing remain future phases.
+
+## Phase 8 OMR Runtime Infrastructure
+
+Phase 8 verifies browser-local OMR runtime infrastructure, not product OMR accuracy.
+
+- The app loads a static manifest and `TEST_RUNTIME_MODEL` through `omr.worker.ts`.
+- ONNX Runtime Web runs in the worker with WebGPU attempted only when usable and WASM fallback reported with a reason.
+- Model binaries are stored in Cache Storage; model metadata, jobs, results, corrections, and preferences are stored in IndexedDB.
+- The model input unit is a Phase 7 reviewed SYSTEM crop.
+- UI shows `PRODUCT_MODEL_NOT_INSTALLED` until Phase 9 provides evaluated layout and symbol models.
+- Test model output is not converted into notes, rests, pitch, duration, MusicXML, or Phase 6 editor drafts.
+
+Phase 9 covers dataset and model development. Phase 10 covers structure assembly, MusicXML draft generation, and Phase 6 editor handoff.
