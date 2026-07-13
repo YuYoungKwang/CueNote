@@ -298,3 +298,17 @@ Cache Storage hit rate
 ## 알려진 제한
 ## 문서와 다른 결정
 ```
+
+## Phase 5 Self Check
+
+- PASS: REST session create/list/get/join/leave/end and leader transfer are implemented.
+- PASS: Raw Spring WebSocket `/ws/rehearsal` is implemented.
+- PASS: Authoritative state uses `performanceMeasureId`, `sourceMeasureId`, `occurrence`, `beat`, `bpm`, `playbackStatus`, `sequence`, and `effectiveAtServerTime`.
+- PASS: Page number, scroll offset, SVG coordinate, DOM index, and absolute pixel sync are not used.
+- PASS: Stale sequence, duplicate command idempotency, sequence gap snapshot request, reconnect, visibility recovery, and server clock estimation are covered in code/tests.
+- PASS: Ensemble membership, leader-only playback commands, `OWNER`/`ADMIN` session creation, and leader transfer permissions are enforced.
+- PASS: `FOLLOWING_LEADER` and `BROWSING_INDEPENDENTLY` are implemented.
+- PASS: Backend PostgreSQL Testcontainers and real Spring WebSocket multi-client tests pass.
+- PASS: Playwright real backend rehearsal E2E with two browser contexts passes.
+- LIMITATION: Active WebSocket registry is single-backend in memory. Multi-instance broadcast needs future Redis/pub-sub or broker fanout.
+- OUT OF SCOPE: realtime annotation push, cursors, audio/video, WebRTC, CRDT editing, Phase 6 score editing, and OMR/model work.

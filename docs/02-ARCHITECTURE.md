@@ -441,3 +441,15 @@ deploy/k8s/
 - 전체 PDF를 한 번에 고해상도로 rasterize하지 않는다.
 - 브라우저에서 모델을 학습하지 않는다.
 - 같은 서버 디스크의 복사본을 외부 백업으로 간주하지 않는다.
+
+## Phase 5 Rehearsal Sync Architecture
+
+Phase 5 stores rehearsal session metadata, participant records, latest authoritative playback snapshot, and processed `clientCommandId` idempotency records in PostgreSQL.
+
+The active WebSocket registry is in memory and is valid for the current single-backend deployment only. Multi-instance deployment requires a future Redis pub/sub, broker relay, or equivalent fanout layer.
+
+The backend exposes raw Spring WebSocket at `/ws/rehearsal`. JSON envelopes carry `sequence`, `STATE_SNAPSHOT`, `COMMAND_REJECTED`, `serverTimestamp`, and `effectiveAtServerTime`.
+
+The frontend separates `RehearsalSessionApi`, `RehearsalSocketClient`, `ServerClockEstimator`, `RehearsalSyncController`, and IndexedDB rehearsal UI preferences.
+
+Synchronization is based on `performanceMeasureId`, `sourceMeasureId`, `occurrence`, and `beat`; it must not use page numbers, scroll offsets, SVG coordinates, DOM index, or absolute pixels.

@@ -240,6 +240,31 @@ a {
   background: #f8fafc;
 }
 
+.rehearsal-panel {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 14px;
+  padding: 12px;
+  border: 1px solid #bae6fd;
+  border-radius: 10px;
+  background: #f0f9ff;
+}
+
+.rehearsal-panel__top {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+
+.rehearsal-panel__top > div {
+  display: grid;
+  gap: 4px;
+  padding: 10px;
+  border: 1px solid #e0f2fe;
+  border-radius: 10px;
+  background: #fff;
+}
+
 .playback-panel__controls,
 .playback-panel__status {
   display: grid;

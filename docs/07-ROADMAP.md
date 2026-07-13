@@ -339,3 +339,11 @@ Phase 4 구현 선택:
 ## 알려진 제한
 ## 다음 단계 전에 결정할 사항
 ```
+
+## Phase 5 Implementation Note
+
+Phase 5 is implemented for the Web PWA with server-backed rehearsal sessions, raw Spring WebSocket sync, authoritative sequence snapshots, server clock estimation, reconnect/snapshot recovery, independent browsing, and leader-only shared playback commands.
+
+The current implementation is intentionally single-backend. Redis pub/sub or broker fanout remains a future scaling task and is not Phase 5 scope.
+
+Phase 6 score editing, realtime annotation push, audio/video, WebRTC, and OMR/model work remain out of scope.

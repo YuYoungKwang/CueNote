@@ -96,7 +96,13 @@ public class AuthService {
         if (token == null) {
             throw new ApiException(ErrorCode.UNAUTHORIZED, "Bearer token is required");
         }
+        return requireUserByAccessToken(token);
+    }
 
+    public AuthenticatedUser requireUserByAccessToken(String token) {
+        if (token == null || token.isBlank()) {
+            throw new ApiException(ErrorCode.UNAUTHORIZED, "Access token is required");
+        }
         String tokenHash = hashToken(token);
         List<AuthenticatedUser> users = jdbcTemplate.query(
                 """

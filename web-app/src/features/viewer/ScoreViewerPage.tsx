@@ -5,6 +5,7 @@ import {
   type AnnotationAnchor,
   type AnnotationLayerFilterState,
   type AnnotationScope,
+  type AuthoritativePlaybackState,
   PlaybackTimeline,
   analyzeRepresentativePartWarnings,
   expandRepeats,
@@ -29,6 +30,7 @@ import { createAnnotationSyncQueue } from '../../core/storage/annotationSyncQueu
 import { createAnnotationSyncService } from '../../core/storage/annotationSyncService';
 import { createRecentScoreStore } from '../../core/storage/recentScoreStore';
 import { AnnotationOverlay, type ViewerAnnotationTool, type ViewerInteractionMode } from './AnnotationOverlay';
+import { RehearsalPanel } from './RehearsalPanel';
 import { getSampleById } from '../../samples/catalog';
 
 const DEFAULT_BPM = 80;
@@ -71,6 +73,8 @@ const DEFAULT_LAYER_FILTERS: AnnotationLayerFilterState = {
 
 interface ServerViewerContext {
   accessToken: string;
+  userId: string;
+  ensembleId: string;
   scoreId: string;
   scoreVersionId: string;
 }
@@ -126,6 +130,7 @@ export function ScoreViewerPage() {
     elapsedMs: 0,
     countInRemainingMs: 0
   });
+  const [manualBrowseSignal, setManualBrowseSignal] = useState(0);
 
   useEffect(() => {
     selectedMeasureIdRef.current = selectedMeasureId;
@@ -172,11 +177,13 @@ export function ScoreViewerPage() {
         sourceXml,
         parseScoreId: score.id,
         sample: false,
-        serverContext: {
-          accessToken: session.accessToken,
-          scoreId: score.id,
-          scoreVersionId
-        } satisfies ServerViewerContext
+          serverContext: {
+            accessToken: session.accessToken,
+            userId: session.user.id,
+            ensembleId: score.ensemble_id,
+            scoreId: score.id,
+            scoreVersionId
+          } satisfies ServerViewerContext
       };
     };
 
@@ -561,6 +568,7 @@ export function ScoreViewerPage() {
   };
 
   const handleMeasureSelection = (measureId: StableMeasureId) => {
+    setManualBrowseSignal((value) => value + 1);
     setSelectedMeasureId(measureId);
 
     if (status.kind !== 'ready' || !timelineRef.current) {
@@ -676,6 +684,26 @@ export function ScoreViewerPage() {
 
   const onRetryRenderer = () => {
     setRendererRetryKey((value) => value + 1);
+  };
+
+  const applyRehearsalState = (state: AuthoritativePlaybackState, estimatedServerNowMs: number) => {
+    if (!timelineRef.current) {
+      return;
+    }
+    const nextSnapshot = timelineRef.current.applyAuthoritativeSnapshot(
+      {
+        playbackStatus: state.playbackStatus,
+        bpm: state.bpm,
+        countInMeasures: state.countInMeasures,
+        performanceMeasureId: state.performanceMeasureId,
+        baseTimelinePositionMs: state.baseTimelinePositionMs,
+        effectiveAtServerTime: state.effectiveAtServerTime
+      },
+      estimatedServerNowMs
+    );
+    setBpm(state.bpm);
+    setCountInMeasures(state.countInMeasures);
+    updatePlaybackSnapshot(nextSnapshot);
   };
 
   const upsertAnnotation = async (annotation: Annotation) => {
@@ -1008,6 +1036,22 @@ export function ScoreViewerPage() {
             </ul>
           ) : null}
         </div>
+
+        {status.serverContext ? (
+          <RehearsalPanel
+            accessToken={status.serverContext.accessToken}
+            userId={status.serverContext.userId}
+            ensembleId={status.serverContext.ensembleId}
+            scoreId={status.serverContext.scoreId}
+            scoreVersionId={status.serverContext.scoreVersionId}
+            performanceMeasures={status.performanceMeasures}
+            playbackSnapshot={playbackSnapshot}
+            bpm={bpm}
+            countInMeasures={countInMeasures}
+            manualBrowseSignal={manualBrowseSignal}
+            onApplyState={applyRehearsalState}
+          />
+        ) : null}
 
         <div className="annotation-toolbar" data-testid="annotation-toolbar">
           <div className="annotation-toolbar__row">

@@ -390,3 +390,17 @@ SESSION_SCORE_VERSION_MISMATCH
 - 완전 P2P 합주
 - 실시간 공동 악보 편집
 - 오디오 스트리밍
+
+## Phase 5 Implemented Protocol Notes
+
+Phase 5 uses raw JSON WebSocket envelopes on `/ws/rehearsal`.
+
+The server is authoritative. State changes increment `sequence`, persist the latest snapshot in PostgreSQL, and broadcast `PLAYBACK_STATE_CHANGED` or `STATE_SNAPSHOT`.
+
+Clients ignore stale lower sequences. Duplicate accepted `clientCommandId` values are idempotent. Sequence gaps trigger `REQUEST_STATE_SNAPSHOT`; missed background messages are not replayed.
+
+`PING`/`PONG` uses `clientSentAt`, `serverReceivedAt`, and `serverSentAt` to estimate server clock offset and RTT. Clients calculate current position from `effectiveAtServerTime`, BPM, and the stored performance timeline.
+
+Foreground recovery checks the socket, reconnects if needed, requests a snapshot, recalculates clock offset, and applies the latest `performanceMeasureId`/`beat`.
+
+Realtime annotation push, cursors, audio/video, WebRTC, CRDT editing, and Redis multi-backend fanout are not part of Phase 5.

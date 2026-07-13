@@ -1,96 +1,86 @@
-# Phase 4 Plan
+# Phase 5 Plan
 
-Implement only ROADMAP Phase 4: backend account, sharing, score persistence, and annotation sync for the Web PWA.
+Implement only ROADMAP Phase 5: realtime rehearsal sessions and authoritative score-position synchronization for the Web PWA.
+
+## Repository Analysis
+
+- Phase 0-4 are complete and the primary platform is the React + TypeScript Web PWA.
+- Existing backend auth, ensemble membership, score/version, annotation, PostgreSQL, and object-storage paths are already in place.
+- Existing frontend viewer already parses MusicXML, renders with Verovio, expands repeats into `PerformanceMeasure`, and drives local `PlaybackTimeline`.
+- Existing sync documentation forbids page-number, scroll, SVG coordinate, DOM index, and pixel-based synchronization.
+- `legacy/ios-app` is archival Phase 11 material and remains untouched.
 
 ## Scope
 
-- Development auth foundation for local/test use
-- Ensemble and membership persistence
-- Server-side Score and immutable ScoreVersion persistence
-- MusicXML upload/download through an object-storage adapter
-- Permission checks for score, version, and annotation APIs
-- Annotation server persistence with PRIVATE, PART, and ENSEMBLE visibility
-- Browser IndexedDB local-first annotation sync queue with retry and conflict state
-- Integration/E2E coverage for auth, score persistence, permission denial, annotation sync, conflict, offline queue, and retry
+- Backend rehearsal session REST APIs and PostgreSQL persistence.
+- Raw Spring WebSocket endpoint at `/ws/rehearsal` with explicit JSON protocol envelopes.
+- Authoritative playback state based on `scoreId`, `scoreVersionId`, `performanceMeasureId`, `sourceMeasureId`, `occurrence`, `beat`, `bpm`, `playbackStatus`, `sequence`, and `effectiveAtServerTime`.
+- Server-side permission checks for ensemble membership, leader-only commands, leader transfer, ended sessions, stale/duplicate commands, and score-version mismatch.
+- Client server-clock estimation, reconnect/snapshot handling, sequence gap detection, and independent browsing mode.
+- Viewer UI for session create/list/join/end, participants, leader, connection state, follow/browse mode, return to leader, latency/RTT, sequence, BPM/count-in, and sync warnings.
+- IndexedDB storage only for recent session UI preferences, not authoritative playback state.
+- Backend and frontend tests that use the real Spring WebSocket path.
 
 ## Out of Scope
 
-- External OAuth, Apple login, email magic links, or production identity provider integration
-- WebSocket ensemble sync
-- Realtime cursors or page-turn broadcasting
-- Presigned upload URLs
-- New OMR, ONNX Runtime, rendering, editing, or Phase 5+ collaboration features
-- Any change under `legacy/ios-app`
+- Realtime annotation push or cursor broadcasting.
+- Audio/video, WebRTC, metronome sound, CRDT editing, Redis pub/sub, or multi-backend fanout.
+- Phase 6 score editing or any OMR/model/PDF work.
+- Any changes under `legacy/ios-app`.
 
 ## Implementation Order
 
-1. Add Phase 4 backend schema migration for users, sessions, ensembles, memberships, scores, versions, annotations, and idempotent client mutations.
-2. Implement backend auth, permission, object storage, score/version, ensemble, and annotation sync services.
-3. Add backend integration tests using Testcontainers.
-4. Extend web API client, auth/session storage, server score library, and server score viewer loading.
-5. Extend IndexedDB annotation persistence with sync queue records, revision metadata, retry, and conflict state.
-6. Add UI status and retry controls without changing Phase 1-3 viewer behavior.
-7. Update docs/API/acceptance notes to match the implemented Phase 4 contract.
-8. Run backend, frontend, E2E, compose, Kubernetes, PWA, Markdown link, and diff validations.
+1. Add shared rehearsal protocol types in `packages/score-domain`.
+2. Add backend Flyway V3 rehearsal tables.
+3. Add Spring WebSocket dependency and raw WebSocket configuration.
+4. Implement backend rehearsal REST, state service, idempotency, permissions, and WebSocket handler.
+5. Add backend integration tests for PostgreSQL persistence, permissions, state transitions, idempotency, and multi-client WebSocket broadcast.
+6. Add frontend rehearsal API, socket client, clock estimator, sync controller, and session preference store.
+7. Integrate the viewer with session controls while preserving existing local playback and annotation behavior.
+8. Add frontend unit tests and Playwright real-backend rehearsal E2E.
+9. Update README/docs with the implemented Phase 5 contract and single-instance limitation.
+10. Run backend, frontend, E2E, compose, Markdown, diff, and legacy validation.
 
 ## Design Decisions
 
-### Development Auth
+### WebSocket Protocol
 
-Reason: Phase 4 needs authenticated ownership and permission behavior before production provider integration exists.
+Decision: Use raw Spring WebSocket with JSON envelopes instead of STOMP.
 
-Decision: Implement a development login endpoint that creates or reuses a user by email/provider subject and returns opaque access and refresh tokens. Tokens are hashed before storage. API endpoints read `Authorization: Bearer <token>`.
+Reason: Phase 5 needs a small, explicit command/event protocol with `clientCommandId`, `sequence`, `STATE_SNAPSHOT`, and `effectiveAtServerTime`. Raw WebSocket avoids broker semantics that are not needed in a single-backend MVP and keeps the frontend protocol independent from STOMP frame details.
 
-Impact: Frontend and tests can exercise real auth and permission checks. Production identity provider verification remains a later integration, not a hidden fake.
+Alternative: STOMP over WebSocket. It would help later if topic routing and broker relay become central, but it adds frame-level behavior without solving the current authoritative-state problem.
 
-Alternative considered: Add Spring Security now. Rejected for this phase because the current backend has no security dependency and Phase 4 can enforce permissions explicitly with a small request-auth service.
+### State Storage
 
-### MusicXML Object Storage
+Decision: Store session metadata, participants, last authoritative snapshot, and processed command IDs in PostgreSQL. Keep active WebSocket connections in memory.
 
-Reason: ScoreVersion source must be persisted outside UI state and downloadable by other devices.
+Reason: PostgreSQL gives durable session state, sequence, idempotency, and permission constraints. In-memory connections are enough for the current single-backend dev/deploy target.
 
-Decision: Use multipart upload/download endpoints backed by an `ObjectStorageService` interface. The Phase 4 implementation uses local filesystem object storage for dev/test and keeps the adapter boundary for S3-compatible storage.
+Impact: A single backend instance can broadcast to connected clients. Multi-instance deployment requires a later Redis pub/sub or broker-backed fanout layer.
 
-Impact: Tests do not require a MinIO container. Docker Compose includes MinIO as the intended S3-compatible development dependency, while backend code can switch adapter later without changing API shape.
+### Performance Timeline Authority
 
-Alternative considered: Presigned upload URLs. Rejected for this phase because multipart upload keeps the MVP smaller and still validates MIME, size, ownership, versioning, and permission behavior.
+Decision: The client sends the Phase 2 `PerformanceMeasure` order when creating a session. The server validates future commands against that stored order and persists only authoritative position snapshots.
 
-### ScoreVersion Immutability
+Reason: The backend does not parse MusicXML into performance timelines today, and Phase 5 should not duplicate the browser repeat-expansion implementation. Storing the order keeps server validation independent from renderer DOM and page layout.
 
-Reason: Existing viewer, repeat expansion, annotation anchors, and sync revisions all depend on a stable source document.
+Alternative: Re-parse MusicXML on the server. Deferred because it would add a second MusicXML/navigation implementation beyond Phase 5.
 
-Decision: ScoreVersion records are append-only. Upload creates version `n + 1`, stores a content hash and object key, and updates the score's current version pointer.
+### Follow Mode Persistence
 
-Impact: Existing annotations remain tied to the version they were created against. Editing a source file in place is not supported in Phase 4.
+Decision: Persist participant `followMode` in PostgreSQL for visibility and reconnect, and also store the local UI preference in IndexedDB.
 
-### Annotation Revisions and Idempotency
+Reason: The server can expose participant state consistently, while the browser can restore the user's last local mode without treating it as authoritative playback state.
 
-Reason: Offline mutation replay must avoid duplicate writes and must surface stale writes clearly.
+### Effective Time and Clock Offset
 
-Decision: Each annotation has a monotonically increasing server `revision`. Sync mutations include `baseRevision` and `clientMutationId`. Replayed mutation IDs return the previous result. If `baseRevision` does not match the current server revision, the server returns `409 CONFLICT` with the current annotation.
+Decision: The server assigns `effectiveAtServerTime` on leader commands. Clients estimate server offset with `PING`/`PONG` and compute playback position locally from the authoritative snapshot.
 
-Impact: The browser can queue offline writes, retry when online, and mark conflicts without losing local data.
-
-Alternative considered: Last-write-wins. Rejected because it hides conflicts between ensemble members and makes offline edits unsafe.
-
-### Annotation Scope Semantics
-
-Reason: Phase 3 stored scope labels locally, but Phase 4 must enforce them server-side.
-
-Decision: PRIVATE annotations are visible only to the owner. PART and ENSEMBLE annotations require score ensemble membership. PART annotations require `partId`; ENSEMBLE annotations are visible to all score ensemble members.
-
-Impact: The UI can still filter scopes locally, but the server never returns annotations outside the authenticated user's permission.
-
-### Logout Cache Policy
-
-Reason: Offline PWA data can contain private annotations and recently opened score state.
-
-Decision: Phase 4 logout clears auth tokens and sync status. It does not automatically purge IndexedDB score/viewer data; user-controlled cache purge is deferred to a later account settings phase.
-
-Impact: Existing offline viewer behavior is preserved. Shared-device data removal remains a known follow-up.
+Reason: This avoids per-frame WebSocket traffic and avoids browser background timer drift.
 
 ## Risks
 
-- Browser integration with a live backend can be flaky if tests depend on external ports; E2E will mock network state only where necessary and use deterministic selectors.
-- Local filesystem object storage validates the service boundary but is not equivalent to S3 consistency or presigned URL behavior.
-- Conflict UI is intentionally minimal in Phase 4: it surfaces conflict state and retry controls, but does not implement a merge editor.
+- Real multi-context Playwright WebSocket tests can be sensitive to backend startup and browser timing; tests must assert explicit ready/snapshot states instead of increasing timeouts blindly.
+- The server validates `PerformanceMeasure` identity from stored performance order but does not independently verify MusicXML repeat semantics in this phase.
+- Single-backend in-memory socket registry is intentionally not horizontally scalable until a future Redis/broker phase.

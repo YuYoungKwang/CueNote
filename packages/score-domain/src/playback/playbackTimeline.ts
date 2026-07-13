@@ -34,6 +34,15 @@ export interface PlaybackSnapshot {
   countInRemainingMs: number;
 }
 
+export interface AuthoritativePlaybackSnapshotInput {
+  playbackStatus: PlaybackStatus;
+  bpm: number;
+  countInMeasures: number;
+  performanceMeasureId: PerformanceMeasureID;
+  baseTimelinePositionMs: number;
+  effectiveAtServerTime: number;
+}
+
 interface DerivedState {
   status: PlaybackStatus;
   positionMs: number;
@@ -184,6 +193,28 @@ export class PlaybackTimeline {
     } else {
       this.activeStartedAtMs = null;
       this.status = 'PAUSED';
+    }
+
+    return this.getSnapshot();
+  }
+
+  applyAuthoritativeSnapshot(snapshot: AuthoritativePlaybackSnapshotInput, estimatedServerNowMs: number): PlaybackSnapshot {
+    this.bpm = snapshot.bpm;
+    this.countInMeasures = snapshot.countInMeasures;
+    this.basePositionMs = this.clampPositionMs(snapshot.baseTimelinePositionMs);
+    this.baseCountInElapsedMs = snapshot.playbackStatus === 'COUNT_IN' ? 0 : this.getCountInDurationMs();
+    this.status = snapshot.playbackStatus;
+
+    if (snapshot.playbackStatus === 'PLAYING' || snapshot.playbackStatus === 'COUNT_IN') {
+      const elapsedSinceEffectiveMs = Math.max(0, estimatedServerNowMs - snapshot.effectiveAtServerTime);
+      this.activeStartedAtMs = this.clock.now() - elapsedSinceEffectiveMs;
+    } else {
+      this.activeStartedAtMs = null;
+    }
+
+    if (snapshot.playbackStatus === 'STOPPED') {
+      this.basePositionMs = this.getElapsedMsForPerformanceMeasure(snapshot.performanceMeasureId);
+      this.baseCountInElapsedMs = 0;
     }
 
     return this.getSnapshot();

@@ -675,3 +675,25 @@ VALIDATION_FAILED
 - 종료된 세션의 제어 명령을 거부한다.
 - 로그에 token과 presigned URL 전체를 남기지 않는다.
 - 모델 manifest URL은 짧은 수명의 presigned URL 또는 CDN 정책으로 보호할 수 있다.
+
+## Phase 5 Rehearsal API Update
+
+Implemented REST endpoints:
+
+- `POST /api/v1/ensembles/{ensembleId}/rehearsal-sessions`
+- `GET /api/v1/ensembles/{ensembleId}/rehearsal-sessions`
+- `GET /api/v1/rehearsal-sessions/{sessionId}`
+- `POST /api/v1/rehearsal-sessions/{sessionId}/join`
+- `POST /api/v1/rehearsal-sessions/{sessionId}/leave`
+- `POST /api/v1/rehearsal-sessions/{sessionId}/end`
+- `PATCH /api/v1/rehearsal-sessions/{sessionId}/leader`
+
+Implemented WebSocket endpoint:
+
+- `GET /ws/rehearsal`
+
+Client messages: `JOIN_SESSION`, `LEAVE_SESSION`, `REQUEST_STATE_SNAPSHOT`, `PING`, `PLAY_REQUEST`, `PAUSE_REQUEST`, `STOP_REQUEST`, `SEEK_REQUEST`, `BPM_CHANGE_REQUEST`, `COUNT_IN_CHANGE_REQUEST`, `LEADER_TRANSFER_REQUEST`, `FOLLOW_MODE_CHANGE`.
+
+Server messages: `SESSION_JOINED`, `PARTICIPANT_JOINED`, `PARTICIPANT_LEFT`, `PARTICIPANT_LIST`, `STATE_SNAPSHOT`, `PLAYBACK_STATE_CHANGED`, `LEADER_CHANGED`, `PONG`, `COMMAND_REJECTED`, `SESSION_ENDED`, `ERROR`.
+
+Only ensemble members can view or join sessions. Only `OWNER`/`ADMIN` can create sessions and transfer leadership. Only the current leader can change shared playback state.

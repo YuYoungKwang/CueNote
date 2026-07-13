@@ -100,3 +100,15 @@ MusicXML 웹 뷰어
 - 작업 후 빌드·테스트·변경 파일 요약을 남긴다.
 - 실행하지 못한 검증은 성공했다고 보고하지 않는다.
 - 문서와 구현이 충돌하면 임의로 바꾸지 말고 변경 이유와 영향을 먼저 기록한다.
+
+## Phase 5 Rehearsal Sync
+
+Phase 5 implements realtime rehearsal sessions for server-backed scores.
+
+- REST APIs manage rehearsal session create/list/get/join/leave/end and leader transfer.
+- Raw Spring WebSocket is exposed at `/ws/rehearsal`.
+- Shared playback state is server-authoritative and uses `scoreId`, `scoreVersionId`, `performanceMeasureId`, `sourceMeasureId`, `occurrence`, `beat`, `bpm`, `playbackStatus`, `sequence`, and `effectiveAtServerTime`.
+- Sync does not use page number, scroll position, SVG coordinates, DOM order, or pixel position.
+- Clients estimate server clock offset with `PING`/`PONG`, apply `STATE_SNAPSHOT`, ignore stale sequence, and request a snapshot on gaps.
+- Participants can switch between `FOLLOWING_LEADER` and `BROWSING_INDEPENDENTLY`; independent browsing still receives leader state.
+- Current deployment is a single-backend WebSocket registry. Multi-instance broadcast requires a future Redis/pub-sub or broker layer.

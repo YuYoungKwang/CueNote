@@ -71,6 +71,6 @@ class HealthControllerIntegrationTest {
                 "select version from flyway_schema_history where success = true order by installed_rank desc limit 1",
                 String.class
         );
-        assertThat(latestMigration).isEqualTo("2");
+        assertThat(latestMigration).isEqualTo("3");
     }
 }

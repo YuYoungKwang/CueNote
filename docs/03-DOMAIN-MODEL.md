@@ -542,3 +542,13 @@ MVP는 실시간 공동 음표 편집을 지원하지 않는다.
 - 객체 파일은 보존 기간 후 비동기 삭제
 - 계정 삭제 시 소유 데이터와 공유 데이터 규칙 분리
 - 로그아웃 시 브라우저 로컬 데이터 삭제 여부를 사용자에게 명확히 안내
+
+## Phase 5 Rehearsal Domain
+
+`RehearsalSession` contains `id`, `ensembleId`, `scoreId`, `scoreVersionId`, `leaderUserId`, `status`, `createdBy`, `createdAt`, `startedAt`, `endedAt`, and `revision`.
+
+`RehearsalParticipant` contains `sessionId`, `userId`, `joinedAt`, `lastSeenAt`, `connectionState`, and `followMode`.
+
+`AuthoritativePlaybackState` contains `sessionId`, `scoreId`, `scoreVersionId`, `leaderUserId`, `playbackStatus`, `performanceMeasureId`, `sourceMeasureId`, `occurrence`, `beat`, `bpm`, `countInMeasures`, `baseTimelinePositionMs`, `sequence`, `serverTimestamp`, `effectiveAtServerTime`, and `updatedByUserId`.
+
+Participants can be `FOLLOWING_LEADER` or `BROWSING_INDEPENDENTLY`. Independent browsing never changes the authoritative playback state.

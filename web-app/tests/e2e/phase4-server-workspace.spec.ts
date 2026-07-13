@@ -110,6 +110,11 @@ async function installPhase4ApiMock(page: Page, onSyncAttempt: () => number) {
       return;
     }
 
+    if (pathName === '/ensembles/ens_phase4/rehearsal-sessions' && request.method() === 'GET') {
+      await json(route, []);
+      return;
+    }
+
     if (pathName === '/scores/scr_simple' && request.method() === 'GET') {
       await json(route, {
         id: 'scr_simple',
