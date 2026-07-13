@@ -51,10 +51,10 @@ function createDetectionModelResult(
   tensor?: OmrTensorInput
 ): OmrDetectionResult {
   const warnings: OmrInferenceWarning[] = [];
-  const outputSpec = manifest.outputs?.find((output) => output.format === 'BOX_XYWH_CONF_CLASS');
+  const outputSpec = manifest.outputs?.find((output) => output.format === 'BOX_XYWH_CONF_CLASS' || output.format === 'YOLO_V8_RAW');
   if (!outputSpec) {
     return baseResult(projectId, input, manifest, raw, [], [
-      { code: 'INVALID_MODEL_OUTPUT', message: 'Detection model did not declare BOX_XYWH_CONF_CLASS output.', severity: 'error', systemId: input.systemId }
+      { code: 'INVALID_MODEL_OUTPUT', message: 'Detection model did not declare a supported detection output.', severity: 'error', systemId: input.systemId }
     ]);
   }
 
@@ -63,6 +63,12 @@ function createDetectionModelResult(
     return baseResult(projectId, input, manifest, raw, [], [
       { code: 'INVALID_MODEL_OUTPUT', message: 'Detection model output was missing or not float32.', severity: 'error', systemId: input.systemId }
     ]);
+  }
+
+  if (outputSpec.format === 'YOLO_V8_RAW') {
+    const detections = decodeYoloV8Detections(output.data, output.dims, input, manifest, tensor, warnings);
+    appendNonProductWarning(manifest, input, warnings);
+    return baseResult(projectId, input, manifest, raw, detections, warnings);
   }
 
   const valuesPerDetection = 6;
@@ -114,6 +120,12 @@ function createDetectionModelResult(
     });
   }
 
+  appendNonProductWarning(manifest, input, warnings);
+
+  return baseResult(projectId, input, manifest, raw, detections, warnings);
+}
+
+function appendNonProductWarning(manifest: OmrModelManifest, input: OmrModelInputManifest, warnings: OmrInferenceWarning[]) {
   if (manifest.status !== 'PRODUCT') {
     warnings.push({
       code: 'PRODUCT_MODEL_NOT_INSTALLED',
@@ -122,8 +134,101 @@ function createDetectionModelResult(
       systemId: input.systemId
     });
   }
+}
 
-  return baseResult(projectId, input, manifest, raw, detections, warnings);
+function decodeYoloV8Detections(
+  data: Float32Array,
+  dims: readonly number[],
+  input: OmrModelInputManifest,
+  manifest: OmrModelManifest,
+  tensor: OmrTensorInput | undefined,
+  warnings: OmrInferenceWarning[]
+): OmrDetection[] {
+  const classIndex = createOmrClassIndexMap(manifest);
+  const classCount = manifest.classes.length;
+  const rows: number[][] = [];
+  if (dims.length === 3 && dims[0] === 1 && dims[1] === classCount + 4) {
+    const count = dims[2] ?? 0;
+    for (let i = 0; i < count; i += 1) {
+      rows.push(Array.from({ length: classCount + 4 }, (_, channel) => data[channel * count + i] ?? 0));
+    }
+  } else if (dims.length === 3 && dims[0] === 1 && dims[2] === classCount + 4) {
+    const count = dims[1] ?? 0;
+    for (let i = 0; i < count; i += 1) {
+      const start = i * (classCount + 4);
+      rows.push(Array.from(data.slice(start, start + classCount + 4)));
+    }
+  } else {
+    warnings.push({ code: 'INVALID_MODEL_OUTPUT', message: `Unsupported YOLO output shape [${dims.join(', ')}].`, severity: 'error', systemId: input.systemId });
+    return [];
+  }
+
+  const detections: OmrDetection[] = [];
+  rows.forEach((row, index) => {
+    const classScores = row.slice(4);
+    const bestScore = Math.max(...classScores);
+    const bestIndex = classScores.indexOf(bestScore);
+    if (bestScore < manifest.postprocessing.confidenceThreshold || bestIndex < 0) {
+      return;
+    }
+    let klass;
+    try {
+      klass = classForIndex(classIndex, bestIndex);
+    } catch (error) {
+      warnings.push({ code: 'INVALID_CLASS_INDEX', message: error instanceof Error ? error.message : 'Invalid YOLO class index.', severity: 'error', systemId: input.systemId });
+      return;
+    }
+    const [centerX, centerY, width, height] = row;
+    const inputWidth = manifest.input.width;
+    const inputHeight = manifest.input.height;
+    const normalized = normalizeRect({
+      x: (centerX - width / 2) / inputWidth,
+      y: (centerY - height / 2) / inputHeight,
+      width: width / inputWidth,
+      height: height / inputHeight
+    });
+    const boundsInSystem = tensor?.transform ? tensorRectToSystemRect(normalized, tensor.transform) : normalized;
+    detections.push({
+      id: `${input.systemId}:${manifest.modelId}:yolo:${index}:${klass.id}`,
+      classId: klass.id,
+      className: klass.label ?? klass.id,
+      confidence: Number(bestScore.toFixed(4)),
+      systemId: input.systemId,
+      pageId: input.pageId,
+      boundsInSystem,
+      boundsInPage: systemRectToPageRect(boundsInSystem, input.crop.pageBounds),
+      source: 'MODEL',
+      reviewDecision: 'UNREVIEWED',
+      modelVersion: manifest.version,
+      attributes: { modelStatus: manifest.status ?? 'EXPERIMENTAL', outputFormat: 'YOLO_V8_RAW' }
+    });
+  });
+  return nms(detections, manifest.postprocessing.nmsThreshold).slice(0, 300);
+}
+
+function nms(detections: OmrDetection[], threshold: number): OmrDetection[] {
+  const sorted = [...detections].sort((a, b) => b.confidence - a.confidence);
+  const kept: OmrDetection[] = [];
+  for (const detection of sorted) {
+    if (kept.every((candidate) => candidate.classId !== detection.classId || rectIou(candidate.boundsInSystem, detection.boundsInSystem) < threshold)) {
+      kept.push(detection);
+    }
+  }
+  return kept;
+}
+
+function rectIou(a: { x: number; y: number; width: number; height: number }, b: { x: number; y: number; width: number; height: number }): number {
+  const ax2 = a.x + a.width;
+  const ay2 = a.y + a.height;
+  const bx2 = b.x + b.width;
+  const by2 = b.y + b.height;
+  const ix1 = Math.max(a.x, b.x);
+  const iy1 = Math.max(a.y, b.y);
+  const ix2 = Math.min(ax2, bx2);
+  const iy2 = Math.min(ay2, by2);
+  const intersection = Math.max(0, ix2 - ix1) * Math.max(0, iy2 - iy1);
+  const union = a.width * a.height + b.width * b.height - intersection;
+  return union <= 0 ? 0 : intersection / union;
 }
 
 function baseResult(

@@ -474,3 +474,26 @@ Build a fixture dataset from copyright-safe generated material, then run:
 
 Smoke models must be marked EXPERIMENTAL. Do not mark synthetic-only models as PRODUCT. Do not implement Phase 10 pitch/duration inference, structure assembly, EditableScoreDocument, MusicXML draft generation, or editor handoff.
 ```
+
+## Phase 9E-H Colab Training Preparation Prompt
+
+```text
+Prepare only the Phase 9E-H Google Colab training pipeline.
+
+Do not claim Colab login, Drive authorization, GPU allocation, full training, actual checkpoints, actual trained ONNX, PyTorch/ONNX parity, candidate browser inference, or product accuracy before the user runs Colab.
+
+Local Windows with AMD Radeon RX 580 is validation-only. Do not use unofficial ROCm patches, GPU override, or DirectML product training.
+
+Implement:
+
+- Colab notebook with GPU guidance, Drive mount, run modes, dependency install, dataset prep, checkpoint/resume, evaluation, ONNX export, parity, and artifact zip
+- DeepScoresV2 dense source/license registry
+- class mapping
+- source-group split/leakage validation
+- layout and symbol training configs
+- artifact validator and installer
+- model catalog integration
+- docs and CI smoke/static checks
+
+Actual candidate status stays NOT READY until the user returns a trained artifact with metrics and parity reports.
+```

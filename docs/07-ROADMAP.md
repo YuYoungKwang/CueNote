@@ -398,6 +398,8 @@ Phase 9 implementation status:
 - Layout and symbol smoke models are exported as browser-loadable ONNX files with `status: EXPERIMENTAL`.
 - Product layout and symbol candidates are not ready because no licensed real scan/photo corpus, GPU training run, or fixed product-quality test split exists in the current environment.
 - Phase 8 runtime can execute the experimental layout/symbol ONNX files and display detections, but Phase 10 structure assembly remains deferred.
+- Phase 9E-H prepares Google Colab notebooks, DeepScoresV2 dense source registry, class mapping, checkpoint/resume, YOLO training configs, artifact packaging, artifact validation, and model installation scripts.
+- Actual Colab GPU training, actual checkpoints, actual trained ONNX, ONNX parity, candidate browser inference, and product accuracy remain waiting for user-run Colab execution.
 
 ### Phase 10 — OMR Structure And MusicXML Draft
 

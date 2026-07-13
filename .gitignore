@@ -13,6 +13,12 @@ test-results/
 
 # AI training
 ai-training/artifacts/checkpoints/
+ai-training/artifacts/*.zip
+ai-training/artifacts/*-artifact/
+ai-training/datasets/
+ai-training/cache/
+ai-training/runs/
+ai-training/logs/
 
 # Backend
 backend/target/

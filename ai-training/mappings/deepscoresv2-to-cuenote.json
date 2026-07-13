@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "mappingId": "deepscoresv2-to-cuenote-v1",
+  "sourceDatasetId": "deepscoresv2-dense",
+  "targetTaxonomyId": "cuenote-omr-taxonomy-v1",
+  "notes": "Initial mapping for Colab conversion. Source class names vary by DeepScoresV2 annotation release; converter matches aliases case-insensitively and writes unmapped classes to the conversion report.",
+  "mappings": [
+    { "sourceClassId": "staff", "sourceClassName": "staff", "aliases": ["staffline", "staff_line", "staffLines"], "targetClassId": "staff.region", "mappingType": "APPROXIMATE", "notes": "DeepScores staff-line objects may need grouping into staff.region." },
+    { "sourceClassId": "barline", "sourceClassName": "barline", "aliases": ["barLine", "barlineSingle"], "targetClassId": "barline.single", "mappingType": "EXACT", "notes": "" },
+    { "sourceClassId": "double_barline", "sourceClassName": "double barline", "aliases": ["barlineDouble", "doubleBarline"], "targetClassId": "barline.double", "mappingType": "EXACT", "notes": "" },
+    { "sourceClassId": "repeat_start", "sourceClassName": "repeat start", "aliases": ["repeatStart", "barlineRepeatStart"], "targetClassId": "barline.repeat_start", "mappingType": "EXACT", "notes": "" },
+    { "sourceClassId": "repeat_end", "sourceClassName": "repeat end", "aliases": ["repeatEnd", "barlineRepeatEnd"], "targetClassId": "barline.repeat_end", "mappingType": "EXACT", "notes": "" },
+    { "sourceClassId": "notehead_black", "sourceClassName": "black notehead", "aliases": ["noteheadBlack", "noteheadFull", "noteheadFilled"], "targetClassId": "notehead.filled", "mappingType": "EXACT", "notes": "" },
+    { "sourceClassId": "notehead_half", "sourceClassName": "half notehead", "aliases": ["noteheadHalf", "noteheadEmpty", "noteheadHollow"], "targetClassId": "notehead.hollow", "mappingType": "EXACT", "notes": "" },
+    { "sourceClassId": "stem", "sourceClassName": "stem", "aliases": ["stem"], "targetClassId": "stem.up", "mappingType": "APPROXIMATE", "notes": "Use only if direction can be inferred from geometry; otherwise converter excludes direction-specific classes." },
+    { "sourceClassId": "whole_rest", "sourceClassName": "whole rest", "aliases": ["restWhole", "wholeRest"], "targetClassId": "rest.whole", "mappingType": "EXACT", "notes": "" },
+    { "sourceClassId": "half_rest", "sourceClassName": "half rest", "aliases": ["restHalf", "halfRest"], "targetClassId": "rest.half", "mappingType": "EXACT", "notes": "" },
+    { "sourceClassId": "quarter_rest", "sourceClassName": "quarter rest", "aliases": ["restQuarter", "quarterRest"], "targetClassId": "rest.quarter", "mappingType": "EXACT", "notes": "" },
+    { "sourceClassId": "eighth_rest", "sourceClassName": "eighth rest", "aliases": ["rest8th", "restEighth", "eighthRest"], "targetClassId": "rest.eighth", "mappingType": "EXACT", "notes": "" },
+    { "sourceClassId": "sharp", "sourceClassName": "sharp", "aliases": ["accidentalSharp"], "targetClassId": "accidental.sharp", "mappingType": "EXACT", "notes": "" },
+    { "sourceClassId": "flat", "sourceClassName": "flat", "aliases": ["accidentalFlat"], "targetClassId": "accidental.flat", "mappingType": "EXACT", "notes": "" },
+    { "sourceClassId": "natural", "sourceClassName": "natural", "aliases": ["accidentalNatural"], "targetClassId": "accidental.natural", "mappingType": "EXACT", "notes": "" },
+    { "sourceClassId": "g_clef", "sourceClassName": "g clef", "aliases": ["gClef", "clefG", "trebleClef"], "targetClassId": "clef.treble", "mappingType": "EXACT", "notes": "" },
+    { "sourceClassId": "f_clef", "sourceClassName": "f clef", "aliases": ["fClef", "clefF", "bassClef"], "targetClassId": "clef.bass", "mappingType": "EXACT", "notes": "" },
+    { "sourceClassId": "augmentation_dot", "sourceClassName": "augmentation dot", "aliases": ["augmentationDot", "dot"], "targetClassId": "dot.augmentation", "mappingType": "APPROXIMATE", "notes": "Only use when source class is musical augmentation dot, not generic punctuation." },
+    { "sourceClassId": "tie", "sourceClassName": "tie", "aliases": ["tie"], "targetClassId": "tie", "mappingType": "EXACT", "notes": "" },
+    { "sourceClassId": "segno", "sourceClassName": "segno", "aliases": ["segno"], "targetClassId": "navigation.segno", "mappingType": "EXACT", "notes": "" },
+    { "sourceClassId": "coda", "sourceClassName": "coda", "aliases": ["coda"], "targetClassId": "navigation.coda", "mappingType": "EXACT", "notes": "" },
+    { "sourceClassId": "time_signature", "sourceClassName": "time signature", "aliases": ["timeSig", "timeSignature"], "targetClassId": "", "mappingType": "EXCLUDED", "notes": "Not in Phase 9 layout/symbol taxonomy yet." },
+    { "sourceClassId": "key_signature", "sourceClassName": "key signature", "aliases": ["keySig", "keySignature"], "targetClassId": "", "mappingType": "EXCLUDED", "notes": "Handled later through structure/text pipeline." }
+  ]
+}

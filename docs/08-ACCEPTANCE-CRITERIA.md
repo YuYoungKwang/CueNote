@@ -385,3 +385,31 @@ Phase 9 product gates:
 - symbol product candidate: NOT READY until real licensed scan/photo data and fixed test metrics exist.
 - product OMR accuracy: NOT EVALUATED for synthetic-only smoke models.
 - Phase 10 readiness: NOT READY until product candidate model output quality is evaluated.
+
+## Phase 9E-H Colab Preparation Criteria
+
+- PASS required: Colab notebook JSON parses and includes Drive mount, GPU/runtime guidance, run mode selection, checkpoint/resume, and artifact output instructions.
+- PASS required: local Windows/RX 580 is documented as validation-only, not product GPU training.
+- PASS required: dependency pins exist for Colab.
+- PASS required: Drive storage structure is documented and configurable.
+- PASS required: dataset source registry records eligibility and excludes unverified sources by default.
+- PASS required: DeepScoresV2 dense source record includes official source, archive checksum, license evidence, attribution requirement, and user confirmation boundary.
+- PASS required: class mapping file separates `EXACT`, `APPROXIMATE`, and `EXCLUDED` mappings.
+- PASS required: checkpoint metadata and run-state files are written with resume compatibility checks.
+- PASS required: artifact zip structure is documented and validator checks manifest/model/checksum/evaluation/taxonomy/config.
+- PASS required: installer adds only validated artifacts to the static model catalog.
+- PASS required: UI does not show fake candidate models when no artifact is installed.
+
+Status before user-run Colab:
+
+- Colab training pipeline preparation: PASS when static/local checks pass.
+- actual licensed dataset import: WAITING_FOR_USER.
+- actual Colab GPU training: WAITING_FOR_USER.
+- actual checkpoint: WAITING_FOR_USER.
+- actual trained ONNX: WAITING_FOR_USER.
+- actual ONNX parity: NOT RUN.
+- browser candidate inference: NOT RUN.
+- layout candidate: NOT READY.
+- symbol candidate: NOT READY.
+- product OMR accuracy: NOT EVALUATED.
+- Phase 10 readiness: NOT READY.

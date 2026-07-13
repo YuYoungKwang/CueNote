@@ -13,6 +13,10 @@
     "export:symbol": "node scripts/export-onnx.mjs --task SYMBOL_DETECTION",
     "validate:onnx": "node scripts/validate-onnx.mjs",
     "record:browser": "node scripts/record-browser-validation.mjs",
+    "validate:configs": "node scripts/validate-configs.mjs",
+    "validate:notebooks": "node scripts/validate-notebooks.mjs",
+    "package:fixture-artifact": "node scripts/package-fixture-artifact.mjs --model layout",
+    "validate:artifact": "node scripts/validate-model-artifact.mjs ai-training/artifacts/layout-smoke-artifact.zip",
     "smoke": "node scripts/run-smoke-pipeline.mjs"
   }
 }

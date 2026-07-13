@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "runModes": ["SMOKE", "LAYOUT_TRAIN", "SYMBOL_TRAIN", "FULL_PIPELINE"],
+  "defaultRunMode": "SMOKE",
+  "driveRootEnv": "CUENOTE_DRIVE_ROOT",
+  "defaultDriveRoot": "/content/drive/MyDrive/CueNote",
+  "repoUrlEnv": "CUENOTE_REPO_URL",
+  "defaultRepoUrl": "",
+  "paths": {
+    "datasets": "datasets",
+    "raw": "datasets/raw",
+    "converted": "datasets/converted",
+    "manifests": "datasets/manifests",
+    "checkpoints": "checkpoints",
+    "artifacts": "artifacts",
+    "onnx": "artifacts/onnx",
+    "reports": "reports",
+    "logs": "logs",
+    "cache": "cache",
+    "runs": "runs"
+  },
+  "checkpointPolicy": {
+    "saveEveryEpoch": true,
+    "atomicWrite": true,
+    "resumeIfCompatible": true,
+    "requireConfigChecksumMatch": true,
+    "keepLast": true,
+    "keepBest": true
+  },
+  "datasetPolicy": {
+    "defaultDataset": "deepscoresv2-dense",
+    "fallbackDataset": "cuenote-fixture-omr",
+    "maxDenseImagesForSmoke": 24,
+    "maxDenseImagesForColabSubset": 1714,
+    "allowResearchOnlyTraining": false,
+    "excludeUnverified": true,
+    "sourceGroupSplitRequired": true
+  },
+  "statusFile": "run-state.json",
+  "artifactZipNamePattern": "cuenote-{modelId}-{version}-{status}.zip"
+}

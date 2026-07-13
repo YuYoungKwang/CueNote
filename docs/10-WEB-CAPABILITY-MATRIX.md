@@ -93,3 +93,12 @@ Phase 9 adds experimental layout and symbol ONNX model checks.
 - Offline cached model reuse is verified after an initial online load.
 - macOS Safari, iPad Safari, Android Chrome, and real WebGPU performance remain `검증 필요` unless tested on those devices.
 - Synthetic smoke detections are not product OMR accuracy results.
+
+## Phase 9E-H Candidate Model Check
+
+Actual Colab-trained candidate models are not considered browser-validated until their artifact is installed locally and Playwright/browser checks pass.
+
+- RX 580 local GPU training is not used.
+- Candidate browser inference remains `NOT RUN` until a returned artifact is installed.
+- WebGPU success must be measured per installed model. WASM fallback remains required.
+- Safari, iPad Safari, Android Chrome, and real-device performance remain `검증 필요` until tested.

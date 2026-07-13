@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "task": "LAYOUT_DETECTION",
+  "modelId": "cuenote-layout-deepscores-exp",
+  "modelVersion": "0.1.0-colab",
+  "status": "EXPERIMENTAL",
+  "framework": "ultralytics-yolo",
+  "architecture": "yolov8n",
+  "pretrainedWeights": "yolov8n.pt",
+  "inputPolicy": "canonical_page_or_reviewed_system_crop",
+  "inputSize": 1024,
+  "batchSize": 8,
+  "epochs": 30,
+  "workers": 2,
+  "optimizer": "auto",
+  "learningRate": 0.01,
+  "scheduler": "ultralytics-default",
+  "precision": "amp",
+  "earlyStoppingPatience": 8,
+  "checkpointIntervalEpochs": 1,
+  "seed": 90210,
+  "classes": [
+    "system.region",
+    "staff.region",
+    "measure.region",
+    "barline.single",
+    "barline.double",
+    "barline.repeat_start",
+    "barline.repeat_end"
+  ],
+  "augmentation": {
+    "degrees": 3,
+    "translate": 0.02,
+    "scale": 0.15,
+    "shear": 1,
+    "perspective": 0.0005,
+    "hsvH": 0,
+    "hsvS": 0,
+    "hsvV": 0.1,
+    "mosaic": 0.1,
+    "mixup": 0
+  },
+  "oomFallback": {
+    "batchSize": [8, 4, 2, 1],
+    "inputSize": [1024, 896, 768, 640],
+    "useGradientAccumulation": true
+  },
+  "promotionGate": {
+    "minimumStatus": "EXPERIMENTAL",
+    "candidateRequiresRealMetrics": true,
+    "minStaffRecall": 0.92,
+    "minBarlineF1": 0.85,
+    "maxFalsePositivePerPage": 4,
+    "requiresBrowserParity": true
+  }
+}

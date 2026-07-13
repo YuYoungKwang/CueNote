@@ -57,8 +57,8 @@ export function validateOmrManifest(manifest: OmrModelManifest): OmrInferenceWar
   }
   if (manifest.task !== 'RUNTIME_SMOKE') {
     const output = manifest.outputs?.[0];
-    if (!output || output.format !== 'BOX_XYWH_CONF_CLASS') {
-      warnings.push({ code: 'MODEL_MANIFEST_INVALID', message: 'Detection models must declare a BOX_XYWH_CONF_CLASS output.', severity: 'error' });
+    if (!output || !['BOX_XYWH_CONF_CLASS', 'YOLO_V8_RAW'].includes(output.format)) {
+      warnings.push({ code: 'MODEL_MANIFEST_INVALID', message: 'Detection models must declare a supported detection output.', severity: 'error' });
     }
     if (manifest.status === 'PRODUCT' && (!manifest.datasetVersion || !manifest.evaluationReport)) {
       warnings.push({ code: 'MODEL_MANIFEST_INVALID', message: 'PRODUCT OMR models must include datasetVersion and evaluationReport.', severity: 'error' });

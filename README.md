@@ -73,6 +73,8 @@ CueNote/
 - The checked-in fixture dataset is synthetic and copyright-safe; it contains no third-party score material and no real scan/photo corpus.
 - `layout-smoke.onnx` and `symbol-smoke.onnx` are `EXPERIMENTAL` browser runtime models for ONNX/output-decoding validation only.
 - Product OMR accuracy is not evaluated, and no model is promoted to `PRODUCT`.
+- Phase 9E-H prepares Google Colab GPU training notebooks and artifact installation tooling. The local Windows PC, including AMD Radeon RX 580, is used only for validation, CPU smoke/static checks, ONNX/package checks, and browser inference.
+- Actual Colab GPU training, Drive authorization, checkpoint creation, trained ONNX export, and candidate promotion require user-run Colab execution.
 
 ### Backend
 

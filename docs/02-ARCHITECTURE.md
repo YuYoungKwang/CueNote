@@ -473,3 +473,13 @@ Synchronization is based on `performanceMeasureId`, `sourceMeasureId`, `occurren
 - `web-app/src/core/omr/postprocessing.ts` decodes manifest-driven detection tensors and maps normalized system coordinates back to page coordinates.
 - Experimental layout/symbol models keep `PRODUCT_MODEL_NOT_INSTALLED`; only a future manifest with `status: PRODUCT` may become product-ready.
 - No Phase 9 code assembles pitch, duration, voices, repeats, `EditableScoreDocument`, or MusicXML drafts.
+
+## Phase 9E-H Colab Training Architecture
+
+- Google Colab is the intended GPU training environment.
+- Local Windows with AMD Radeon RX 580 is not a product-training GPU target.
+- `ai-training/notebooks/cuenote_phase9_colab.ipynb` drives Colab setup, Drive mount, dependency install, dataset prep, checkpoint/resume, training, evaluation, ONNX export, and artifact packaging.
+- `ai-training/registry/dataset-sources.json` records source/license eligibility. Unverified datasets remain excluded.
+- `ai-training/mappings/deepscoresv2-to-cuenote.json` maps external dataset classes to CueNote taxonomy and marks approximate/excluded mappings.
+- `ai-training/scripts/validate-model-artifact.mjs` and `install-model-artifact.mjs` validate and install returned Colab artifacts into the static model catalog.
+- `web-app/public/models/omr/model-catalog.json` is the only source for showing installed runtime model options.

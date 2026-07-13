@@ -42,7 +42,7 @@ export interface OmrModelClass {
 
 export interface OmrModelOutput {
   name: string;
-  format: 'BOX_XYWH_CONF_CLASS' | 'RUNTIME_SMOKE_VECTOR';
+  format: 'BOX_XYWH_CONF_CLASS' | 'YOLO_V8_RAW' | 'RUNTIME_SMOKE_VECTOR';
   coordinateSpace: 'SYSTEM_NORMALIZED' | 'TENSOR_NORMALIZED';
   shape: number[];
 }
@@ -74,6 +74,7 @@ export interface OmrModelManifest {
     lowConfidenceThreshold?: number;
   };
   datasetVersion?: string;
+  taxonomyVersion?: string;
   evaluationReport?: string;
   minimumAppVersion: string;
   createdAt?: string;

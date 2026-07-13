@@ -5,7 +5,7 @@
   "modelStatus": "EXPERIMENTAL",
   "datasetId": "cuenote-fixture-omr",
   "datasetVersion": "phase9-smoke-1",
-  "gitCommit": "d6b0ede",
+  "gitCommit": "ceca582",
   "evaluatedAt": "2026-07-13T00:00:00.000Z",
   "task": "SYMBOL_DETECTION",
   "split": "test",

@@ -488,3 +488,17 @@ Phase 9 adds dataset and model-development infrastructure without claiming produ
 - Product candidates remain `NOT READY` until real licensed data, fixed test-split metrics, per-class reports, WebGPU/WASM verification, reproducible training config, and checkpoint preservation exist.
 
 Phase 9 still does not implement pitch inference, duration inference, notehead/stem structure assembly, `EditableScoreDocument`, MusicXML draft generation, or Phase 6 editor handoff.
+
+## Phase 9E-H Colab Model Pipeline
+
+Phase 9E-H prepares real training outside the browser and outside the local RX 580 GPU.
+
+- Training target: Google Colab GPU.
+- Local target: validation, smoke/static checks, artifact validation, and browser inference.
+- Primary external dataset path: DeepScoresV2 dense from the official Zenodo record.
+- DeepScoresV2 is synthetic/engraved data, not real camera/photo data; scan/photo performance must remain limited or unknown until separately evaluated.
+- Colab stores datasets, checkpoints, artifacts, reports, logs, cache, and run state in Google Drive.
+- Checkpoint writes must preserve last/best weights and metadata and avoid treating incompatible config/dataset/taxonomy as resumable.
+- Actual trained ONNX models use distinct model IDs such as `cuenote-layout-deepscores-exp` and `cuenote-symbol-deepscores-exp`.
+- YOLOv8 raw ONNX outputs are decoded separately from the Phase 9 smoke `BOX_XYWH_CONF_CLASS` models.
+- Candidate promotion requires actual Colab metrics, ONNX parity, browser runtime validation, and failure analysis.

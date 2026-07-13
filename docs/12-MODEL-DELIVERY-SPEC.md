@@ -177,3 +177,26 @@ Phase 9 smoke models use the same delivery path as future product models, but th
 - Detection model output format is `BOX_XYWH_CONF_CLASS`.
 - Cache Storage hash validation and offline reuse are required for experimental and product models.
 - Product promotion still requires fixed test-split metrics, real/synthetic data separation, WebGPU/WASM validation, known failure reports, reproducible training config, and checkpoint preservation.
+
+## 15. Phase 9E-H Colab Artifact Delivery
+
+Colab-trained models are installed only from validated artifact packages.
+
+Artifact zip contents:
+
+- `manifest.json`
+- `evaluation.json`
+- `taxonomy.json`
+- `config.json`
+- `checksums.json`
+- trained ONNX file
+
+Rules:
+
+- Smoke models and Colab-trained models must use distinct model IDs.
+- Large checkpoints, raw datasets, downloaded archives, logs, and cache files are not committed to Git.
+- `validate-model-artifact.mjs` must pass before installation.
+- `install-model-artifact.mjs` copies model files under `web-app/public/models/omr/installed/{modelId}/{version}/` and updates `model-catalog.json`.
+- The app shows only built-in smoke models plus successfully installed artifacts.
+- Candidate or product status requires actual evaluation report, ONNX parity, browser runtime validation, and known failure report.
+- `YOLO_V8_RAW` output manifests require browser postprocessing support and are not interchangeable with the `BOX_XYWH_CONF_CLASS` smoke models.

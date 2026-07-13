@@ -1,0 +1,8 @@
+ultralytics==8.3.40
+onnx==1.17.0
+onnxruntime==1.20.1
+pycocotools==2.0.8
+jsonschema==4.23.0
+PyYAML==6.0.2
+tqdm==4.67.1
+Pillow==11.0.0

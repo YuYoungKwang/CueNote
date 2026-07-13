@@ -1,98 +1,82 @@
-# Phase 9 Implementation Plan
+# Phase 9E-H Implementation Plan
 
-Phase 9 builds the OMR dataset, validation, smoke training, evaluation, ONNX export, and browser execution path. It does not implement Phase 10 structure interpretation, pitch/duration inference, `EditableScoreDocument`, automatic MusicXML draft generation, or editor handoff.
+Phase 9A-D dataset infrastructure, experimental smoke models, ONNX browser execution, and Phase 8 runtime integration are complete. Phase 9E-H prepares a Google Colab based real-training pipeline. It does not claim that Colab GPU training, real checkpoints, actual trained ONNX files, product accuracy, or Phase 10 readiness have been completed.
 
 ## Repository Analysis
 
-- The primary platform is the React + TypeScript + Vite Web PWA.
+- The primary platform remains the React + TypeScript + Vite Web PWA.
 - `legacy/ios-app` is Phase 11 archival material and remains out of scope.
-- Phase 8 already provides browser-local ONNX Runtime Web loading, model manifest/hash/cache/offline reuse, WebGPU-first/WASM fallback, `TEST_RUNTIME_MODEL`, system-crop tensor preprocessing, coordinate mapping, and OMR review persistence.
-- `packages/score-domain/src/omr` defines the runtime manifest, class mapping, confidence/review types, and detection result contracts.
-- `web-app/src/core/omr` owns manifest parsing, cache delivery, tensor building, ONNX Runtime Web execution, coordinate mapping, and postprocessing.
-- `web-app/src/workers/omr.worker.ts` is the model execution boundary.
-- `web-app/public/models/omr` currently contains only the Phase 8 runtime smoke model.
-- `ai-training` is a Phase 8 scaffold and must become a runnable Phase 9 pipeline.
-- Python is not available in the current local environment, and no licensed real scan/photo corpus or GPU is present. Phase 9 therefore can create reproducible fixture data and experimental smoke models, but cannot honestly produce a product OMR model.
+- Phase 8 runtime loads manifest-based ONNX models in `web-app/src/workers/omr.worker.ts`, caches binaries in Cache Storage, and decodes `BOX_XYWH_CONF_CLASS` outputs.
+- Phase 9A-D smoke infrastructure lives in `ai-training` and produces synthetic-only `layout-smoke.onnx` and `symbol-smoke.onnx` with `status: EXPERIMENTAL`.
+- `web-app/src/features/import/OmrRuntimePage.tsx` exposes only built-in smoke models. Actual Colab artifacts must be installed before appearing in the UI.
+- The current Windows PC has an AMD Radeon RX 580. It must not be used for PyTorch/ROCm product training, unofficial ROCm patches, GPU override, or DirectML product training.
+- Local Windows is used only for data validation, CPU smoke/static checks, ONNX/package validation, and browser inference.
+- Actual model training is intended for Google Colab GPU after the user opens the notebook, selects GPU runtime, mounts Drive, confirms dataset rights, and runs the notebook.
 
 ## Scope
 
-- Define stable class taxonomy for layout and symbol detection.
-- Define source/license schema, annotation schema, dataset manifest, split policy, leakage policy, metrics, failure categories, and model input/output contract before model export.
-- Build a copyright-safe synthetic fixture dataset with explicit provenance and license records.
-- Validate dataset items, licenses, duplicate checksums, source-group split leakage, class IDs, geometry, and distribution.
-- Add deterministic smoke training/evaluation for layout and symbol models.
-- Export tiny experimental ONNX models that emit manifest-driven detections.
-- Generate model manifests with status `EXPERIMENTAL`, hash, class map, output contract, dataset version, and evaluation report links.
-- Connect experimental layout and symbol manifests to the Phase 8 runtime without marking them as product models.
-- Add browser E2E coverage for actual ONNX execution, output decode, coordinate mapping, overlay display, cache reuse, and Phase 10 deferred state.
-- Update docs and acceptance criteria to reflect what is implemented and what remains unavailable.
+- Add reproducible Colab notebooks for Phase 9E-H.
+- Add Drive storage layout, checkpoint/resume, run-state, and artifact packaging policies.
+- Add dataset source registry and license eligibility records for DeepScoresV2 dense and CueNote synthetic data.
+- Add DeepScoresV2-to-CueNote class mapping with `EXACT`, `MERGED`, `APPROXIMATE`, and `EXCLUDED` mapping types.
+- Add Colab-oriented Python pipeline code for environment checks, dataset download/cache, conversion, source-group split/leakage checks, YOLO-format export, training config, checkpoint metadata, evaluation report, ONNX export/parity, and artifact packaging.
+- Add local Node validators for notebooks, configs, registry, mappings, and model artifact zip/install validation.
+- Add a local fixture artifact package path to validate installer logic without pretending a trained model exists.
+- Update docs and CI to distinguish pipeline preparation from actual Colab training.
 
 ## Explicitly Out of Scope
 
-- Full PyTorch or GPU training.
-- Real scan/photo dataset ingestion without verified licenses.
-- Product model promotion.
-- Pitch inference, duration inference, notehead/stem association, voice assignment, repeat semantic assembly, or MusicXML draft generation.
-- Server-side GPU OMR.
-- OCR for lyrics or chords.
-- Native iOS/Core ML work and `legacy/ios-app` changes.
+- Running Colab GPU training from Codex.
+- Claiming Google Drive mount, GPU allocation, or Colab login/authorization succeeded.
+- Product candidate promotion before actual trained artifacts are returned and validated.
+- RX 580 ROCm training, unofficial AMD GPU overrides, or DirectML product training.
+- Phase 10 structure assembly, pitch/duration inference, `EditableScoreDocument`, MusicXML drafts, and Phase 6 editor handoff.
+- Server-side GPU inference, chord OCR, lyric OCR, automatic ScoreVersion publishing, and `legacy/ios-app` changes.
 
-## Data Contract Decisions
+## Design Decisions
 
-### Class Taxonomy
+### Training Runtime
 
-Decision: Maintain separate layout and symbol taxonomies with stable string IDs. Numeric class indices are assigned only in generated model manifests.
+Decision: Colab is the product-training target. Local Windows remains validation/browser-only.
 
-Reason: Phase 8 requires manifest-driven class index mapping, and Phase 9 must avoid hardcoded class indices.
+Reason: The RX 580 is not a supported PyTorch/ROCm product-training target for this project, and the user explicitly disallowed unofficial GPU paths.
 
-### Annotation Coordinates
+Alternative: Try DirectML or unofficial ROCm patches locally. Rejected because it would create non-reproducible product-training results.
 
-Decision: Source annotations use pixel coordinates with mandatory image width/height. Exported model detections use normalized system coordinates.
+### Model Framework
 
-Reason: Pixel labels are easier to validate against original images, while browser runtime mapping already works with normalized system/page coordinates.
+Decision: Use Ultralytics YOLO nano/small configs as the initial Colab detector baseline for both layout and symbol models.
 
-### License Policy
+Reason: It is practical on free Colab GPUs, exports ONNX, supports object detection, has straightforward resume/checkpoint behavior, and is simpler than custom torchvision/mmdetection code for the first real-training pipeline.
 
-Decision: `UNKNOWN` and unverified licenses are excluded by default. Training requires `allowedForTraining: true`, source provenance, and non-empty license metadata.
+Risk: YOLO may not be optimal for dense tiny music symbols. Evaluation and failure reports determine whether it stays as the candidate baseline.
 
-Reason: The project cannot treat web-collected scores as safe training data without explicit rights.
+### Dataset Eligibility
 
-### Split Policy
+Decision: DeepScoresV2 dense is the first real external dataset path. The source registry records Zenodo official source, dense archive checksum, CC BY 4.0 evidence, attribution requirement, and `PRODUCT_TRAIN_ELIGIBLE` status pending user confirmation in Colab.
 
-Decision: Split by `sourceGroupId`, `compositionId`, `editionId`, `originalDocumentId`, and `syntheticTemplateId`; page-level random split is not allowed.
+Reason: It has an official archive, dense subset, published checksum, and object annotations. It is still synthetic/engraved rather than camera/photo data, so scan/photo performance remains limited or unknown.
 
-Reason: Synthetic variants and pages from the same score leak visual and structural information across splits.
+### Artifact Installation
 
-### Model Status
+Decision: Actual Colab artifacts are not shown in the app until `validate-model-artifact.mjs` and `install-model-artifact.mjs` succeed.
 
-Decision: Generated fixture models are `EXPERIMENTAL`. `PRODUCT` requires a fixed real/synthetic test split, per-class metrics, browser execution, WebGPU/WASM verification, known failures, reproducible training config, and checkpoint preservation.
-
-Reason: Synthetic-only smoke models validate infrastructure, not product OMR accuracy.
-
-## Model Baseline Decision
-
-Decision: Use a deterministic Node.js smoke baseline in this environment. It writes a reproducible model specification from fixture labels, evaluates against the fixture test split, and exports constant-output ONNX models for browser validation.
-
-Reason: The local environment has no Python executable, GPU, or licensed real dataset. Installing global Python or claiming product training would be unsafe. The smoke baseline still exercises dataset validation, evaluation reports, model manifests, ONNX Runtime Web, output decoding, and offline cache behavior.
-
-Alternative: Add a PyTorch/YOLO training stack immediately. Deferred because it cannot be run or verified in this environment and would create unvalidated code paths.
+Reason: The UI must not display fake candidate models or stale artifacts. Installed manifests are generated from validated zip contents only.
 
 ## Implementation Order
 
-1. Replace the Phase 8 plan with this Phase 9 plan.
-2. Add taxonomy, source/license schema, annotation schema, dataset manifest updates, evaluation report updates, and metric gate documentation.
-3. Add Node-based dataset build, validation, smoke training, evaluation, ONNX export, ONNX manifest validation, and pipeline runner.
-4. Generate the fixture dataset, validation reports, smoke model specs, evaluation reports, experimental ONNX binaries, and browser manifests.
-5. Extend OMR manifest/domain types with model status and detection output contracts.
-6. Extend postprocessing to decode manifest-driven detection tensors for layout and symbol tasks.
-7. Expose experimental model selection in the OMR runtime UI while preserving `PRODUCT_MODEL_NOT_INSTALLED`.
-8. Add unit and E2E tests for detection decoding and actual layout/symbol model browser execution.
-9. Update README, OMR docs, roadmap, acceptance criteria, model delivery docs, and `ai-training/README.md`.
-10. Run AI pipeline, frontend build/test/E2E, Markdown links, Docker config, diff checks, and legacy/backend/deploy change checks.
+1. Update this plan for Phase 9E-H.
+2. Add Colab configs, dependency pins, dataset source registry, and class mapping.
+3. Add Python pipeline modules and scripts for Colab execution.
+4. Add notebooks with Run-all flow, Drive mount, resume, train/evaluate/export/package steps, and explicit user responsibility notes.
+5. Add Node validators for notebooks/configs/registry/mapping/artifacts and installer scripts.
+6. Add fixture artifact packaging validation without promoting smoke models to candidates.
+7. Update README, PRD, Architecture, OMR spec, Roadmap, Acceptance Criteria, Codex prompts, Capability Matrix, Model Delivery spec, and `ai-training/README.md`.
+8. Run feasible local validations: notebook JSON validation, config/registry checks, fixture dataset validation, license/leakage validation, artifact validator/installer smoke, frontend build/test/E2E, Docker config, Markdown links, diff checks, and backend/deploy/legacy untouched check.
 
 ## Risks
 
-- Fixture data is synthetic and tiny; metrics are useful only as pipeline checks.
-- Browser WebGPU availability depends on the test browser and cross-origin isolation. WASM fallback remains the reliable baseline.
-- ONNX models are tiny constant-output smoke models, not learned product models.
-- Phase 10 cannot start until real product candidate metrics and failure analysis are available.
+- DeepScoresV2 dense is large for free Colab and may require manual download/cache reuse.
+- Dataset class names and annotation formats may differ from the converter's first-pass assumptions; conversion script must fail clearly and produce mapping reports.
+- Free Colab GPU allocation is not guaranteed and sessions can disconnect.
+- Actual CANDIDATE status depends on user-run Colab artifacts and cannot be assigned by static preparation alone.

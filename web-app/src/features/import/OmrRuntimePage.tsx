@@ -13,11 +13,13 @@ import type { OmrWorkerResponse } from '../../core/omr/workerProtocol';
 import { createImportProjectRepository, type ImportProjectBundle } from '../../core/storage/importProjectRepository';
 import { createOmrRepository, type OmrAnalysisJobRecord } from '../../core/storage/omrRepository';
 
-const MODEL_OPTIONS = [
+const BUILT_IN_MODEL_OPTIONS = [
   { id: 'TEST_RUNTIME_MODEL', label: 'TEST_RUNTIME_MODEL', url: '/models/omr/test-runtime-manifest.json' },
   { id: 'LAYOUT_SMOKE_MODEL', label: 'LAYOUT_SMOKE_MODEL', url: '/models/omr/layout-smoke-manifest.json' },
   { id: 'SYMBOL_SMOKE_MODEL', label: 'SYMBOL_SMOKE_MODEL', url: '/models/omr/symbol-smoke-manifest.json' }
 ] as const;
+
+type ModelOption = { id: string; label: string; url: string };
 
 type ModelState =
   | { kind: 'idle' }
@@ -37,14 +39,16 @@ export function OmrRuntimePage({ mode = 'runtime' }: { mode?: 'runtime' | 'revie
   const [modelState, setModelState] = useState<ModelState>({ kind: 'idle' });
   const [runState, setRunState] = useState<RunState>({ kind: 'idle' });
   const [storedResults, setStoredResults] = useState<OmrDetectionResult[]>([]);
-  const [selectedModelId, setSelectedModelId] = useState<(typeof MODEL_OPTIONS)[number]['id']>('TEST_RUNTIME_MODEL');
+  const [modelOptions, setModelOptions] = useState<ModelOption[]>([...BUILT_IN_MODEL_OPTIONS]);
+  const [selectedModelId, setSelectedModelId] = useState('TEST_RUNTIME_MODEL');
   const [status, setStatus] = useState('Load a model to verify browser OMR infrastructure.');
 
-  const selectedModel = MODEL_OPTIONS.find((option) => option.id === selectedModelId) ?? MODEL_OPTIONS[0];
+  const selectedModel = modelOptions.find((option) => option.id === selectedModelId) ?? modelOptions[0] ?? BUILT_IN_MODEL_OPTIONS[0];
 
   useEffect(() => {
     void importRepository.loadProject(projectId).then(setBundle);
     void omrRepository.loadResults(projectId).then(setStoredResults);
+    void loadModelCatalog().then(setModelOptions);
   }, [importRepository, omrRepository, projectId]);
 
   useEffect(() => {
@@ -245,13 +249,13 @@ export function OmrRuntimePage({ mode = 'runtime' }: { mode?: 'runtime' | 'revie
             className="select-input"
             value={selectedModelId}
             onChange={(event) => {
-              setSelectedModelId(event.target.value as (typeof MODEL_OPTIONS)[number]['id']);
+              setSelectedModelId(event.target.value);
               setModelState({ kind: 'idle' });
               setRunState({ kind: 'idle' });
             }}
             data-testid="omr-model-select"
           >
-            {MODEL_OPTIONS.map((option) => (
+            {modelOptions.map((option) => (
               <option key={option.id} value={option.id}>
                 {option.label}
               </option>
@@ -382,4 +386,18 @@ function rectStyle(rect: { x: number; y: number; width: number; height: number }
 
 function createJobId(prefix: string): string {
   return `omr-${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+async function loadModelCatalog(): Promise<ModelOption[]> {
+  try {
+    const response = await fetch('/models/omr/model-catalog.json', { cache: 'no-cache' });
+    if (!response.ok) {
+      return [...BUILT_IN_MODEL_OPTIONS];
+    }
+    const value = (await response.json()) as { models?: ModelOption[] };
+    const models = value.models?.filter((model) => model.id && model.label && model.url) ?? [];
+    return models.length ? models : [...BUILT_IN_MODEL_OPTIONS];
+  } catch {
+    return [...BUILT_IN_MODEL_OPTIONS];
+  }
 }
