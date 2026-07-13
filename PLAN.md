@@ -109,3 +109,13 @@ Decision: Add `SYMBOL_OVERFIT` as a diagnostic-only Colab run mode. It builds a 
 Impact: The report can distinguish "model cannot overfit two images" from "full dataset/generalization is weak." If tiny-overfit fails, full `SYMBOL_TRAIN` should not be repeated until the cause is fixed.
 
 Alternative: Keep increasing epochs on full `SYMBOL_TRAIN`. Rejected because zero train-image predictions at normal confidence indicate the tiny case must pass first.
+
+## Phase 9J Symbol Tile/Crop Overfit Diagnostic
+
+Reason: Full-page `SYMBOL_OVERFIT` still failed after 100 epochs with hundreds of labels, suggesting that resizing full pages to 1280 may make symbols too small or too dense for the detector to learn.
+
+Decision: Add `SYMBOL_TILE_OVERFIT` as a diagnostic-only Colab run mode. It derives 10-50 object-containing crops from one or two existing `deepscoresv2-dense-symbol` train images, recalculates YOLO labels into crop-relative coordinates, saves label/prediction overlays, and trains with crop-size input for 100 epochs.
+
+Impact: The diagnostic distinguishes "symbol training cannot learn at all" from "full-page scale is the problem." Existing full-page converted datasets and installed experimental model manifests remain untouched.
+
+Alternative: Repeat full `SYMBOL_TRAIN` with more epochs. Rejected until tile/crop overfit passes.

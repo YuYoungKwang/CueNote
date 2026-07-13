@@ -434,3 +434,17 @@ Status before user-run Colab:
 - PASS required: prediction overlays are saved for the overfit train images.
 - PASS required: failing overfit report recommends not repeating full `SYMBOL_TRAIN`.
 - PASS required: diagnostic artifacts remain `EXPERIMENTAL` and are not promoted to `CANDIDATE` or `PRODUCT`.
+
+## Phase 9J Symbol Tile/Crop Overfit Criteria
+
+- PASS required: Colab run modes include `SYMBOL_TILE_OVERFIT`.
+- PASS required: tile/crop dataset is derived from one or two existing `deepscoresv2-dense-symbol` train images.
+- PASS required: crop size is configurable among `512`, `768`, and `1024`.
+- PASS required: overlap supports 20-30%.
+- PASS required: generated crop count is limited to 10-50 crops.
+- PASS required: crop-relative YOLO labels are recalculated and every coordinate is validated within `0..1`.
+- PASS required: report records crop image count, crop label count, empty crop count, bad label count, train mAP50, max confidence, and prediction counts at `0.001`, `0.01`, and `0.05`.
+- PASS required: label overlays and prediction overlays are saved in crop coordinates.
+- PASS required: failing tile/crop overfit report recommends not repeating full `SYMBOL_TRAIN`.
+- PASS required: diagnostic artifacts remain `EXPERIMENTAL` and are not promoted to `CANDIDATE` or `PRODUCT`.
+- PASS required: Phase 10 structure assembly and MusicXML generation remain out of scope.

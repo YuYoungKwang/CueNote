@@ -8,6 +8,7 @@ const failures = [];
 await mustRead('configs/colab/phase9_colab.json', (config) => {
   check(config.defaultRunMode === 'SMOKE', 'colab_default_mode', 'Colab default run mode must be SMOKE.');
   check(config.runModes?.includes('SYMBOL_OVERFIT'), 'symbol_overfit_mode', 'Colab run modes must include SYMBOL_OVERFIT.');
+  check(config.runModes?.includes('SYMBOL_TILE_OVERFIT'), 'symbol_tile_overfit_mode', 'Colab run modes must include SYMBOL_TILE_OVERFIT.');
   check(config.defaultDriveRoot.includes('/content/drive'), 'drive_root', 'Default Drive root must be under /content/drive.');
   check(config.assumedDriveCapacityGb === 14, 'drive_capacity', 'Colab policy must assume 14GB Google Drive capacity.');
   check(config.minimumFreeDriveGbBeforeTraining >= 3, 'drive_free_space', 'Training must require at least 3GB free Drive space.');
@@ -21,6 +22,12 @@ await mustRead('configs/colab/phase9_colab.json', (config) => {
   check(config.overfitPolicy?.batchSize === 1, 'overfit_batch', 'SYMBOL_OVERFIT batch size must be 1.');
   check(config.overfitPolicy?.epochs >= 100, 'overfit_epochs', 'SYMBOL_OVERFIT must run at least 100 epochs.');
   check(config.overfitPolicy?.earlyStoppingPatience === 0, 'overfit_patience', 'SYMBOL_OVERFIT must disable early stopping with patience 0.');
+  check([512, 768, 1024].includes(config.tileOverfitPolicy?.cropSize), 'tile_crop_size', 'SYMBOL_TILE_OVERFIT crop size must be 512, 768, or 1024.');
+  check(config.tileOverfitPolicy?.overlap >= 0.2 && config.tileOverfitPolicy?.overlap <= 0.3, 'tile_overlap', 'SYMBOL_TILE_OVERFIT overlap must be between 20% and 30%.');
+  check(config.tileOverfitPolicy?.minCropCount >= 10 && config.tileOverfitPolicy?.maxCropCount <= 50, 'tile_crop_count', 'SYMBOL_TILE_OVERFIT must keep 10 to 50 crops.');
+  check([2, 4].includes(config.tileOverfitPolicy?.batchSize), 'tile_batch', 'SYMBOL_TILE_OVERFIT batch size must be 2 or 4.');
+  check(config.tileOverfitPolicy?.epochs >= 100, 'tile_epochs', 'SYMBOL_TILE_OVERFIT must run at least 100 epochs.');
+  check(config.tileOverfitPolicy?.earlyStoppingPatience === 0, 'tile_patience', 'SYMBOL_TILE_OVERFIT must disable early stopping with patience 0.');
 });
 
 for (const file of ['configs/layout/yolo_layout_colab.json', 'configs/symbol/yolo_symbol_colab.json']) {

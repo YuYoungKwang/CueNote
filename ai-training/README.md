@@ -198,6 +198,31 @@ os.environ["CUENOTE_RUN_MODE"] = "SYMBOL_OVERFIT"
 
 If `symbol-overfit-diagnostic.json` reports `DO_NOT_REPEAT_FULL_SYMBOL_TRAIN_UNTIL_TINY_OVERFIT_PASSES`, fix the training/data path before running full `SYMBOL_TRAIN` again.
 
+If full-page tiny-overfit also fails, run the crop/tile diagnostic:
+
+```python
+os.environ["CUENOTE_RUN_MODE"] = "SYMBOL_TILE_OVERFIT"
+```
+
+`SYMBOL_TILE_OVERFIT` derives 10 to 50 object-containing crops from one or two existing `deepscoresv2-dense-symbol` train images. Default settings:
+
+- crop size: `768` (`512`, `768`, or `1024` allowed)
+- overlap: `0.25`
+- batch size: `2`
+- image size: `768`
+- epochs: `100`
+- early stopping: disabled
+
+It writes:
+
+- `reports/symbol-tile-overfit-diagnostic.json`
+- `reports/symbol-tile-overfit-labels/`
+- `reports/symbol-tile-overfit-predictions/`
+- `reports/symbol-tile-overfit-onnx-validation.json`
+- `artifacts/*-tile-overfit-diagnostic.zip`
+
+If the report says `DO_NOT_REPEAT_FULL_SYMBOL_TRAIN_UNTIL_TILE_OVERFIT_PASSES`, do not repeat full `SYMBOL_TRAIN`. The next fix should target crop generation, labels, model IO, or training hyperparameters.
+
 ## Colab Artifacts
 
 Expected artifact zip contents:

@@ -10,6 +10,7 @@ const requiredPhrases = [
   '/content/cuenote-phase9',
   'CUENOTE_RUN_MODE',
   'SYMBOL_OVERFIT',
+  'SYMBOL_TILE_OVERFIT',
   'Runtime',
   'GPU',
   'phase9_colab_entry.py',

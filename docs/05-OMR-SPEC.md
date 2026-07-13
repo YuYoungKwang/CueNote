@@ -544,3 +544,24 @@ Policy:
 - If tiny-overfit fails, do not repeat full `SYMBOL_TRAIN` until the training/data path is fixed.
 
 This mode does not add Phase 10 structure assembly, pitch/duration inference, or MusicXML generation.
+
+### Phase 9J Tile/Crop Overfit Diagnostic
+
+`SYMBOL_TILE_OVERFIT` diagnoses whether full-page resizing makes symbol objects too small or too dense for the detector to learn.
+
+Policy:
+
+- Use one or two existing `deepscoresv2-dense-symbol` train images.
+- Generate object-containing crop/tile images from YOLO labels.
+- Recalculate every included bbox into crop-relative YOLO coordinates.
+- Supported crop sizes are `512`, `768`, and `1024`; default crop size is `768`.
+- Supported overlap is 20-30%; default overlap is 25%.
+- Keep 10-50 non-empty crops by default.
+- Skip empty crops unless explicitly configured otherwise.
+- Drop crop-relative boxes that are outside the crop or smaller than the configured minimum pixel size.
+- Validate every output label coordinate is within `0..1`.
+- Train with batch size 2 or 4, image size equal to the crop size by default, 100 epochs, pretrained weights, disabled early stopping, and plots disabled.
+- Save label overlays and prediction overlays in crop coordinates.
+- Record crop image count, crop label count, empty crop count, bad label count, train mAP50, max confidence, and prediction counts at confidence thresholds `0.001`, `0.01`, and `0.05`.
+
+If tile/crop overfit fails, full `SYMBOL_TRAIN` must not be repeated until the crop/data/training path is fixed.
