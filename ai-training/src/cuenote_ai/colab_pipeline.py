@@ -25,7 +25,14 @@ def prepare_environment(repo_root: Path, drive_root: Path, run_mode: str) -> dic
     return {"config": colab_config, "layout": layout, "environment": report}
 
 
-def prepare_dataset(repo_root: Path, drive_root: Path, run_mode: str = "SMOKE") -> dict[str, Any]:
+def prepare_dataset(
+    repo_root: Path,
+    drive_root: Path,
+    run_mode: str = "SMOKE",
+    *,
+    converted_name: str | None = None,
+    allowed_class_ids: list[str] | None = None,
+) -> dict[str, Any]:
     prepared = prepare_environment(repo_root, drive_root, run_mode)
     layout = prepared["layout"]
     config = prepared["config"]
@@ -46,7 +53,7 @@ def prepare_dataset(repo_root: Path, drive_root: Path, run_mode: str = "SMOKE") 
         write_json(layout.reports / "fixture-smoke-dataset-report.json", report)
         update_run_state(layout.run_state, datasetVersion=source["datasetVersion"])
         return {"layout": layout, "converted": converted, "datasetReport": report, "leakage": {"status": "PASS", "mode": "fixture-smoke"}}
-    converted = layout.converted / "deepscoresv2-dense"
+    converted = layout.converted / (converted_name or "deepscoresv2-dense")
     if (converted / "annotations.json").exists() and (converted / "dataset.yaml").exists():
         report_path = converted / "conversion-report.json"
         report = read_json(report_path) if report_path.exists() else {"schemaVersion": 1, "datasetId": source["datasetId"], "reused": True}
@@ -74,6 +81,7 @@ def prepare_dataset(repo_root: Path, drive_root: Path, run_mode: str = "SMOKE") 
         dataset_version=source["datasetVersion"],
         max_items=max_items,
         max_source_groups=max_source_groups,
+        allowed_class_ids=allowed_class_ids,
     )
     leakage = validate_split_leakage(converted / "annotations.json")
     write_json(layout.reports / "split-leakage-report.json", leakage)
@@ -84,8 +92,6 @@ def prepare_dataset(repo_root: Path, drive_root: Path, run_mode: str = "SMOKE") 
 
 
 def train_task(repo_root: Path, drive_root: Path, task: str, run_mode: str = "SMOKE") -> dict[str, Any]:
-    dataset = prepare_dataset(repo_root, drive_root, run_mode)
-    layout = dataset["layout"]
     if task == "LAYOUT_DETECTION":
         config_path = repo_root / "ai-training/configs/layout/yolo_layout_colab.json"
         prefix = "layout"
@@ -95,6 +101,14 @@ def train_task(repo_root: Path, drive_root: Path, task: str, run_mode: str = "SM
     else:
         raise ValueError(f"Unsupported task {task}")
     config = read_json(config_path)
+    dataset = prepare_dataset(
+        repo_root,
+        drive_root,
+        run_mode,
+        converted_name=f"deepscoresv2-dense-{prefix}",
+        allowed_class_ids=config.get("classes", []),
+    )
+    layout = dataset["layout"]
     colab_config = read_json(repo_root / "ai-training/configs/colab/phase9_colab.json")
     drive_space = ensure_min_free_space(
         layout.root,

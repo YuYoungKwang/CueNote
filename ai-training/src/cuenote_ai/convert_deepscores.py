@@ -59,10 +59,12 @@ def convert_coco_like_dataset(
     dataset_version: str,
     max_items: int | None = None,
     max_source_groups: int | None = None,
+    allowed_class_ids: list[str] | None = None,
     seed: int = 90210,
 ) -> dict[str, Any]:
     mapping = load_mapping(mapping_path)
     by_alias = alias_map(mapping)
+    allowed_classes = set(allowed_class_ids or [])
     annotation_file = find_annotation_file(source_dir)
     coco = json.loads(annotation_file.read_text(encoding="utf-8"))
     categories = normalize_categories(coco.get("categories", []))
@@ -113,6 +115,9 @@ def convert_coco_like_dataset(
             if row.get("mappingType") == "APPROXIMATE":
                 approximate_count += 1
             target_class = row["targetClassId"]
+            if allowed_classes and target_class not in allowed_classes:
+                excluded_count += 1
+                continue
             if target_class not in class_ids:
                 class_ids.append(target_class)
             class_index = class_ids.index(target_class)
@@ -174,6 +179,7 @@ def convert_coco_like_dataset(
         "sourceGroupCount": len({row["sourceGroupId"] for row in annotation_rows}),
         "maxItems": max_items,
         "maxSourceGroups": max_source_groups,
+        "allowedClassIds": allowed_class_ids,
         "classIds": class_ids,
         "excludedAnnotations": excluded_count,
         "approximateMappings": approximate_count,
