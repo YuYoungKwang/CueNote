@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "modelId": "cuenote-layout-deepscores-exp",
+  "modelVersion": "0.1.0-colab",
+  "status": "EXPERIMENTAL",
+  "task": "LAYOUT_DETECTION",
+  "evaluatedAt": "2026-07-13T15:33:45.701614+00:00",
+  "metricsSummary": {
+    "results_dict": {
+      "metrics/precision(B)": 0.0,
+      "metrics/recall(B)": 0.0,
+      "metrics/mAP50(B)": 0.0,
+      "metrics/mAP50-95(B)": 0.0,
+      "fitness": 0.0
+    },
+    "speed": {
+      "preprocess": 0.5738735198974609,
+      "inference": 130.3952932357788,
+      "loss": 0.004649162292480469,
+      "postprocess": 6.24394416809082
+    },
+    "names": {
+      "0": "staff.region"
+    },
+    "fitness": 0.0,
+    "box_mp": 0.0,
+    "box_mr": 0.0,
+    "box_map50": 0.0,
+    "box_map": 0.0,
+    "box_maps": []
+  },
+  "promotionRecommendation": "EXPERIMENTAL",
+  "knownFailures": [
+    "requires_manual_metric_review_before_candidate_promotion"
+  ]
+}

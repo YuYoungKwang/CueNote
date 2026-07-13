@@ -1,0 +1,127 @@
+{
+  "schemaVersion": 1,
+  "modelId": "cuenote-symbol-deepscores-exp",
+  "version": "0.1.0-colab",
+  "task": "SYMBOL_DETECTION",
+  "status": "EXPERIMENTAL",
+  "file": "cuenote-symbol-deepscores-exp-0.1.0-colab.onnx",
+  "sha256": "6e58f11379028a12f79153285116a5df3ba0e6fd69b0cda9e441954162291a95",
+  "sizeBytes": 12340671,
+  "input": {
+    "width": 1024,
+    "height": 1024,
+    "channels": 3,
+    "tensorLayout": "NCHW",
+    "resizeMode": "LETTERBOX",
+    "valueRange": "ZERO_TO_ONE"
+  },
+  "outputs": [
+    {
+      "name": "output0",
+      "format": "YOLO_V8_RAW",
+      "coordinateSpace": "TENSOR_NORMALIZED",
+      "shape": [
+        1,
+        20,
+        -1
+      ]
+    }
+  ],
+  "executionProviders": [
+    "WEBGPU",
+    "WASM"
+  ],
+  "classes": [
+    {
+      "id": "rest.quarter",
+      "index": 0,
+      "label": "rest.quarter"
+    },
+    {
+      "id": "notehead.filled",
+      "index": 1,
+      "label": "notehead.filled"
+    },
+    {
+      "id": "stem.up",
+      "index": 2,
+      "label": "stem.up"
+    },
+    {
+      "id": "rest.eighth",
+      "index": 3,
+      "label": "rest.eighth"
+    },
+    {
+      "id": "accidental.sharp",
+      "index": 4,
+      "label": "accidental.sharp"
+    },
+    {
+      "id": "accidental.natural",
+      "index": 5,
+      "label": "accidental.natural"
+    },
+    {
+      "id": "clef.treble",
+      "index": 6,
+      "label": "clef.treble"
+    },
+    {
+      "id": "clef.bass",
+      "index": 7,
+      "label": "clef.bass"
+    },
+    {
+      "id": "rest.whole",
+      "index": 8,
+      "label": "rest.whole"
+    },
+    {
+      "id": "notehead.hollow",
+      "index": 9,
+      "label": "notehead.hollow"
+    },
+    {
+      "id": "accidental.flat",
+      "index": 10,
+      "label": "accidental.flat"
+    },
+    {
+      "id": "tie",
+      "index": 11,
+      "label": "tie"
+    },
+    {
+      "id": "navigation.segno",
+      "index": 12,
+      "label": "navigation.segno"
+    },
+    {
+      "id": "rest.half",
+      "index": 13,
+      "label": "rest.half"
+    },
+    {
+      "id": "dot.augmentation",
+      "index": 14,
+      "label": "dot.augmentation"
+    },
+    {
+      "id": "navigation.coda",
+      "index": 15,
+      "label": "navigation.coda"
+    }
+  ],
+  "postprocessing": {
+    "confidenceThreshold": 0.35,
+    "nmsThreshold": 0.5,
+    "autoAcceptThreshold": 0.92,
+    "lowConfidenceThreshold": 0.55
+  },
+  "datasetVersion": "",
+  "taxonomyVersion": "cuenote-omr-taxonomy-v1",
+  "evaluationReport": "evaluation.json",
+  "minimumAppVersion": "0.9.0",
+  "createdAt": "2026-07-13T15:45:19.453925+00:00"
+}

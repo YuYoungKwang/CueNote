@@ -1,8 +1,35 @@
-﻿{
+{
   "schemaVersion": 1,
   "models": [
-    { "id": "TEST_RUNTIME_MODEL", "label": "TEST_RUNTIME_MODEL", "url": "/models/omr/test-runtime-manifest.json", "builtIn": true },
-    { "id": "LAYOUT_SMOKE_MODEL", "label": "LAYOUT_SMOKE_MODEL", "url": "/models/omr/layout-smoke-manifest.json", "builtIn": true },
-    { "id": "SYMBOL_SMOKE_MODEL", "label": "SYMBOL_SMOKE_MODEL", "url": "/models/omr/symbol-smoke-manifest.json", "builtIn": true }
+    {
+      "id": "TEST_RUNTIME_MODEL",
+      "label": "TEST_RUNTIME_MODEL",
+      "url": "/models/omr/test-runtime-manifest.json",
+      "builtIn": true
+    },
+    {
+      "id": "LAYOUT_SMOKE_MODEL",
+      "label": "LAYOUT_SMOKE_MODEL",
+      "url": "/models/omr/layout-smoke-manifest.json",
+      "builtIn": true
+    },
+    {
+      "id": "SYMBOL_SMOKE_MODEL",
+      "label": "SYMBOL_SMOKE_MODEL",
+      "url": "/models/omr/symbol-smoke-manifest.json",
+      "builtIn": true
+    },
+    {
+      "id": "cuenote-symbol-deepscores-exp",
+      "label": "cuenote-symbol-deepscores-exp (EXPERIMENTAL)",
+      "url": "/models/omr/installed/cuenote-symbol-deepscores-exp/0.1.0-colab/manifest.json",
+      "builtIn": false
+    },
+    {
+      "id": "cuenote-layout-deepscores-exp",
+      "label": "cuenote-layout-deepscores-exp (EXPERIMENTAL)",
+      "url": "/models/omr/installed/cuenote-layout-deepscores-exp/0.1.0-colab/manifest.json",
+      "builtIn": false
+    }
   ]
 }

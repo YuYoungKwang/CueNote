@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "modelId": "cuenote-symbol-deepscores-exp",
+  "modelVersion": "0.1.0-colab",
+  "status": "EXPERIMENTAL",
+  "task": "SYMBOL_DETECTION",
+  "evaluatedAt": "2026-07-13T15:45:13.851172+00:00",
+  "metricsSummary": {
+    "results_dict": {
+      "metrics/precision(B)": 0.0,
+      "metrics/recall(B)": 0.0,
+      "metrics/mAP50(B)": 0.0,
+      "metrics/mAP50-95(B)": 0.0,
+      "fitness": 0.0
+    },
+    "speed": {
+      "preprocess": 0.6308555603027344,
+      "inference": 118.3847188949585,
+      "loss": 0.005245208740234375,
+      "postprocess": 4.433274269104004
+    },
+    "names": {
+      "0": "rest.quarter",
+      "1": "notehead.filled",
+      "2": "stem.up",
+      "3": "rest.eighth",
+      "4": "accidental.sharp",
+      "5": "accidental.natural",
+      "6": "clef.treble",
+      "7": "clef.bass",
+      "8": "rest.whole",
+      "9": "notehead.hollow",
+      "10": "accidental.flat",
+      "11": "tie",
+      "12": "navigation.segno",
+      "13": "rest.half",
+      "14": "dot.augmentation",
+      "15": "navigation.coda"
+    },
+    "fitness": 0.0,
+    "box_mp": 0.0,
+    "box_mr": 0.0,
+    "box_map50": 0.0,
+    "box_map": 0.0,
+    "box_maps": []
+  },
+  "promotionRecommendation": "EXPERIMENTAL",
+  "knownFailures": [
+    "requires_manual_metric_review_before_candidate_promotion"
+  ]
+}

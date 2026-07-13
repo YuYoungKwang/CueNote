@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 1,
+  "task": "SYMBOL_DETECTION",
+  "modelId": "cuenote-symbol-deepscores-exp",
+  "modelVersion": "0.1.0-colab",
+  "status": "EXPERIMENTAL",
+  "framework": "ultralytics-yolo",
+  "architecture": "yolov8n",
+  "pretrainedWeights": "yolov8n.pt",
+  "inputPolicy": "reviewed_system_crop_or_tiled_system_crop",
+  "inputSize": 1024,
+  "batchSize": 4,
+  "epochs": 1,
+  "workers": 2,
+  "optimizer": "auto",
+  "learningRate": 0.008,
+  "scheduler": "ultralytics-default",
+  "precision": "amp",
+  "earlyStoppingPatience": 3,
+  "checkpointIntervalEpochs": -1,
+  "savePeriodEpochs": -1,
+  "keepRecentCheckpointCount": 1,
+  "seed": 90211,
+  "classes": [
+    "notehead.filled",
+    "notehead.hollow",
+    "stem.up",
+    "stem.down",
+    "rest.whole",
+    "rest.half",
+    "rest.quarter",
+    "rest.eighth",
+    "accidental.sharp",
+    "accidental.flat",
+    "accidental.natural",
+    "clef.treble",
+    "clef.bass",
+    "dot.augmentation",
+    "tie",
+    "navigation.segno",
+    "navigation.coda"
+  ],
+  "augmentation": {
+    "degrees": 2,
+    "translate": 0.015,
+    "scale": 0.12,
+    "shear": 0.5,
+    "perspective": 0.0003,
+    "hsvH": 0,
+    "hsvS": 0,
+    "hsvV": 0.08,
+    "mosaic": 0.05,
+    "mixup": 0
+  },
+  "smallObjectPolicy": {
+    "useHigherInputResolution": true,
+    "enableTilingExperiment": true,
+    "tileOverlap": 0.2,
+    "reportSmallObjectAP": true,
+    "classBalancedSampling": true
+  },
+  "oomFallback": {
+    "batchSize": [
+      6,
+      4,
+      2,
+      1
+    ],
+    "inputSize": [
+      1280,
+      1024,
+      896,
+      768
+    ],
+    "useGradientAccumulation": true
+  },
+  "promotionGate": {
+    "minimumStatus": "EXPERIMENTAL",
+    "candidateRequiresRealMetrics": true,
+    "minNoteheadRecall": 0.9,
+    "minAccidentalMacroF1": 0.8,
+    "minSmallObjectAP": 0.65,
+    "maxFalsePositivePerSystem": 12,
+    "requiresBrowserParity": true
+  }
+}

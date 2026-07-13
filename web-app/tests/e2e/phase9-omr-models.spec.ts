@@ -26,6 +26,27 @@ test('runs Phase 9 experimental layout and symbol ONNX models in the browser run
   expect(pageErrors).toEqual([]);
 });
 
+test('runs installed Colab experimental layout and symbol artifacts without promoting them', async ({ page }) => {
+  const { consoleErrors, pageErrors } = trackBrowserErrors(page);
+
+  await createReviewedImportProject(page);
+  await page.getByTestId('open-omr-runtime').click();
+  await expect(page.getByTestId('omr-runtime-page')).toBeVisible();
+
+  await runInstalledExperimentalModel(page, 'cuenote-layout-deepscores-exp');
+  await page.context().setOffline(true);
+  await page.getByTestId('omr-load-model').click();
+  await expect.poll(async () => page.getByTestId('omr-cache-state').textContent(), { timeout: 30000 }).toBe('hit');
+  await page.context().setOffline(false);
+
+  await runInstalledExperimentalModel(page, 'cuenote-symbol-deepscores-exp');
+
+  await page.getByRole('link', { name: 'Draft status' }).click();
+  await expect(page.getByTestId('omr-draft-deferred')).toContainText('Phase 10');
+  expect(consoleErrors).toEqual([]);
+  expect(pageErrors).toEqual([]);
+});
+
 async function runModel(page: Page, modelId: string, resultPattern: RegExp, detectionPattern: RegExp) {
   await page.getByTestId('omr-model-select').selectOption(modelId);
   await expect(page.getByTestId('omr-model-kind')).toHaveText(modelId);
@@ -35,6 +56,20 @@ async function runModel(page: Page, modelId: string, resultPattern: RegExp, dete
   await expect(page.getByTestId('omr-runtime-result')).toContainText(/detections: [1-9]/, { timeout: 30000 });
   await expect(page.getByTestId('omr-result-list')).toContainText(resultPattern);
   await expect(page.getByTestId('omr-detection-list')).toContainText(detectionPattern);
+}
+
+async function runInstalledExperimentalModel(page: Page, modelId: string) {
+  await expect(page.getByTestId('omr-model-select').locator(`option[value="${modelId}"]`)).toHaveCount(1);
+  await page.getByTestId('omr-model-select').selectOption(modelId);
+  await expect(page.getByTestId('omr-model-kind')).toHaveText(modelId);
+  await page.getByTestId('omr-load-model').click();
+  await expect.poll(async () => page.getByTestId('omr-provider').textContent(), { timeout: 30000 }).toMatch(/WEBGPU|WASM/);
+  await expect(page.getByTestId('omr-model-status')).toHaveText('EXPERIMENTAL');
+  await expect(page.getByTestId('omr-product-state')).toHaveText('PRODUCT_MODEL_NOT_INSTALLED');
+  await page.getByTestId('omr-run-system').click();
+  await expect(page.getByTestId('omr-runtime-result')).toContainText(/detections: \d+/, { timeout: 30000 });
+  await expect(page.getByTestId('omr-result-list')).toContainText(modelId);
+  await expect(page.getByTestId('omr-draft-deferred')).not.toBeVisible();
 }
 
 async function createReviewedImportProject(page: Page) {

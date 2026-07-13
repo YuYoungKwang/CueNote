@@ -7,7 +7,8 @@ export async function ensureDir(dir) {
 }
 
 export async function readJson(file) {
-  return JSON.parse(await fs.readFile(file, 'utf8'));
+  const text = await fs.readFile(file, 'utf8');
+  return JSON.parse(text.replace(/^\uFEFF/, ''));
 }
 
 export async function writeJson(file, value) {
