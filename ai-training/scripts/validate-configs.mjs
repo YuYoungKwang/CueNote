@@ -29,6 +29,14 @@ for (const file of ['configs/layout/yolo_layout_colab.json', 'configs/symbol/yol
   });
 }
 
+const taxonomy = await readJson(path.join(aiRoot, 'taxonomy/classes.json'));
+const taxonomyClassIds = new Set(Object.values(taxonomy.tasks ?? {}).flat().map((klass) => klass.id));
+await mustRead('configs/symbol/yolo_symbol_colab.json', (config) => {
+  for (const classId of config.classes ?? []) {
+    check(taxonomyClassIds.has(classId), 'symbol_class_taxonomy', `${classId} is not declared in taxonomy/classes.json.`);
+  }
+});
+
 await mustRead('registry/dataset-sources.json', (registry) => {
   const sources = registry.sources ?? [];
   const deepscores = sources.find((source) => source.datasetId === 'deepscoresv2-dense');
@@ -44,8 +52,13 @@ await mustRead('registry/dataset-sources.json', (registry) => {
 
 await mustRead('mappings/deepscoresv2-to-cuenote.json', (mapping) => {
   const types = new Set((mapping.mappings ?? []).map((row) => row.mappingType));
-  for (const type of ['EXACT', 'APPROXIMATE', 'EXCLUDED']) {
+  for (const type of ['EXACT', 'APPROXIMATE', 'MERGED', 'EXCLUDED']) {
     check(types.has(type), 'mapping_types', `Mapping must include ${type}.`);
+  }
+  for (const row of mapping.mappings ?? []) {
+    if (row.targetClassId) {
+      check(taxonomyClassIds.has(row.targetClassId), 'mapping_target_taxonomy', `${row.sourceClassId} maps to unknown taxonomy class ${row.targetClassId}.`);
+    }
   }
 });
 

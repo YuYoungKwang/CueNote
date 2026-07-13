@@ -504,3 +504,28 @@ Phase 9E-H prepares real training outside the browser and outside the local RX 5
 - Actual trained ONNX models use distinct model IDs such as `cuenote-layout-deepscores-exp` and `cuenote-symbol-deepscores-exp`.
 - YOLOv8 raw ONNX outputs are decoded separately from the Phase 9 smoke `BOX_XYWH_CONF_CLASS` models.
 - Candidate promotion requires actual Colab metrics, ONNX parity, browser runtime validation, and failure analysis.
+
+### Phase 9I Symbol Coverage
+
+Phase 9I expands the DeepScoresV2 dense symbol detector coverage before additional Colab training.
+
+Safe detector-only classes:
+
+- `beam`
+- `ledger.line`
+- `dot.repeat`
+- `rest.16th`, `rest.32nd`, `rest.64th`
+- `flag.eighth.up`, `flag.eighth.down`
+- `notehead.whole`
+- `time_signature.digit_4`
+- `time_signature.common`
+
+These classes may be detected as isolated glyph regions. They must not be interpreted as durations, pitches, repeat semantics, or MusicXML structure during Phase 9.
+
+Still excluded:
+
+- generic `time_signature`
+- generic `key_signature`
+- directionless flag classes
+
+Those require text/structure interpretation or missing direction information and remain out of scope until a later phase.

@@ -152,6 +152,37 @@ Free Colab limits:
 - The user must confirm dataset terms before Colab download/use.
 - PrIMuS and MUSCIMA++ are currently `EXCLUDED` placeholders until official license evidence is recorded.
 
+## Phase 9I Symbol Coverage
+
+Phase 9I expands DeepScoresV2 dense symbol conversion before rerunning `SYMBOL_TRAIN`.
+
+New detector-only classes include:
+
+- `beam`
+- `ledger.line`
+- `dot.repeat`
+- `rest.16th`, `rest.32nd`, `rest.64th`
+- `flag.eighth.up`, `flag.eighth.down`
+- `notehead.whole`
+- `time_signature.digit_4`
+- `time_signature.common`
+
+These are still experimental detector labels. They do not enable Phase 10 structure assembly, pitch/duration inference, repeat interpretation, or MusicXML generation.
+
+Before rerunning Colab symbol training locally validate:
+
+```powershell
+node ai-training/scripts/validate-configs.mjs
+node ai-training/scripts/validate-phase9i-symbol-coverage.mjs
+node ai-training/scripts/validate-notebooks.mjs
+```
+
+In Colab set:
+
+```python
+os.environ["CUENOTE_RUN_MODE"] = "SYMBOL_TRAIN"
+```
+
 ## Colab Artifacts
 
 Expected artifact zip contents:

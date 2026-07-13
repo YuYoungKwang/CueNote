@@ -397,7 +397,7 @@ Phase 9 product gates:
 - PASS required: DeepScoresV2 training modes start from the configured dense/source-group subset instead of the full dataset.
 - PASS required: dataset source registry records eligibility and excludes unverified sources by default.
 - PASS required: DeepScoresV2 dense source record includes official source, archive checksum, license evidence, attribution requirement, and user confirmation boundary.
-- PASS required: class mapping file separates `EXACT`, `APPROXIMATE`, and `EXCLUDED` mappings.
+- PASS required: class mapping file separates `EXACT`, `APPROXIMATE`, `MERGED`, and `EXCLUDED` mappings.
 - PASS required: checkpoint metadata and run-state files are written with resume compatibility checks, while retaining only best, last, and the configured recent checkpoint.
 - PASS required: artifact zip structure is documented and validator checks manifest/model/checksum/evaluation/taxonomy/config.
 - PASS required: installer adds only validated artifacts to the static model catalog.
@@ -416,3 +416,11 @@ Status before user-run Colab:
 - symbol candidate: NOT READY.
 - product OMR accuracy: NOT EVALUATED.
 - Phase 10 readiness: NOT READY.
+
+## Phase 9I Symbol Coverage Criteria
+
+- PASS required: DeepScoresV2 symbol mapping covers safe detector-only classes for beams, ledger lines, repeat dots, shorter rests, directed eighth flags, whole noteheads, digit-4 time-signature glyphs, and common-time glyphs.
+- PASS required: generic time-signature, key-signature, and directionless flag classes remain excluded unless a later phase adds structure/text interpretation.
+- PASS required: symbol YOLO config classes are declared in taxonomy and remain `EXPERIMENTAL`.
+- PASS required: existing installed experimental manifests remain compatible through manifest-local class indexes.
+- PASS required: Phase 10 structure assembly, pitch/duration inference, and MusicXML generation remain out of scope.

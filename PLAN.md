@@ -89,3 +89,13 @@ Reason: The UI must not display fake candidate models or stale artifacts. Instal
 - Dataset class names and annotation formats may differ from the converter's first-pass assumptions; conversion script must fail clearly and produce mapping reports.
 - Free Colab GPU allocation is not guaranteed and sessions can disconnect.
 - Actual CANDIDATE status depends on user-run Colab artifacts and cannot be assigned by static preparation alone.
+
+## Phase 9I Symbol Coverage Adjustment
+
+Reason: The first Colab symbol smoke-training run reported zero metrics and the conversion report showed important DeepScoresV2 symbol classes outside the CueNote mapping/config coverage.
+
+Decision: Extend only safe symbol detector classes that can be identified from a DeepScoresV2 class label without Phase 10 structure assembly: beam, ledger line, repeat dot, 16th/32nd/64th rests, directed eighth flags, whole notehead, time-signature digit 4, and common-time glyph.
+
+Impact: The next `SYMBOL_TRAIN` conversion should produce fewer top-unmapped symbol classes and a wider YOLO class set. Existing installed experimental manifests remain compatible because runtime class indexes are manifest-local.
+
+Alternative: Map generic `time_signature`, generic `key_signature`, or directionless flag classes. Rejected because those require structure/text interpretation or missing direction information.

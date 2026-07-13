@@ -219,6 +219,29 @@ function drawSymbolFixture(canvas, annotations, staffTop, template) {
   drawLine(canvas, 118, staffTop + 56, 210, staffTop + 56, [0, 0, 0]);
   annotations.push(label(template === 'navigation' ? 'navigation.coda' : 'navigation.segno', 410, staffTop - 34, 24, 24));
   drawTextBox(canvas, 410, staffTop - 34, 24, 24);
+  drawRect(canvas, 112, staffTop - 38, 160, 6, [0, 0, 0]);
+  annotations.push(label('beam', 112, staffTop - 38, 160, 6));
+  drawLine(canvas, 100, staffTop - 12, 138, staffTop - 12, [0, 0, 0]);
+  annotations.push(label('ledger.line', 100, staffTop - 13, 38, 3));
+  annotations.push(label('notehead.whole', 392, staffTop + 24, 18, 10));
+  drawTextBox(canvas, 392, staffTop + 24, 18, 10);
+  annotations.push(label('flag.eighth.up', 124, staffTop - 48, 14, 18));
+  drawTextBox(canvas, 124, staffTop - 48, 14, 18);
+  annotations.push(label('flag.eighth.down', 304, staffTop + 56, 14, 18));
+  drawTextBox(canvas, 304, staffTop + 56, 14, 18);
+  annotations.push(label('rest.16th', 348, staffTop - 22, 14, 22));
+  annotations.push(label('rest.32nd', 368, staffTop - 24, 14, 24));
+  annotations.push(label('rest.64th', 388, staffTop - 26, 14, 26));
+  drawTextBox(canvas, 348, staffTop - 22, 14, 22);
+  drawTextBox(canvas, 368, staffTop - 24, 14, 24);
+  drawTextBox(canvas, 388, staffTop - 26, 14, 26);
+  annotations.push(label('dot.repeat', 166, staffTop + 5, 5, 18));
+  drawRect(canvas, 166, staffTop + 5, 5, 5, [0, 0, 0]);
+  drawRect(canvas, 166, staffTop + 18, 5, 5, [0, 0, 0]);
+  annotations.push(label('time_signature.digit_4', 78, staffTop + 4, 12, 18));
+  annotations.push(label('time_signature.common', 94, staffTop + 4, 14, 18));
+  drawTextBox(canvas, 78, staffTop + 4, 12, 18);
+  drawTextBox(canvas, 94, staffTop + 4, 14, 18);
 }
 
 function label(classId, x, y, width, height) {
