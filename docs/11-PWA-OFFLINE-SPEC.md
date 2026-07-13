@@ -107,9 +107,11 @@ OPFS 지원 여부는 브라우저별 검증이 필요하다. 지원하지 않�
 Phase 4 구현 store:
 
 - DB: `cuenote`
-- version: `3`
+- version: `5`
 - annotation data store: `annotations`
 - sync queue store: `annotation_sync_queue`
+- score edit draft store: `score_edit_drafts`
+- score edit preference store: `score_edit_preferences`
 
 Annotation queue record는 `clientMutationId`, `scoreId`, `scoreVersionId`, `annotationId`, `action`, `baseRevision`, `annotation`, `status`, `attempts`, `lastError`를 가진다.
 
@@ -192,3 +194,11 @@ Annotation queue record는 `clientMutationId`, `scoreId`, `scoreVersionId`, `ann
 - 민감한 인증 정보는 장기 저장하지 않는다.
 - 로컬 저장소는 사용자가 같은 브라우저 프로필에서 접근할 수 있음을 전제로 안내한다.
 - 공용 기기에서는 로그아웃 시 로컬 데이터 삭제를 권장한다.
+## Phase 6 Offline Draft Notes
+
+- Score edit drafts are local-first IndexedDB records and are not server `ScoreVersion` rows until publish.
+- Draft records store `scoreId`, `baseScoreVersionId`, `editableDocument`, command history metadata, validation issues, and autosave timestamps.
+- Preference records store selected part, selected measure, selected event, and zoom.
+- Storage failures are surfaced as editor status messages and do not block score viewing.
+- Publishing requires network access, valid auth, edit permission, and a fresh `expectedScoreRevision`.
+- Conflict handling keeps the draft local and does not attempt automatic three-way MusicXML merge.

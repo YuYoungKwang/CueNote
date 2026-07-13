@@ -552,3 +552,19 @@ MVP는 실시간 공동 음표 편집을 지원하지 않는다.
 `AuthoritativePlaybackState` contains `sessionId`, `scoreId`, `scoreVersionId`, `leaderUserId`, `playbackStatus`, `performanceMeasureId`, `sourceMeasureId`, `occurrence`, `beat`, `bpm`, `countInMeasures`, `baseTimelinePositionMs`, `sequence`, `serverTimestamp`, `effectiveAtServerTime`, and `updatedByUserId`.
 
 Participants can be `FOLLOWING_LEADER` or `BROWSING_INDEPENDENTLY`. Independent browsing never changes the authoritative playback state.
+
+## Phase 6 Editable Score Domain
+
+`EditableScoreDocument` contains `scoreId`, `baseScoreVersionId`, `title`, `parts`, `revision`, `dirty`, and `validationIssues`.
+
+`EditablePart` contains stable part identity and ordered `EditableMeasure` records.
+
+`EditableMeasure` contains stable measure identity, inherited attributes, note/rest events, chord symbols, lyrics, and navigation marks.
+
+`EditableEvent` is either `NOTE` with `Pitch`, `DurationValue`, voice/staff, tie, and lyric references, or `REST` with `DurationValue`.
+
+`EditCommand` is the only mutation surface for Phase 6 editing. The command reducer supports pitch, duration, chord, lyric, measure insert/delete/duplicate, range transpose, undo, and redo.
+
+Validation issues carry `code`, `severity`, `message`, optional part/measure/event IDs, and `blocking`. Blocking issues prevent publish.
+
+Annotation migration is explicit. The implemented safe policy migrates only `MEASURE` anchors and skips element/performance-measure anchors by default.

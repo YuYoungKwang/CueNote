@@ -45,6 +45,7 @@ export interface ServerScoreSummary {
   composer?: string | null;
   current_version_id: string;
   current_version_number?: number;
+  revision?: number;
 }
 
 export interface ServerScoreVersion {
@@ -55,6 +56,16 @@ export interface ServerScoreVersion {
   content_hash: string;
   byte_size: number;
   mime_type: string;
+  base_score_version_id?: string | null;
+  edit_summary?: string | null;
+  annotation_migration_policy?: string | null;
+}
+
+export interface CreateScoreVersionOptions {
+  baseScoreVersionId?: string;
+  editSummary?: string;
+  annotationMigrationPolicy?: 'NONE' | 'MEASURE_ONLY';
+  expectedScoreRevision?: number;
 }
 
 export interface ServerScoreDetail extends ServerScoreSummary {
@@ -95,6 +106,13 @@ export interface ApiClient {
   createEnsemble(accessToken: string, name: string): Promise<EnsembleSummary>;
   listScores(accessToken: string, ensembleId: string): Promise<ServerScoreSummary[]>;
   createScore(accessToken: string, ensembleId: string, title: string, composer: string | undefined, sourceXml: string): Promise<ServerScoreDetail>;
+  createScoreVersion(
+    accessToken: string,
+    scoreId: string,
+    title: string,
+    sourceXml: string,
+    options?: CreateScoreVersionOptions
+  ): Promise<ServerScoreVersion>;
   getScore(accessToken: string, scoreId: string): Promise<ServerScoreDetail>;
   getScoreVersionSource(accessToken: string, scoreId: string, versionId: string): Promise<string>;
   listAnnotations(accessToken: string, scoreId: string, scoreVersionId: string): Promise<Annotation[]>;
@@ -147,6 +165,28 @@ export function createApiClient(baseUrl: string = DEFAULT_API_BASE_URL): ApiClie
       }
       formData.set('file', new Blob([sourceXml], { type: 'application/xml' }), `${slugify(title)}.musicxml`);
       return (await requestEnvelope<ServerScoreDetail>(`${baseUrl}/ensembles/${ensembleId}/scores`, {
+        method: 'POST',
+        headers: authHeaders(accessToken),
+        body: formData
+      })).data;
+    },
+    async createScoreVersion(accessToken, scoreId, title, sourceXml, options) {
+      const formData = new FormData();
+      formData.set('title', title);
+      formData.set('file', new Blob([sourceXml], { type: 'application/xml' }), `${slugify(title)}.musicxml`);
+      if (options?.baseScoreVersionId) {
+        formData.set('baseScoreVersionId', options.baseScoreVersionId);
+      }
+      if (options?.editSummary) {
+        formData.set('editSummary', options.editSummary);
+      }
+      if (options?.annotationMigrationPolicy) {
+        formData.set('annotationMigrationPolicy', options.annotationMigrationPolicy);
+      }
+      if (options?.expectedScoreRevision != null) {
+        formData.set('expectedScoreRevision', String(options.expectedScoreRevision));
+      }
+      return (await requestEnvelope<ServerScoreVersion>(`${baseUrl}/scores/${scoreId}/versions`, {
         method: 'POST',
         headers: authHeaders(accessToken),
         body: formData

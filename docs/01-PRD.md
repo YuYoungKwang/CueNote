@@ -278,3 +278,12 @@
 4. 악보 인식을 사용자의 브라우저에서 우선 처리한다.
 5. 구조 편집과 자유 필기를 별도 레이어로 관리한다.
 6. 설치 가능한 Web PWA로 Windows, macOS, iPad 환경을 우선 지원한다.
+## Phase 6 Implementation Note
+
+- CueNote now supports limited structured score editing for server-backed MusicXML score versions.
+- The editable model is separate from Verovio; rendered SVG is preview-only and is not the source of truth.
+- Supported edits are pitch, note/rest duration, chord symbol, lyric, insert/delete/duplicate measure, transpose, validation, undo/redo, local MusicXML export, draft cancel, and publish as a new immutable score version.
+- The edit workflow is base `ScoreVersion` -> local IndexedDB draft -> validation -> MusicXML serialization -> new `ScoreVersion`.
+- Existing `ScoreVersion` object keys and MusicXML content are immutable.
+- Active rehearsal sessions remain fixed to the old `scoreVersionId`.
+- Phase 6 does not implement OMR, PDF/image import, ONNX inference, or realtime collaborative score editing.

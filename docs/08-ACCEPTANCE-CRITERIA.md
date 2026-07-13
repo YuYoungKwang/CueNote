@@ -312,3 +312,21 @@ Cache Storage hit rate
 - PASS: Playwright real backend rehearsal E2E with two browser contexts passes.
 - LIMITATION: Active WebSocket registry is single-backend in memory. Multi-instance broadcast needs future Redis/pub-sub or broker fanout.
 - OUT OF SCOPE: realtime annotation push, cursors, audio/video, WebRTC, CRDT editing, Phase 6 score editing, and OMR/model work.
+
+## Phase 6 Self Check
+
+- PASS: Edit and view modes are separated through `/scores/:scoreId/edit`.
+- PASS: Verovio is preview-only; editable score state is the source of truth.
+- PASS: Note/rest selection uses a stable editable event list rather than SVG note DOM order.
+- PASS: Pitch, note/rest duration, chord symbol, lyric, insert/delete/duplicate measure, transpose, undo/redo, cancel, validation, export, and publish are implemented.
+- PASS: Editing commands are covered by unit tests and use injectable ID generation for deterministic tests.
+- PASS: Validation reports blocking errors for invalid durations and warnings for non-blocking cases such as pickup measures.
+- PASS: MusicXML parse -> edit -> serialize -> parse round trip is tested, including Unicode lyrics and XML escaping.
+- PASS: IndexedDB draft autosave/restore stores are implemented and tested.
+- PASS: Publish creates a new immutable `ScoreVersion` and does not overwrite the base MusicXML object.
+- PASS: Backend validates publish role, base version, stale score revision, malformed XML, PostgreSQL migration V4, and MinIO/object-storage integration.
+- PASS: Mock Playwright E2E covers edit UI, Verovio preview, publish request, and reopen.
+- PASS: Real backend Playwright E2E covers dev login, server sample publish, edit, new version publish, and viewer reopen against PostgreSQL and MinIO.
+- LIMITATION: Current backend roles map edit publishing to `OWNER`/`ADMIN`; explicit `EDITOR`/`VIEWER` roles are future work.
+- LIMITATION: Unsupported MusicXML structures are warned or serialized through the supported subset, not fully opaque-preserved.
+- OUT OF SCOPE: OMR, PDF/image import, ONNX inference, full composition tooling, and realtime collaborative score editing.

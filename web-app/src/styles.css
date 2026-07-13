@@ -97,13 +97,21 @@ a {
   gap: 16px;
 }
 
+.editor-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 16px;
+}
+
 .library-panel,
-.viewer-main {
+.viewer-main,
+.editor-main {
   min-width: 0;
 }
 
 .recent-panel,
-.viewer-sidebar {
+.viewer-sidebar,
+.editor-sidebar {
   position: sticky;
   top: 20px;
   align-self: start;
@@ -476,6 +484,29 @@ a {
   font-size: 14px;
 }
 
+.editor-sidebar {
+  display: grid;
+  gap: 12px;
+  max-height: calc(100vh - 40px);
+  overflow: auto;
+}
+
+.editor-inspector,
+.editor-list {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.editor-control-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .annotation-inline-state,
 .annotation-overlay-status {
   margin-top: 8px;
@@ -563,12 +594,14 @@ a {
 
 @media (max-width: 1100px) {
   .library-layout,
-  .viewer-layout {
+  .viewer-layout,
+  .editor-layout {
     grid-template-columns: 1fr;
   }
 
   .recent-panel,
-  .viewer-sidebar {
+  .viewer-sidebar,
+  .editor-sidebar {
     position: static;
   }
 }

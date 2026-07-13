@@ -112,3 +112,18 @@ Phase 5 implements realtime rehearsal sessions for server-backed scores.
 - Clients estimate server clock offset with `PING`/`PONG`, apply `STATE_SNAPSHOT`, ignore stale sequence, and request a snapshot on gaps.
 - Participants can switch between `FOLLOWING_LEADER` and `BROWSING_INDEPENDENTLY`; independent browsing still receives leader state.
 - Current deployment is a single-backend WebSocket registry. Multi-instance broadcast requires a future Redis/pub-sub or broker layer.
+
+## Phase 6 Limited Score Editing
+
+Phase 6 adds a limited structured MusicXML editor for server-backed scores.
+
+- The edit route is `/scores/:scoreId/edit?source=server&versionId=:versionId`.
+- The editor parses MusicXML into an editable domain model and treats Verovio as preview-only display.
+- Note selection is exposed through a stable event list; the app does not rely on Verovio note DOM order.
+- Supported edits include pitch, note/rest duration, chord symbol, lyric, insert/delete/duplicate measure, transpose, validation, undo/redo, local MusicXML export, draft cancel, and publish.
+- Drafts autosave in IndexedDB stores `score_edit_drafts` and `score_edit_preferences`.
+- Publishing creates a new immutable `ScoreVersion` through `POST /api/v1/scores/{scoreId}/versions`; existing MusicXML object keys are not overwritten.
+- The backend checks `baseScoreVersionId`, `expectedScoreRevision`, MusicXML validity, ensemble role, object storage write, and current-version update.
+- Current publish roles are `OWNER` and `ADMIN`; `MEMBER` cannot publish edits.
+- Active rehearsal sessions remain pinned to the original `scoreVersionId` and are not updated by score editing.
+- OMR, PDF/image import, ONNX model inference, and realtime collaborative score editing remain future phases.

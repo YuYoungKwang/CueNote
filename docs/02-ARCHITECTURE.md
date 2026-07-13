@@ -453,3 +453,12 @@ The backend exposes raw Spring WebSocket at `/ws/rehearsal`. JSON envelopes carr
 The frontend separates `RehearsalSessionApi`, `RehearsalSocketClient`, `ServerClockEstimator`, `RehearsalSyncController`, and IndexedDB rehearsal UI preferences.
 
 Synchronization is based on `performanceMeasureId`, `sourceMeasureId`, `occurrence`, and `beat`; it must not use page numbers, scroll offsets, SVG coordinates, DOM index, or absolute pixels.
+
+## Phase 6 Score Editing Architecture
+
+- `packages/score-domain/src/editing` owns the editable score model, MusicXML parse/serialize helpers, command reducer, validation, transpose, and annotation migration policy helpers.
+- `web-app/src/features/editor/ScoreEditPage.tsx` provides a separate `SCORE_EDIT` route and keeps annotation drawing out of edit mode.
+- Verovio remains an adapter-backed preview renderer. Note/rest selection is performed through the editable event list rather than SVG note DOM order.
+- IndexedDB version 5 adds `score_edit_drafts` and `score_edit_preferences` for local autosave and UI restore.
+- Backend publish reuses multipart `POST /api/v1/scores/{scoreId}/versions` with `baseScoreVersionId`, `editSummary`, `annotationMigrationPolicy`, and `expectedScoreRevision`.
+- Flyway V4 adds score revision and edit metadata while keeping `score_versions` append-only.

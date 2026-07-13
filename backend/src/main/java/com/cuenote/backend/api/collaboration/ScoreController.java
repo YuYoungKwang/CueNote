@@ -46,11 +46,21 @@ public class ScoreController {
     public ResponseEntity<ApiResponse<Map<String, Object>>> createVersion(
             @PathVariable String scoreId,
             @RequestParam String title,
+            @RequestParam(required = false) String baseScoreVersionId,
+            @RequestParam(required = false) String editSummary,
+            @RequestParam(required = false) String annotationMigrationPolicy,
+            @RequestParam(required = false) Long expectedScoreRevision,
             @RequestPart("file") MultipartFile file,
             HttpServletRequest request
     ) {
         AuthenticatedUser user = authService.requireUser(request);
-        return ResponseEntity.ok(envelopes.success(collaborationService.createScoreVersion(user, scoreId, title, file), request));
+        return ResponseEntity.ok(envelopes.success(collaborationService.createScoreVersion(
+                user,
+                scoreId,
+                title,
+                file,
+                new ScoreVersionPublishOptions(baseScoreVersionId, editSummary, annotationMigrationPolicy, expectedScoreRevision)
+        ), request));
     }
 
     @GetMapping("/{scoreId}/versions/{versionId}/source")

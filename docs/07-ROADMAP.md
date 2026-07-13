@@ -347,3 +347,14 @@ Phase 5 is implemented for the Web PWA with server-backed rehearsal sessions, ra
 The current implementation is intentionally single-backend. Redis pub/sub or broker fanout remains a future scaling task and is not Phase 5 scope.
 
 Phase 6 score editing, realtime annotation push, audio/video, WebRTC, and OMR/model work remain out of scope.
+
+## Phase 6 Implementation Note
+
+Phase 6 is implemented as limited structured score editing for existing server-backed MusicXML versions.
+
+- Editing uses a separate `SCORE_EDIT` route and does not modify annotation or rehearsal modes.
+- The editable domain model, command reducer, validation, transpose, serializer, and annotation migration helpers live in `packages/score-domain/src/editing`.
+- Supported editing is intentionally limited to pitch, duration, rest duration, chord symbol, lyric, measure insert/delete/duplicate, transpose, validation, undo/redo, MusicXML export, and publish.
+- Publish creates a new immutable `ScoreVersion` and updates the score current-version pointer.
+- Existing versions are never overwritten.
+- OMR, PDF/image import, ONNX model integration, and realtime collaborative score editing remain future phases.

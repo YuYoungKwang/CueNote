@@ -1,5 +1,6 @@
 import { Link, Route, Routes, Navigate } from 'react-router-dom';
 import { LibraryPage } from '../features/library/LibraryPage';
+import { ScoreEditPage } from '../features/editor/ScoreEditPage';
 import { ScoreViewerPage } from '../features/viewer/ScoreViewerPage';
 
 export function App() {
@@ -20,6 +21,7 @@ export function App() {
       <Routes>
         <Route path="/" element={<LibraryPage />} />
         <Route path="/scores/:scoreId" element={<ScoreViewerPage />} />
+        <Route path="/scores/:scoreId/edit" element={<ScoreEditPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </div>

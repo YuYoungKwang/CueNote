@@ -131,21 +131,51 @@ class CollaborationIntegrationTest {
         JsonNode outsiderSession = login(uniqueEmail("outsider"), "Outsider");
         String outsiderToken = outsiderSession.path("accessToken").asText();
 
+        JsonNode scoreBeforeEdit = getJson("/api/v1/scores/" + workspace.scoreId(), workspace.ownerToken(), HttpStatus.OK);
+        long expectedRevision = scoreBeforeEdit.path("revision").asLong();
         JsonNode newVersion = uploadMusicXml(
                 "/api/v1/scores/" + workspace.scoreId() + "/versions",
                 workspace.ownerToken(),
                 "Version Two",
                 SECOND_SAMPLE_MUSICXML,
+                Map.of(
+                        "baseScoreVersionId", workspace.versionId(),
+                        "editSummary", "Changed one pitch",
+                        "annotationMigrationPolicy", "NONE",
+                        "expectedScoreRevision", String.valueOf(expectedRevision)
+                ),
                 HttpStatus.OK
         );
         assertThat(newVersion.path("version_number").asInt()).isEqualTo(2);
         assertThat(newVersion.path("score_id").asText()).isEqualTo(workspace.scoreId());
+        assertThat(newVersion.path("base_score_version_id").asText()).isEqualTo(workspace.versionId());
+        assertThat(newVersion.path("edit_summary").asText()).isEqualTo("Changed one pitch");
+        assertThat(newVersion.path("annotation_migration_policy").asText()).isEqualTo("NONE");
+
+        uploadMusicXml(
+                "/api/v1/scores/" + workspace.scoreId() + "/versions",
+                workspace.ownerToken(),
+                "Stale Edit",
+                SECOND_SAMPLE_MUSICXML,
+                Map.of("baseScoreVersionId", workspace.versionId(), "expectedScoreRevision", String.valueOf(expectedRevision)),
+                HttpStatus.CONFLICT
+        );
+
+        uploadMusicXml(
+                "/api/v1/scores/" + workspace.scoreId() + "/versions",
+                workspace.memberToken(),
+                "Member Edit",
+                SECOND_SAMPLE_MUSICXML,
+                Map.of("baseScoreVersionId", workspace.versionId()),
+                HttpStatus.FORBIDDEN
+        );
 
         uploadMusicXml(
                 "/api/v1/scores/" + workspace.scoreId() + "/versions",
                 workspace.ownerToken(),
                 "Broken XML",
                 "<score-partwise>",
+                Map.of(),
                 HttpStatus.BAD_REQUEST
         );
         uploadMusicXml(
@@ -153,6 +183,7 @@ class CollaborationIntegrationTest {
                 outsiderToken,
                 "Outsider Upload",
                 SAMPLE_MUSICXML,
+                Map.of(),
                 HttpStatus.FORBIDDEN
         );
         postJson("/api/v1/ensembles/" + workspace.ensembleId() + "/members",
@@ -249,9 +280,14 @@ class CollaborationIntegrationTest {
     }
 
     private JsonNode uploadMusicXml(String url, String token, String title, String xml, HttpStatus expectedStatus) {
+        return uploadMusicXml(url, token, title, xml, Map.of(), expectedStatus);
+    }
+
+    private JsonNode uploadMusicXml(String url, String token, String title, String xml, Map<String, String> extraFields, HttpStatus expectedStatus) {
         MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
         body.add("title", title);
         body.add("composer", "CueNote Test");
+        extraFields.forEach(body::add);
         body.add("file", new ByteArrayResource(xml.getBytes(StandardCharsets.UTF_8)) {
             @Override
             public String getFilename() {

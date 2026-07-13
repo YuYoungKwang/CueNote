@@ -1280,6 +1280,15 @@ export function ScoreViewerPage() {
           <Link className="secondary-link" to="/">
             Library
           </Link>
+          {status.serverContext ? (
+            <Link
+              className="secondary-link"
+              data-testid="open-score-editor"
+              to={`/scores/${status.serverContext.scoreId}/edit?source=server&versionId=${status.serverContext.scoreVersionId}`}
+            >
+              Edit score
+            </Link>
+          ) : null}
           <button type="button" className="secondary-link" onClick={() => navigate(0)}>
             Reload
           </button>

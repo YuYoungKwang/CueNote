@@ -85,7 +85,7 @@ test('selects measures, moves between them, and restores the current measure aft
     async ({ scoreId, currentMeasureId, zoom }) => {
       const openDatabase = () =>
         new Promise<IDBDatabase>((resolve, reject) => {
-          const request = indexedDB.open('cuenote', 4);
+          const request = indexedDB.open('cuenote', 5);
           request.onsuccess = () => resolve(request.result);
           request.onerror = () => reject(request.error ?? new Error('IndexedDB open failed'));
         });
@@ -419,7 +419,7 @@ async function countNonTransparentPixels(page: Page) {
 async function getAnnotationStoreCount(page: Page, scoreId: string, scoreVersionId: string) {
   return page.evaluate(
     async ({ scoreId, scoreVersionId }) => {
-      const request = indexedDB.open('cuenote', 4);
+      const request = indexedDB.open('cuenote', 5);
       const database = await new Promise<IDBDatabase>((resolve, reject) => {
         request.onsuccess = () => resolve(request.result);
         request.onerror = () => reject(request.error ?? new Error('IndexedDB open failed'));

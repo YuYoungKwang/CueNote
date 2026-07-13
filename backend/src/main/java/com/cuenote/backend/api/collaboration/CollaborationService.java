@@ -132,8 +132,28 @@ public class CollaborationService {
 
     @Transactional
     public Map<String, Object> createScoreVersion(AuthenticatedUser user, String scoreId, String title, MultipartFile file) {
+        return createScoreVersion(user, scoreId, title, file, new ScoreVersionPublishOptions(null, null, null, null));
+    }
+
+    @Transactional
+    public Map<String, Object> createScoreVersion(
+            AuthenticatedUser user,
+            String scoreId,
+            String title,
+            MultipartFile file,
+            ScoreVersionPublishOptions options
+    ) {
         Map<String, Object> score = getScore(user, scoreId);
+        requireScoreEditor(user, String.valueOf(score.get("ensemble_id")));
+        Map<String, Object> lockedScore = lockScore(scoreId);
+        validatePublishOptions(scoreId, lockedScore, options);
         byte[] content = readMusicXml(file);
+        if (options.baseScoreVersionId() != null && !options.baseScoreVersionId().isBlank()) {
+            String rootElement = musicXmlRootElement(new String(content, StandardCharsets.UTF_8));
+            if (!"score-partwise".equals(rootElement)) {
+                throw new ApiException(ErrorCode.VALIDATION_FAILED, "Edited score versions must be score-partwise MusicXML");
+            }
+        }
         int versionNumber = jdbcTemplate.queryForObject(
                 "select coalesce(max(version_number), 0) + 1 from score_versions where score_id = ?",
                 Integer.class,
@@ -147,9 +167,10 @@ public class CollaborationService {
                 """
                 insert into score_versions(
                     id, score_id, version_number, title, object_key, content_hash,
-                    byte_size, mime_type, created_by_user_id, created_at
+                    byte_size, mime_type, created_by_user_id, base_score_version_id,
+                    edit_summary, annotation_migration_policy, created_at
                 )
-                values (?, ?, ?, ?, ?, ?, ?, ?, ?, now())
+                values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, now())
                 """,
                 versionId,
                 scoreId,
@@ -159,10 +180,13 @@ public class CollaborationService {
                 sha256(content),
                 content.length,
                 contentType,
-                user.id()
+                user.id(),
+                blankToNull(options.baseScoreVersionId()),
+                blankToNull(options.editSummary()),
+                normalizeMigrationPolicy(options.annotationMigrationPolicy())
         );
         jdbcTemplate.update(
-                "update scores set current_version_id = ?, updated_at = now() where id = ?",
+                "update scores set current_version_id = ?, revision = revision + 1, updated_at = now() where id = ?",
                 versionId,
                 scoreId
         );
@@ -174,7 +198,7 @@ public class CollaborationService {
         return jdbcTemplate.queryForList(
                 """
                 select s.id, s.ensemble_id, s.owner_user_id, s.title, s.composer, s.current_version_id,
-                       s.created_at, s.updated_at,
+                       s.revision, s.created_at, s.updated_at,
                        v.version_number as current_version_number
                 from scores s
                 left join score_versions v on v.id = s.current_version_id
@@ -189,7 +213,7 @@ public class CollaborationService {
         List<Map<String, Object>> scores = jdbcTemplate.queryForList(
                 """
                 select s.id, s.ensemble_id, s.owner_user_id, s.title, s.composer, s.current_version_id,
-                       s.created_at, s.updated_at,
+                       s.revision, s.created_at, s.updated_at,
                        v.version_number as current_version_number
                 from scores s
                 left join score_versions v on v.id = s.current_version_id
@@ -211,7 +235,8 @@ public class CollaborationService {
         List<Map<String, Object>> versions = jdbcTemplate.queryForList(
                 """
                 select id, score_id, version_number, title, object_key, content_hash,
-                       byte_size, mime_type, created_by_user_id, created_at
+                       byte_size, mime_type, created_by_user_id, base_score_version_id,
+                       edit_summary, annotation_migration_policy, created_at
                 from score_versions
                 where score_id = ? and id = ?
                 """,
@@ -459,11 +484,75 @@ public class CollaborationService {
         }
     }
 
+    private void requireScoreEditor(AuthenticatedUser user, String ensembleId) {
+        List<String> roles = jdbcTemplate.queryForList(
+                "select role from ensemble_members where ensemble_id = ? and user_id = ?",
+                String.class,
+                ensembleId,
+                user.id()
+        );
+        if (roles.isEmpty() || !List.of("OWNER", "ADMIN").contains(roles.get(0))) {
+            throw new ApiException(ErrorCode.FORBIDDEN, "OWNER or ADMIN role is required to publish score edits");
+        }
+    }
+
+    private Map<String, Object> lockScore(String scoreId) {
+        List<Map<String, Object>> scores = jdbcTemplate.queryForList(
+                "select id, current_version_id, revision from scores where id = ? for update",
+                scoreId
+        );
+        if (scores.isEmpty()) {
+            throw new ApiException(ErrorCode.NOT_FOUND, "Score not found");
+        }
+        return scores.get(0);
+    }
+
+    private void validatePublishOptions(String scoreId, Map<String, Object> score, ScoreVersionPublishOptions options) {
+        Long expectedRevision = options.expectedScoreRevision();
+        if (expectedRevision != null) {
+            long actualRevision = ((Number) score.get("revision")).longValue();
+            if (actualRevision != expectedRevision) {
+                throw new ApiException(ErrorCode.CONFLICT, "Score revision conflict", Map.of(
+                        "expectedRevision", expectedRevision,
+                        "actualRevision", actualRevision,
+                        "currentVersionId", String.valueOf(score.get("current_version_id"))
+                ));
+            }
+        }
+
+        String baseScoreVersionId = blankToNull(options.baseScoreVersionId());
+        if (baseScoreVersionId != null) {
+            Integer baseCount = jdbcTemplate.queryForObject(
+                    "select count(*) from score_versions where score_id = ? and id = ?",
+                    Integer.class,
+                    scoreId,
+                    baseScoreVersionId
+            );
+            if (baseCount == null || baseCount == 0) {
+                throw new ApiException(ErrorCode.VALIDATION_FAILED, "baseScoreVersionId must belong to the score");
+            }
+        }
+
+        normalizeMigrationPolicy(options.annotationMigrationPolicy());
+    }
+
+    private String normalizeMigrationPolicy(String policy) {
+        String normalized = blankToNull(policy);
+        if (normalized == null) {
+            return null;
+        }
+        if (!List.of("NONE", "MEASURE_ONLY").contains(normalized)) {
+            throw new ApiException(ErrorCode.VALIDATION_FAILED, "annotationMigrationPolicy must be NONE or MEASURE_ONLY");
+        }
+        return normalized;
+    }
+
     private List<Map<String, Object>> listVersions(String scoreId) {
         return jdbcTemplate.queryForList(
                 """
                 select id, score_id, version_number, title, content_hash, byte_size,
-                       mime_type, created_by_user_id, created_at
+                       mime_type, created_by_user_id, base_score_version_id,
+                       edit_summary, annotation_migration_policy, created_at
                 from score_versions
                 where score_id = ?
                 order by version_number asc

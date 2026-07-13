@@ -1,86 +1,101 @@
-# Phase 5 Plan
+# Phase 6 Plan
 
-Implement only ROADMAP Phase 5: realtime rehearsal sessions and authoritative score-position synchronization for the Web PWA.
+Implement only ROADMAP Phase 6: a limited structured score editor for existing MusicXML score versions in the Web PWA.
 
 ## Repository Analysis
 
-- Phase 0-4 are complete and the primary platform is the React + TypeScript Web PWA.
-- Existing backend auth, ensemble membership, score/version, annotation, PostgreSQL, and object-storage paths are already in place.
-- Existing frontend viewer already parses MusicXML, renders with Verovio, expands repeats into `PerformanceMeasure`, and drives local `PlaybackTimeline`.
-- Existing sync documentation forbids page-number, scroll, SVG coordinate, DOM index, and pixel-based synchronization.
+- Phase 0-5 are complete and the primary platform is the React + TypeScript Web PWA.
+- The viewer already parses MusicXML, renders with Verovio via a route-level dynamic import, maps stable measure IDs to rendered measures, supports local playback, annotations, server score versions, and server-backed rehearsal sync.
+- The current domain model has stable score, part, measure, annotation, playback, and rehearsal types, but no structured editable note/rest model yet.
+- The backend already stores MusicXML in object storage through append-only `ScoreVersion` records. It needs a narrow publish extension for edit metadata, base-version validation, optimistic revision checks, and publish permissions.
 - `legacy/ios-app` is archival Phase 11 material and remains untouched.
 
 ## Scope
 
-- Backend rehearsal session REST APIs and PostgreSQL persistence.
-- Raw Spring WebSocket endpoint at `/ws/rehearsal` with explicit JSON protocol envelopes.
-- Authoritative playback state based on `scoreId`, `scoreVersionId`, `performanceMeasureId`, `sourceMeasureId`, `occurrence`, `beat`, `bpm`, `playbackStatus`, `sequence`, and `effectiveAtServerTime`.
-- Server-side permission checks for ensemble membership, leader-only commands, leader transfer, ended sessions, stale/duplicate commands, and score-version mismatch.
-- Client server-clock estimation, reconnect/snapshot handling, sequence gap detection, and independent browsing mode.
-- Viewer UI for session create/list/join/end, participants, leader, connection state, follow/browse mode, return to leader, latency/RTT, sequence, BPM/count-in, and sync warnings.
-- IndexedDB storage only for recent session UI preferences, not authoritative playback state.
-- Backend and frontend tests that use the real Spring WebSocket path.
+- Add an editable score model and command reducer under `packages/score-domain/src/editing`.
+- Parse existing MusicXML into an editable document and serialize the editable document back to well-formed MusicXML.
+- Support note selection through a stable event list, not through Verovio note DOM order.
+- Support pitch, duration, rest duration, chord symbol, lyric, insert/delete/duplicate measure, transpose, validation, undo/redo, cancel, local export, and publish-as-new-version.
+- Keep Verovio as preview-only display. The editable document is the source of truth.
+- Add IndexedDB draft autosave/restore for score edit drafts.
+- Add a separate `/scores/:scoreId/edit` route for server score editing.
+- Extend the existing multipart `POST /api/v1/scores/{scoreId}/versions` publish path with optional `baseScoreVersionId`, `editSummary`, `annotationMigrationPolicy`, and `expectedScoreRevision`.
+- Preserve existing Phase 1-5 viewer, annotation, rehearsal, and backend behavior.
 
 ## Out of Scope
 
-- Realtime annotation push or cursor broadcasting.
-- Audio/video, WebRTC, metronome sound, CRDT editing, Redis pub/sub, or multi-backend fanout.
-- Phase 6 score editing or any OMR/model/PDF work.
+- Phase 7 PDF/image import, OMR, ONNX Runtime Web, WebGPU/WASM model inference, and image workers.
+- Full notation composition, tuplets editing, beams, slurs, articulations, layout editing, and realtime collaborative editing.
+- Editing directly through SVG notes or patching MusicXML strings by index.
+- Automatic annotation copying to new score versions. Phase 6 exposes safe measure-anchor migration logic, but publish does not clone annotations by default.
+- Backend draft CRUD. Drafts remain browser-local IndexedDB records.
 - Any changes under `legacy/ios-app`.
 
 ## Implementation Order
 
-1. Add shared rehearsal protocol types in `packages/score-domain`.
-2. Add backend Flyway V3 rehearsal tables.
-3. Add Spring WebSocket dependency and raw WebSocket configuration.
-4. Implement backend rehearsal REST, state service, idempotency, permissions, and WebSocket handler.
-5. Add backend integration tests for PostgreSQL persistence, permissions, state transitions, idempotency, and multi-client WebSocket broadcast.
-6. Add frontend rehearsal API, socket client, clock estimator, sync controller, and session preference store.
-7. Integrate the viewer with session controls while preserving existing local playback and annotation behavior.
-8. Add frontend unit tests and Playwright real-backend rehearsal E2E.
-9. Update README/docs with the implemented Phase 5 contract and single-instance limitation.
-10. Run backend, frontend, E2E, compose, Markdown, diff, and legacy validation.
+1. Add score-domain editing model, parser, serializer, commands, reducer, validation, transpose, and annotation migration helpers.
+2. Add focused unit tests for parsing, serialization, edit commands, validation, undo/redo, transpose, and migration policy.
+3. Add IndexedDB edit draft stores and tests.
+4. Add API client support for publishing an edited MusicXML version.
+5. Add backend Flyway V4 fields and publish validation for base version, revision, metadata, role, and immutable object storage writes.
+6. Add a dedicated score edit route and UI using the existing renderer adapter for preview.
+7. Add Playwright coverage for opening a server score in edit mode, editing, validating, publishing, and reopening the new version.
+8. Update README and docs with the implemented Phase 6 behavior and limits.
+9. Run frontend, backend, E2E, Markdown, diff, and legacy validations.
 
 ## Design Decisions
 
-### WebSocket Protocol
+### Renderer Boundary
 
-Decision: Use raw Spring WebSocket with JSON envelopes instead of STOMP.
+Decision: Verovio remains preview-only. Measure clicks select a measure; note/rest selection happens from an event list generated from the editable document.
 
-Reason: Phase 5 needs a small, explicit command/event protocol with `clientCommandId`, `sequence`, `STATE_SNAPSHOT`, and `effectiveAtServerTime`. Raw WebSocket avoids broker semantics that are not needed in a single-backend MVP and keeps the frontend protocol independent from STOMP frame details.
+Reason: The current stable renderer contract maps measures, not notes. Using SVG DOM order for note identity would be brittle across Verovio rerenders, zoom, and pagination.
 
-Alternative: STOMP over WebSocket. It would help later if topic routing and broker relay become central, but it adds frame-level behavior without solving the current authoritative-state problem.
+Alternative: Add element-level SVG note mapping now. Deferred because it needs stable source element IDs across all note serialization paths and is larger than Phase 6 MVP.
 
-### State Storage
+### Parser and Serializer
 
-Decision: Store session metadata, participants, last authoritative snapshot, and processed command IDs in PostgreSQL. Keep active WebSocket connections in memory.
+Decision: Use the browser/Node DOMParser path to parse MusicXML into a structured editable model and serialize with deterministic string generation from that model.
 
-Reason: PostgreSQL gives durable session state, sequence, idempotency, and permission constraints. In-memory connections are enough for the current single-backend dev/deploy target.
+Reason: No new dependency is needed, and the model can stay independent from React and Verovio. Serialization from the model avoids regex-based XML patching.
 
-Impact: A single backend instance can broadcast to connected clients. Multi-instance deployment requires a later Redis pub/sub or broker-backed fanout layer.
+Impact: Common MusicXML elements needed by Phase 6 are round-tripped semantically. Unsupported structures generate validation warnings instead of being silently treated as fully editable.
 
-### Performance Timeline Authority
+### Publish API
 
-Decision: The client sends the Phase 2 `PerformanceMeasure` order when creating a session. The server validates future commands against that stored order and persists only authoritative position snapshots.
+Decision: Reuse the existing multipart `POST /api/v1/scores/{scoreId}/versions` endpoint and add optional edit metadata plus `expectedScoreRevision`.
 
-Reason: The backend does not parse MusicXML into performance timelines today, and Phase 5 should not duplicate the browser repeat-expansion implementation. Storing the order keeps server validation independent from renderer DOM and page layout.
+Reason: The backend already has object storage, MusicXML validation, version append, and current-version pointer updates. A new draft/publish API would duplicate this path.
 
-Alternative: Re-parse MusicXML on the server. Deferred because it would add a second MusicXML/navigation implementation beyond Phase 5.
+Alternative: Add `/versions/publish-edit`. Deferred until server-side draft lifecycle or collaborative editing exists.
 
-### Follow Mode Persistence
+### Permissions
 
-Decision: Persist participant `followMode` in PostgreSQL for visibility and reconnect, and also store the local UI preference in IndexedDB.
+Decision: In the current backend role model, `OWNER` and `ADMIN` may publish edited score versions; `MEMBER` is read/comment only.
 
-Reason: The server can expose participant state consistently, while the browser can restore the user's last local mode without treating it as authoritative playback state.
+Reason: Phase 6 docs mention OWNER/EDITOR versus MEMBER/VIEWER, but the implemented backend has OWNER/ADMIN/MEMBER. This keeps writes server-side and conservative until explicit EDITOR/VIEWER roles are added.
 
-### Effective Time and Clock Offset
+### Conflict Handling
 
-Decision: The server assigns `effectiveAtServerTime` on leader commands. Clients estimate server offset with `PING`/`PONG` and compute playback position locally from the authoritative snapshot.
+Decision: Publish sends `baseScoreVersionId` and `expectedScoreRevision`. A mismatch returns `409 CONFLICT`; the browser keeps the local draft and does not attempt automatic three-way merge.
 
-Reason: This avoids per-frame WebSocket traffic and avoids browser background timer drift.
+Reason: Score editing merge is musically ambiguous and out of Phase 6 scope.
+
+### Editing During Rehearsal
+
+Decision: The edit route is separate from rehearsal UI and does not join or mutate active rehearsal sessions. Active sessions remain pinned to their original `scoreVersionId`.
+
+Reason: WebSocket rehearsal sync is score-version authoritative. Publishing a new score version must not silently swap a running session.
+
+### Draft Storage
+
+Decision: Store edit drafts in IndexedDB as browser-local records keyed by `scoreId` and `baseScoreVersionId`. Autosave timestamps live in storage metadata, not in the deterministic editable document.
+
+Reason: The same base version plus command sequence should produce the same editable model and MusicXML.
 
 ## Risks
 
-- Real multi-context Playwright WebSocket tests can be sensitive to backend startup and browser timing; tests must assert explicit ready/snapshot states instead of increasing timeouts blindly.
-- The server validates `PerformanceMeasure` identity from stored performance order but does not independently verify MusicXML repeat semantics in this phase.
-- Single-backend in-memory socket registry is intentionally not horizontally scalable until a future Redis/broker phase.
+- The MVP serializer intentionally supports a limited set of MusicXML notation features. Unsupported data is reported as warnings, not fully preserved as arbitrary opaque XML.
+- Verovio preview rerendering after every edit can be expensive on large scores; Phase 6 keeps fixtures and edits modest and defers worker/chunk optimization.
+- Current backend roles do not include EDITOR/VIEWER, so Phase 6 maps publish rights to OWNER/ADMIN and documents that limitation.
+- Offline edit drafts are local-first, but publishing a new immutable `ScoreVersion` requires network access and server permission.

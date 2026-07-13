@@ -25,3 +25,11 @@ record AnnotationMutation(
         String annotationId
 ) {
 }
+
+record ScoreVersionPublishOptions(
+        String baseScoreVersionId,
+        String editSummary,
+        String annotationMigrationPolicy,
+        Long expectedScoreRevision
+) {
+}

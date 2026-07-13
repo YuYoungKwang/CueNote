@@ -697,3 +697,27 @@ Client messages: `JOIN_SESSION`, `LEAVE_SESSION`, `REQUEST_STATE_SNAPSHOT`, `PIN
 Server messages: `SESSION_JOINED`, `PARTICIPANT_JOINED`, `PARTICIPANT_LEFT`, `PARTICIPANT_LIST`, `STATE_SNAPSHOT`, `PLAYBACK_STATE_CHANGED`, `LEADER_CHANGED`, `PONG`, `COMMAND_REJECTED`, `SESSION_ENDED`, `ERROR`.
 
 Only ensemble members can view or join sessions. Only `OWNER`/`ADMIN` can create sessions and transfer leadership. Only the current leader can change shared playback state.
+
+## Phase 6 Score Edit Publish API Update
+
+`POST /api/v1/scores/{scoreId}/versions` remains the publish endpoint for edited MusicXML.
+
+It accepts multipart fields:
+
+- `title`
+- `file`
+- `baseScoreVersionId` optional but sent by the Phase 6 editor
+- `editSummary` optional
+- `annotationMigrationPolicy` optional: `NONE` or `MEASURE_ONLY`
+- `expectedScoreRevision` optional optimistic lock value
+
+Server behavior:
+
+- Validates authentication and ensemble membership.
+- Allows publish only for `OWNER` and `ADMIN` roles in the current role model.
+- Validates that `baseScoreVersionId` belongs to the target score.
+- Rejects stale `expectedScoreRevision` with `409 CONFLICT`.
+- Validates MusicXML size, MIME type, XML well-formedness, and `score-partwise` for edited versions.
+- Writes a new object-storage key and inserts a new append-only `score_versions` row.
+- Updates `scores.current_version_id` and increments `scores.revision`.
+- Does not mutate or overwrite existing score-version MusicXML.
