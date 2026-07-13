@@ -1,7 +1,7 @@
 import { createIndexedDbAdapter, type IndexedDbAdapter } from './indexedDbAdapter';
 
 export const CUENOTE_DB_NAME = 'cuenote';
-export const CUENOTE_DB_VERSION = 5;
+export const CUENOTE_DB_VERSION = 6;
 
 export const RECENT_SCORES_STORE = 'recent_scores';
 export const ANNOTATIONS_STORE = 'annotations';
@@ -10,6 +10,13 @@ export const ANNOTATION_SYNC_QUEUE_STORE = 'annotation_sync_queue';
 export const REHEARSAL_PREFERENCES_STORE = 'rehearsal_preferences';
 export const SCORE_EDIT_DRAFTS_STORE = 'score_edit_drafts';
 export const SCORE_EDIT_PREFERENCES_STORE = 'score_edit_preferences';
+export const IMPORT_PROJECTS_STORE = 'import_projects';
+export const IMPORT_PAGES_STORE = 'import_pages';
+export const IMPORT_SOURCES_STORE = 'import_sources';
+export const IMPORT_SOURCE_BLOBS_STORE = 'import_source_blobs';
+export const IMPORT_DETECTION_SNAPSHOTS_STORE = 'import_detection_snapshots';
+export const IMPORT_CORRECTIONS_STORE = 'import_corrections';
+export const IMPORT_PREFERENCES_STORE = 'import_preferences';
 
 export function createCueNoteDbAdapter(): IndexedDbAdapter {
   return createIndexedDbAdapter({
@@ -46,5 +53,33 @@ function upgradeCueNoteDb(database: IDBDatabase) {
 
   if (!database.objectStoreNames.contains(SCORE_EDIT_PREFERENCES_STORE)) {
     database.createObjectStore(SCORE_EDIT_PREFERENCES_STORE);
+  }
+
+  if (!database.objectStoreNames.contains(IMPORT_PROJECTS_STORE)) {
+    database.createObjectStore(IMPORT_PROJECTS_STORE);
+  }
+
+  if (!database.objectStoreNames.contains(IMPORT_PAGES_STORE)) {
+    database.createObjectStore(IMPORT_PAGES_STORE);
+  }
+
+  if (!database.objectStoreNames.contains(IMPORT_SOURCES_STORE)) {
+    database.createObjectStore(IMPORT_SOURCES_STORE);
+  }
+
+  if (!database.objectStoreNames.contains(IMPORT_SOURCE_BLOBS_STORE)) {
+    database.createObjectStore(IMPORT_SOURCE_BLOBS_STORE);
+  }
+
+  if (!database.objectStoreNames.contains(IMPORT_DETECTION_SNAPSHOTS_STORE)) {
+    database.createObjectStore(IMPORT_DETECTION_SNAPSHOTS_STORE);
+  }
+
+  if (!database.objectStoreNames.contains(IMPORT_CORRECTIONS_STORE)) {
+    database.createObjectStore(IMPORT_CORRECTIONS_STORE);
+  }
+
+  if (!database.objectStoreNames.contains(IMPORT_PREFERENCES_STORE)) {
+    database.createObjectStore(IMPORT_PREFERENCES_STORE);
   }
 }

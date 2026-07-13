@@ -103,6 +103,17 @@ a {
   gap: 16px;
 }
 
+.import-layout {
+  display: grid;
+  gap: 16px;
+}
+
+.import-review-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 16px;
+}
+
 .library-panel,
 .viewer-main,
 .editor-main {
@@ -115,6 +126,16 @@ a {
   position: sticky;
   top: 20px;
   align-self: start;
+}
+
+.import-review-sidebar {
+  position: sticky;
+  top: 20px;
+  align-self: start;
+  display: grid;
+  gap: 16px;
+  max-height: calc(100vh - 40px);
+  overflow: auto;
 }
 
 .score-grid {
@@ -592,16 +613,109 @@ a {
   border-radius: 4px;
 }
 
+.import-form,
+.import-toolbar {
+  display: grid;
+  gap: 14px;
+}
+
+.import-page-stage {
+  position: relative;
+  width: min(100%, 980px);
+  margin-top: 16px;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  overflow: hidden;
+}
+
+.import-page-image,
+.import-page-placeholder {
+  display: block;
+  width: 100%;
+  min-height: 420px;
+  object-fit: contain;
+  background: #f8fafc;
+}
+
+.import-region-overlay {
+  position: absolute;
+  inset: 0;
+  touch-action: none;
+}
+
+.import-region {
+  position: absolute;
+  display: flex;
+  align-items: start;
+  justify-content: start;
+  overflow: hidden;
+  padding: 3px;
+  border-radius: 4px;
+  border: 2px solid rgba(37, 99, 235, 0.7);
+  background: rgba(37, 99, 235, 0.08);
+  color: #0f172a;
+  font-size: 11px;
+  cursor: move;
+}
+
+.import-region--staff {
+  border-color: rgba(5, 150, 105, 0.75);
+  background: rgba(5, 150, 105, 0.08);
+}
+
+.import-region--measure {
+  border-color: rgba(217, 119, 6, 0.75);
+  background: rgba(217, 119, 6, 0.08);
+}
+
+.import-region.is-selected {
+  border-color: #dc2626;
+  box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.18);
+}
+
+.import-thumbnail-list {
+  display: grid;
+  gap: 10px;
+}
+
+.import-thumbnail {
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #f8fafc;
+  text-align: left;
+  cursor: pointer;
+}
+
+.import-thumbnail.is-active {
+  border-color: #1d4ed8;
+  background: #eff6ff;
+}
+
+.import-thumbnail img {
+  width: 56px;
+  height: 72px;
+  object-fit: contain;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+}
+
 @media (max-width: 1100px) {
   .library-layout,
   .viewer-layout,
-  .editor-layout {
+  .editor-layout,
+  .import-review-layout {
     grid-template-columns: 1fr;
   }
 
   .recent-panel,
   .viewer-sidebar,
-  .editor-sidebar {
+  .editor-sidebar,
+  .import-review-sidebar {
     position: static;
   }
 }

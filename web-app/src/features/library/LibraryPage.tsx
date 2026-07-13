@@ -165,6 +165,9 @@ export function LibraryPage() {
             <p className="eyebrow">Sample scores</p>
             <h2>Bundled score library</h2>
           </div>
+          <Link className="secondary-link" to="/imports" data-testid="imports-link">
+            Imports
+          </Link>
         </div>
 
         <div className="score-grid">

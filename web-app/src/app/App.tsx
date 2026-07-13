@@ -1,4 +1,7 @@
 import { Link, Route, Routes, Navigate } from 'react-router-dom';
+import { ImportLibraryPage } from '../features/import/ImportLibraryPage';
+import { ImportReviewPage } from '../features/import/ImportReviewPage';
+import { NewImportPage } from '../features/import/NewImportPage';
 import { LibraryPage } from '../features/library/LibraryPage';
 import { ScoreEditPage } from '../features/editor/ScoreEditPage';
 import { ScoreViewerPage } from '../features/viewer/ScoreViewerPage';
@@ -20,6 +23,9 @@ export function App() {
 
       <Routes>
         <Route path="/" element={<LibraryPage />} />
+        <Route path="/imports" element={<ImportLibraryPage />} />
+        <Route path="/imports/new" element={<NewImportPage />} />
+        <Route path="/imports/:projectId/review" element={<ImportReviewPage />} />
         <Route path="/scores/:scoreId" element={<ScoreViewerPage />} />
         <Route path="/scores/:scoreId/edit" element={<ScoreEditPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
