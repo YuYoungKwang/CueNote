@@ -54,15 +54,19 @@ def prepare_dataset(
         update_run_state(layout.run_state, datasetVersion=source["datasetVersion"])
         return {"layout": layout, "converted": converted, "datasetReport": report, "leakage": {"status": "PASS", "mode": "fixture-smoke"}}
     converted = layout.converted / (converted_name or "deepscoresv2-dense")
+    max_items = config["datasetPolicy"]["maxDenseImagesForColabSubset"]
+    max_source_groups = config["datasetPolicy"].get("maxDenseSourceGroupsForColabSubset")
     if (converted / "annotations.json").exists() and (converted / "dataset.yaml").exists():
         report_path = converted / "conversion-report.json"
         report = read_json(report_path) if report_path.exists() else {"schemaVersion": 1, "datasetId": source["datasetId"], "reused": True}
-        leakage = validate_split_leakage(converted / "annotations.json")
-        if leakage["status"] != "PASS":
-            raise RuntimeError("Existing converted subset failed split leakage validation")
-        write_json(layout.reports / "split-leakage-report.json", leakage)
-        update_run_state(layout.run_state, datasetVersion=source["datasetVersion"])
-        return {"layout": layout, "converted": converted, "datasetReport": report, "leakage": leakage}
+        if conversion_matches(report, max_items, max_source_groups, allowed_class_ids):
+            leakage = validate_split_leakage(converted / "annotations.json")
+            if leakage["status"] != "PASS":
+                raise RuntimeError("Existing converted subset failed split leakage validation")
+            write_json(layout.reports / "split-leakage-report.json", leakage)
+            update_run_state(layout.run_state, datasetVersion=source["datasetVersion"])
+            return {"layout": layout, "converted": converted, "datasetReport": report, "leakage": leakage}
+        shutil.rmtree(converted)
 
     archive_path = layout.raw / source["archiveFileName"]
     if not archive_path.exists():
@@ -71,8 +75,6 @@ def prepare_dataset(
         except Exception as error:
             raise RuntimeError(f"{error}. {manual_placement_message(archive_path)}") from error
     extracted = extract_archive(archive_path, layout.cache / "deepscoresv2-dense")
-    max_items = config["datasetPolicy"]["maxDenseImagesForSmoke"] if run_mode == "SMOKE" else config["datasetPolicy"]["maxDenseImagesForColabSubset"]
-    max_source_groups = None if run_mode == "SMOKE" else config["datasetPolicy"].get("maxDenseSourceGroupsForColabSubset")
     report = convert_coco_like_dataset(
         extracted,
         converted,
@@ -89,6 +91,21 @@ def prepare_dataset(
         raise RuntimeError("Split leakage validation failed")
     update_run_state(layout.run_state, datasetVersion=source["datasetVersion"])
     return {"layout": layout, "converted": converted, "datasetReport": report, "leakage": leakage}
+
+
+def conversion_matches(
+    report: dict[str, Any],
+    max_items: int | None,
+    max_source_groups: int | None,
+    allowed_class_ids: list[str] | None,
+) -> bool:
+    if report.get("maxItems") != max_items:
+        return False
+    if report.get("maxSourceGroups") != max_source_groups:
+        return False
+    if sorted(report.get("allowedClassIds") or []) != sorted(allowed_class_ids or []):
+        return False
+    return True
 
 
 def train_task(repo_root: Path, drive_root: Path, task: str, run_mode: str = "SMOKE") -> dict[str, Any]:
