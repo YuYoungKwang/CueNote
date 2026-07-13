@@ -109,6 +109,9 @@ def train_task(repo_root: Path, drive_root: Path, task: str, run_mode: str = "SM
         allowed_class_ids=config.get("classes", []),
     )
     layout = dataset["layout"]
+    actual_classes = dataset.get("datasetReport", {}).get("classIds") or config.get("classes", [])
+    if not actual_classes:
+        raise RuntimeError(f"No classes were mapped for {prefix}. Check conversion-report.json and mapping aliases.")
     colab_config = read_json(repo_root / "ai-training/configs/colab/phase9_colab.json")
     drive_space = ensure_min_free_space(
         layout.root,
@@ -135,7 +138,7 @@ def train_task(repo_root: Path, drive_root: Path, task: str, run_mode: str = "SM
         write_json(layout.reports / f"{prefix}-onnx-validation.json", onnx_validation)
         manifest_path = layout.artifacts / prefix / "manifest.json"
         evaluation_path = layout.reports / f"{config['modelId']}-evaluation.json"
-        manifest = write_model_manifest(onnx_path, config, config["classes"], evaluation_path, manifest_path)
+        manifest = write_model_manifest(onnx_path, config, actual_classes, evaluation_path, manifest_path)
         zip_path = layout.artifacts / f"{config['modelId']}-{config['modelVersion']}-{manifest['status'].lower()}.zip"
         package_artifact(
             output_zip=zip_path,

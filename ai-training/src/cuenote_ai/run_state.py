@@ -32,6 +32,9 @@ def load_run_state(path: str | Path) -> dict[str, Any]:
 
 def update_run_state(path: str | Path, **updates: Any) -> dict[str, Any]:
     state = load_run_state(path)
+    new_run_id = updates.get("runId")
+    if new_run_id:
+        state = dict(DEFAULT_STATE)
     state.update(updates)
     state["lastUpdatedAt"] = utc_now()
     atomic_write_json(path, state)
