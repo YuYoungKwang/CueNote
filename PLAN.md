@@ -99,3 +99,13 @@ Decision: Extend only safe symbol detector classes that can be identified from a
 Impact: The next `SYMBOL_TRAIN` conversion should produce fewer top-unmapped symbol classes and a wider YOLO class set. Existing installed experimental manifests remain compatible because runtime class indexes are manifest-local.
 
 Alternative: Map generic `time_signature`, generic `key_signature`, or directionless flag classes. Rejected because those require structure/text interpretation or missing direction information.
+
+## Phase 9I Symbol Tiny-Overfit Diagnostic
+
+Reason: The symbol model can produce valid labels and class names while still reporting near-zero confidence, which suggests a training-loop, data-contract, or preprocessing issue before full training scale matters.
+
+Decision: Add `SYMBOL_OVERFIT` as a diagnostic-only Colab run mode. It builds a one- or two-image dataset from `deepscoresv2-dense-symbol`, trains with batch size 1, image size 1280, 100 epochs, pretrained weights, disabled early stopping, and records train mAP50 plus confidence-threshold prediction counts.
+
+Impact: The report can distinguish "model cannot overfit two images" from "full dataset/generalization is weak." If tiny-overfit fails, full `SYMBOL_TRAIN` should not be repeated until the cause is fixed.
+
+Alternative: Keep increasing epochs on full `SYMBOL_TRAIN`. Rejected because zero train-image predictions at normal confidence indicate the tiny case must pass first.

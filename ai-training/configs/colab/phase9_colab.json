@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "runModes": ["SMOKE", "LAYOUT_TRAIN", "SYMBOL_TRAIN", "FULL_PIPELINE"],
+  "runModes": ["SMOKE", "LAYOUT_TRAIN", "SYMBOL_TRAIN", "SYMBOL_OVERFIT", "FULL_PIPELINE"],
   "defaultRunMode": "SMOKE",
   "driveRootEnv": "CUENOTE_DRIVE_ROOT",
   "defaultDriveRoot": "/content/drive/MyDrive/CueNote",
@@ -40,6 +40,21 @@
     "allowResearchOnlyTraining": false,
     "excludeUnverified": true,
     "sourceGroupSplitRequired": true
+  },
+  "overfitPolicy": {
+    "sourceConvertedDataset": "deepscoresv2-dense-symbol",
+    "convertedDataset": "deepscoresv2-dense-symbol-overfit",
+    "trainImageCount": 2,
+    "batchSize": 1,
+    "inputSize": 1280,
+    "epochs": 100,
+    "earlyStoppingPatience": 0,
+    "pretrained": true,
+    "plots": false,
+    "predictionConfidenceThresholds": [0.001, 0.01, 0.05],
+    "maxConfidenceProbeThreshold": 0.00001,
+    "minPassingTrainMap50": 0.5,
+    "minPassingMaxConfidence": 0.05
   },
   "statusFile": "run-state.json",
   "artifactZipNamePattern": "cuenote-{modelId}-{version}-{status}.zip"

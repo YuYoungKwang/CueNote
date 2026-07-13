@@ -183,6 +183,21 @@ In Colab set:
 os.environ["CUENOTE_RUN_MODE"] = "SYMBOL_TRAIN"
 ```
 
+If the symbol detector still reports near-zero confidence, run the tiny-overfit diagnostic before repeating full symbol training:
+
+```python
+os.environ["CUENOTE_RUN_MODE"] = "SYMBOL_OVERFIT"
+```
+
+`SYMBOL_OVERFIT` uses one or two existing `deepscoresv2-dense-symbol` train images, batch size 1, image size 1280, 100 epochs, disabled early stopping, and pretrained YOLO weights. It writes:
+
+- `reports/symbol-overfit-diagnostic.json`
+- `reports/symbol-overfit-predictions/`
+- `reports/symbol-overfit-onnx-validation.json`
+- `artifacts/*-overfit-diagnostic.zip`
+
+If `symbol-overfit-diagnostic.json` reports `DO_NOT_REPEAT_FULL_SYMBOL_TRAIN_UNTIL_TINY_OVERFIT_PASSES`, fix the training/data path before running full `SYMBOL_TRAIN` again.
+
 ## Colab Artifacts
 
 Expected artifact zip contents:

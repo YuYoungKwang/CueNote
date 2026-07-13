@@ -83,5 +83,8 @@ def write_model_manifest(onnx_path: Path, config: dict[str, Any], classes: list[
         "minimumAppVersion": "0.9.0",
         "createdAt": utc_now(),
     }
+    if config.get("diagnosticMode"):
+        manifest["diagnosticMode"] = config["diagnosticMode"]
+        manifest["statusReason"] = "DIAGNOSTIC artifact for training-loop overfit validation only."
     atomic_write_json(manifest_path, manifest)
     return manifest

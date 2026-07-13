@@ -13,7 +13,7 @@ from .download import download_with_resume, manual_placement_message
 from .export import export_yolo_onnx, validate_onnx_file, write_model_manifest
 from .run_state import mark_error, update_run_state
 from .split_validation import validate_split_leakage
-from .training import evaluate_yolo, train_yolo
+from .training import evaluate_yolo, predict_yolo_diagnostics, train_yolo
 
 
 def prepare_environment(repo_root: Path, drive_root: Path, run_mode: str) -> dict[str, Any]:
@@ -174,6 +174,143 @@ def train_task(repo_root: Path, drive_root: Path, task: str, run_mode: str = "SM
         raise
 
 
+def train_symbol_overfit(repo_root: Path, drive_root: Path, run_mode: str = "SYMBOL_OVERFIT") -> dict[str, Any]:
+    prepared = prepare_environment(repo_root, drive_root, run_mode)
+    colab_config = prepared["config"]
+    layout = prepared["layout"]
+    policy = colab_config["overfitPolicy"]
+    config = read_json(repo_root / "ai-training/configs/symbol/yolo_symbol_colab.json")
+    source_converted = layout.converted / policy["sourceConvertedDataset"]
+    if not (source_converted / "dataset.yaml").exists():
+        prepared_dataset = prepare_dataset(
+            repo_root,
+            drive_root,
+            "SYMBOL_TRAIN",
+            converted_name=policy["sourceConvertedDataset"],
+            allowed_class_ids=config.get("classes", []),
+        )
+        source_converted = prepared_dataset["converted"]
+        layout = prepared_dataset["layout"]
+    overfit_converted = layout.converted / policy["convertedDataset"]
+    tiny_report = create_symbol_overfit_dataset(
+        source_converted,
+        overfit_converted,
+        image_count=int(policy.get("trainImageCount", 2)),
+    )
+    overfit_config = {
+        **config,
+        "modelVersion": f"{config['modelVersion']}-overfit",
+        "status": "EXPERIMENTAL",
+        "diagnosticMode": "SYMBOL_OVERFIT",
+        "batchSize": int(policy["batchSize"]),
+        "inputSize": int(policy["inputSize"]),
+        "epochs": int(policy["epochs"]),
+        "earlyStoppingPatience": int(policy["earlyStoppingPatience"]),
+        "pretrained": bool(policy.get("pretrained", True)),
+        "plots": bool(policy.get("plots", False)),
+        "savePeriodEpochs": -1,
+        "checkpointIntervalEpochs": -1,
+        "keepRecentCheckpointCount": 1,
+    }
+    drive_space = ensure_min_free_space(
+        layout.root,
+        bytes_from_gb(colab_config.get("minimumFreeDriveGbBeforeTraining", 3)),
+        label="Google Drive",
+    )
+    write_json(layout.reports / "drive-space-before-training.json", drive_space)
+    run_dir = layout.runs / "symbol-overfit"
+    try:
+        checkpoint_meta = train_yolo(
+            overfit_converted / "dataset.yaml",
+            overfit_config,
+            run_dir,
+            resume=False,
+            resume_checkpoint=None,
+        )
+        checkpoint_meta = persist_checkpoints(checkpoint_meta, layout.checkpoints / "symbol-overfit")
+        train_evaluation = evaluate_yolo(
+            Path(checkpoint_meta["bestCheckpoint"]),
+            overfit_converted / "dataset.yaml",
+            overfit_config,
+            layout.reports,
+            split="train",
+            report_name=f"{overfit_config['modelId']}-overfit-train-evaluation.json",
+        )
+        image_paths = sorted((overfit_converted / "train/images").iterdir())
+        prediction_report = predict_yolo_diagnostics(
+            Path(checkpoint_meta["bestCheckpoint"]),
+            image_paths,
+            overfit_config,
+            layout.reports / "symbol-overfit-predictions",
+            thresholds=[float(value) for value in policy["predictionConfidenceThresholds"]],
+            max_confidence_probe_threshold=float(policy["maxConfidenceProbeThreshold"]),
+        )
+        train_map50 = extract_map50(train_evaluation)
+        max_confidence = float(prediction_report.get("maxConfidence", 0))
+        prediction_counts = prediction_report.get("predictionCounts", {})
+        overfit_passed = (
+            train_map50 >= float(policy["minPassingTrainMap50"])
+            and max_confidence >= float(policy["minPassingMaxConfidence"])
+            and int(prediction_counts.get("0.001", 0)) > 0
+        )
+        diagnostic_report = {
+            "schemaVersion": 1,
+            "mode": "SYMBOL_OVERFIT",
+            "status": "EXPERIMENTAL",
+            "diagnosticStatus": "PASS" if overfit_passed else "FAIL",
+            "modelId": overfit_config["modelId"],
+            "modelVersion": overfit_config["modelVersion"],
+            "task": overfit_config["task"],
+            "dataset": tiny_report,
+            "training": {
+                "batchSize": overfit_config["batchSize"],
+                "inputSize": overfit_config["inputSize"],
+                "epochs": overfit_config["epochs"],
+                "earlyStoppingPatience": overfit_config["earlyStoppingPatience"],
+                "pretrained": overfit_config["pretrained"],
+                "plots": overfit_config["plots"],
+            },
+            "trainMap50": train_map50,
+            "predictionCounts": prediction_counts,
+            "maxConfidence": max_confidence,
+            "predictionOverlayDir": prediction_report["overlayDir"],
+            "recommendation": (
+                "OVERFIT_PASS_RERUN_SYMBOL_TRAIN_ALLOWED"
+                if overfit_passed
+                else "DO_NOT_REPEAT_FULL_SYMBOL_TRAIN_UNTIL_TINY_OVERFIT_PASSES"
+            ),
+            "notes": [
+                "This is a diagnostic overfit run, not a product model.",
+                "Keep artifacts EXPERIMENTAL/DIAGNOSTIC and do not promote to CANDIDATE or PRODUCT.",
+            ],
+        }
+        diagnostic_path = layout.reports / "symbol-overfit-diagnostic.json"
+        write_json(diagnostic_path, diagnostic_report)
+        onnx_path = export_yolo_onnx(Path(checkpoint_meta["bestCheckpoint"]), overfit_config, layout.onnx)
+        onnx_validation = validate_onnx_file(onnx_path)
+        write_json(layout.reports / "symbol-overfit-onnx-validation.json", onnx_validation)
+        manifest_path = layout.artifacts / "symbol-overfit" / "manifest.json"
+        actual_classes = tiny_report.get("classIds") or overfit_config.get("classes", [])
+        manifest = write_model_manifest(onnx_path, overfit_config, actual_classes, diagnostic_path, manifest_path)
+        zip_path = layout.artifacts / f"{overfit_config['modelId']}-{overfit_config['modelVersion']}-diagnostic.zip"
+        overfit_config_path = layout.artifacts / "symbol-overfit" / "config.json"
+        write_json(overfit_config_path, overfit_config)
+        package_artifact(
+            output_zip=zip_path,
+            manifest_path=manifest_path,
+            evaluation_path=diagnostic_path,
+            taxonomy_path=repo_root / "ai-training/taxonomy/classes.json",
+            config_path=overfit_config_path,
+            onnx_path=onnx_path,
+        )
+        update_run_state(layout.run_state, symbolOverfitStatus=diagnostic_report["diagnosticStatus"])
+        cleanup_scratch(layout)
+        return {"checkpoint": checkpoint_meta, "diagnostic": diagnostic_report, "manifest": manifest, "artifact": str(zip_path)}
+    except Exception as error:
+        mark_error(layout.run_state, "symbol-overfit", error)
+        raise
+
+
 def install_repo_if_needed(repo_url: str, target_dir: Path) -> Path:
     if target_dir.exists() and (target_dir / ".git").exists():
         os.system(f"git -C {target_dir} pull --ff-only")
@@ -210,3 +347,99 @@ def cleanup_scratch(layout: Any) -> None:
     for path in [layout.raw, layout.cache, layout.runs]:
         if path.exists():
             shutil.rmtree(path)
+
+
+def create_symbol_overfit_dataset(source_dir: Path, target_dir: Path, image_count: int) -> dict[str, Any]:
+    shutil.rmtree(target_dir, ignore_errors=True)
+    train_images = sorted((source_dir / "train/images").iterdir())
+    selected = []
+    for image in train_images:
+        label = source_dir / "train/labels" / f"{image.stem}.txt"
+        if label.exists() and label.read_text(encoding="utf-8").strip():
+            selected.append((image, label))
+        if len(selected) >= image_count:
+            break
+    if not selected:
+        raise RuntimeError(f"No non-empty train labels found under {source_dir / 'train/labels'}")
+    class_ids = parse_yolo_names(source_dir / "dataset.yaml")
+    for split in ["train", "validation", "test"]:
+        (target_dir / split / "images").mkdir(parents=True, exist_ok=True)
+        (target_dir / split / "labels").mkdir(parents=True, exist_ok=True)
+        for image, label in selected:
+            shutil.copy2(image, target_dir / split / "images" / image.name)
+            shutil.copy2(label, target_dir / split / "labels" / label.name)
+    dataset_yaml = target_dir / "dataset.yaml"
+    dataset_yaml.write_text(
+        f'path: "{target_dir.resolve().as_posix()}"\n'
+        "train: train/images\n"
+        "val: validation/images\n"
+        "test: test/images\n"
+        "names:\n"
+        + "\n".join(f"  {index}: {name}" for index, name in enumerate(class_ids))
+        + "\n",
+        encoding="utf-8",
+    )
+    label_stats = count_yolo_labels([label for _, label in selected], len(class_ids))
+    report = {
+        "schemaVersion": 1,
+        "datasetId": "deepscoresv2-dense-symbol-overfit",
+        "sourceDataset": str(source_dir),
+        "converted": str(target_dir),
+        "imageCount": len(selected),
+        "labelCount": label_stats["labelCount"],
+        "badLabelCount": label_stats["badLabelCount"],
+        "classCount": len(class_ids),
+        "classIds": class_ids,
+        "imageReferences": [image.name for image, _ in selected],
+    }
+    write_json(target_dir / "overfit-dataset-report.json", report)
+    return report
+
+
+def parse_yolo_names(dataset_yaml: Path) -> list[str]:
+    names: list[str] = []
+    in_names = False
+    for line in dataset_yaml.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if stripped == "names:":
+            in_names = True
+            continue
+        if in_names:
+            if not line.startswith("  "):
+                break
+            if ":" in stripped:
+                _, value = stripped.split(":", 1)
+                names.append(value.strip().strip("'\""))
+    if not names:
+        raise RuntimeError(f"No YOLO names found in {dataset_yaml}")
+    return names
+
+
+def count_yolo_labels(label_paths: list[Path], class_count: int) -> dict[str, int]:
+    label_count = 0
+    bad_label_count = 0
+    for label_path in label_paths:
+        for line in label_path.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            label_count += 1
+            parts = line.split()
+            try:
+                class_index = int(parts[0])
+                values = [float(part) for part in parts[1:]]
+            except Exception:
+                bad_label_count += 1
+                continue
+            if len(parts) != 5 or class_index < 0 or class_index >= class_count or any(value < 0 or value > 1 for value in values):
+                bad_label_count += 1
+    return {"labelCount": label_count, "badLabelCount": bad_label_count}
+
+
+def extract_map50(report: dict[str, Any]) -> float:
+    summary = report.get("metricsSummary", {})
+    if isinstance(summary.get("box_map50"), (int, float)):
+        return float(summary["box_map50"])
+    results = summary.get("results_dict", {})
+    if isinstance(results, dict) and isinstance(results.get("metrics/mAP50(B)"), (int, float)):
+        return float(results["metrics/mAP50(B)"])
+    return 0.0

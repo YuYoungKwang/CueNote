@@ -529,3 +529,18 @@ Still excluded:
 - directionless flag classes
 
 Those require text/structure interpretation or missing direction information and remain out of scope until a later phase.
+
+### Phase 9I Tiny-Overfit Diagnostic
+
+`SYMBOL_OVERFIT` is a diagnostic run mode for symbol models whose confidence remains near initialization level after normal smoke-training.
+
+Policy:
+
+- Use one or two existing `deepscoresv2-dense-symbol` train images.
+- Use batch size 1, image size 1280, 100 epochs, pretrained YOLO weights, and disabled early stopping.
+- Keep plots disabled, but save prediction overlays for the selected train images.
+- Record train label count, bad label count, class count, train mAP50, max confidence, and prediction counts at confidence thresholds `0.001`, `0.01`, and `0.05`.
+- Mark any resulting artifact as `EXPERIMENTAL` with diagnostic metadata only.
+- If tiny-overfit fails, do not repeat full `SYMBOL_TRAIN` until the training/data path is fixed.
+
+This mode does not add Phase 10 structure assembly, pitch/duration inference, or MusicXML generation.

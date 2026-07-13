@@ -424,3 +424,13 @@ Status before user-run Colab:
 - PASS required: symbol YOLO config classes are declared in taxonomy and remain `EXPERIMENTAL`.
 - PASS required: existing installed experimental manifests remain compatible through manifest-local class indexes.
 - PASS required: Phase 10 structure assembly, pitch/duration inference, and MusicXML generation remain out of scope.
+
+## Phase 9I Symbol Tiny-Overfit Criteria
+
+- PASS required: Colab run modes include `SYMBOL_OVERFIT`.
+- PASS required: `SYMBOL_OVERFIT` derives a one- or two-image dataset from existing `deepscoresv2-dense-symbol` train images.
+- PASS required: overfit config uses batch size 1, image size 1280, 100 epochs, pretrained weights, disabled early stopping, and plots disabled.
+- PASS required: diagnostic report records label count, bad label count, class count, train mAP50, max confidence, and prediction counts at confidence thresholds `0.001`, `0.01`, and `0.05`.
+- PASS required: prediction overlays are saved for the overfit train images.
+- PASS required: failing overfit report recommends not repeating full `SYMBOL_TRAIN`.
+- PASS required: diagnostic artifacts remain `EXPERIMENTAL` and are not promoted to `CANDIDATE` or `PRODUCT`.

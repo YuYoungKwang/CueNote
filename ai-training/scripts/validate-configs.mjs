@@ -7,6 +7,7 @@ const failures = [];
 
 await mustRead('configs/colab/phase9_colab.json', (config) => {
   check(config.defaultRunMode === 'SMOKE', 'colab_default_mode', 'Colab default run mode must be SMOKE.');
+  check(config.runModes?.includes('SYMBOL_OVERFIT'), 'symbol_overfit_mode', 'Colab run modes must include SYMBOL_OVERFIT.');
   check(config.defaultDriveRoot.includes('/content/drive'), 'drive_root', 'Default Drive root must be under /content/drive.');
   check(config.assumedDriveCapacityGb === 14, 'drive_capacity', 'Colab policy must assume 14GB Google Drive capacity.');
   check(config.minimumFreeDriveGbBeforeTraining >= 3, 'drive_free_space', 'Training must require at least 3GB free Drive space.');
@@ -16,6 +17,10 @@ await mustRead('configs/colab/phase9_colab.json', (config) => {
   check(config.checkpointPolicy?.keepRecentCheckpointCount <= 1, 'checkpoint_recent_policy', 'Only the most recent epoch checkpoint may be retained.');
   check(config.datasetPolicy?.maxDenseImagesForColabSubset <= 500, 'dense_subset_size', 'Colab must start from a small DeepScoresV2 subset.');
   check(config.datasetPolicy?.maxDenseSourceGroupsForColabSubset <= 50, 'dense_source_group_subset', 'Colab must start from a small source-group subset.');
+  check(config.overfitPolicy?.trainImageCount <= 2, 'overfit_tiny_subset', 'SYMBOL_OVERFIT must use at most two train images.');
+  check(config.overfitPolicy?.batchSize === 1, 'overfit_batch', 'SYMBOL_OVERFIT batch size must be 1.');
+  check(config.overfitPolicy?.epochs >= 100, 'overfit_epochs', 'SYMBOL_OVERFIT must run at least 100 epochs.');
+  check(config.overfitPolicy?.earlyStoppingPatience === 0, 'overfit_patience', 'SYMBOL_OVERFIT must disable early stopping with patience 0.');
 });
 
 for (const file of ['configs/layout/yolo_layout_colab.json', 'configs/symbol/yolo_symbol_colab.json']) {

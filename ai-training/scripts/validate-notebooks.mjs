@@ -9,6 +9,7 @@ const requiredPhrases = [
   '3GB',
   '/content/cuenote-phase9',
   'CUENOTE_RUN_MODE',
+  'SYMBOL_OVERFIT',
   'Runtime',
   'GPU',
   'phase9_colab_entry.py',

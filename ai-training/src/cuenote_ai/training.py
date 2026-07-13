@@ -90,13 +90,13 @@ def checkpoint_finished_target_epochs(checkpoint: Path, target_epochs: int) -> b
     return int(epoch) + 1 >= target_epochs
 
 
-def evaluate_yolo(checkpoint: Path, dataset_yaml: Path, config: dict[str, Any], report_dir: Path) -> dict[str, Any]:
+def evaluate_yolo(checkpoint: Path, dataset_yaml: Path, config: dict[str, Any], report_dir: Path, split: str = "test", report_name: str | None = None) -> dict[str, Any]:
     try:
         from ultralytics import YOLO
     except Exception as error:
         raise RuntimeError("Ultralytics is not installed.") from error
     model = YOLO(str(checkpoint))
-    metrics = model.val(data=str(dataset_yaml), split="test", imgsz=int(config["inputSize"]), plots=False)
+    metrics = model.val(data=str(dataset_yaml), split=split, imgsz=int(config["inputSize"]), plots=False)
     report_dir.mkdir(parents=True, exist_ok=True)
     report = {
         "schemaVersion": 1,
@@ -104,13 +104,75 @@ def evaluate_yolo(checkpoint: Path, dataset_yaml: Path, config: dict[str, Any], 
         "modelVersion": config["modelVersion"],
         "status": config.get("status", "EXPERIMENTAL"),
         "task": config["task"],
+        "split": split,
         "evaluatedAt": utc_now(),
         "metricsSummary": metrics_summary(metrics),
         "promotionRecommendation": "EXPERIMENTAL",
         "knownFailures": ["requires_manual_metric_review_before_candidate_promotion"],
     }
-    atomic_write_json(report_dir / f"{config['modelId']}-evaluation.json", report)
+    atomic_write_json(report_dir / (report_name or f"{config['modelId']}-evaluation.json"), report)
     return report
+
+
+def predict_yolo_diagnostics(
+    checkpoint: Path,
+    image_paths: list[Path],
+    config: dict[str, Any],
+    output_dir: Path,
+    thresholds: list[float],
+    max_confidence_probe_threshold: float,
+) -> dict[str, Any]:
+    try:
+        from ultralytics import YOLO
+    except Exception as error:
+        raise RuntimeError("Ultralytics is not installed.") from error
+    output_dir.mkdir(parents=True, exist_ok=True)
+    model = YOLO(str(checkpoint))
+    prediction_counts: dict[str, int] = {}
+    max_confidence = 0.0
+    probe_thresholds = sorted(set([max_confidence_probe_threshold, *thresholds]))
+    for threshold in probe_thresholds:
+        results = model.predict(
+            source=[str(path) for path in image_paths],
+            conf=float(threshold),
+            imgsz=int(config["inputSize"]),
+            save=True,
+            project=str(output_dir),
+            name=f"conf-{format_threshold(threshold)}",
+            exist_ok=True,
+            verbose=False,
+        )
+        count = 0
+        threshold_max = 0.0
+        for result in results:
+            boxes = getattr(result, "boxes", None)
+            if boxes is None:
+                continue
+            conf = getattr(boxes, "conf", None)
+            if conf is None:
+                continue
+            values = conf.detach().cpu().tolist() if hasattr(conf, "detach") else list(conf)
+            count += len(values)
+            if values:
+                threshold_max = max(threshold_max, max(float(value) for value in values))
+        if threshold in thresholds:
+            prediction_counts[str(threshold)] = count
+        max_confidence = max(max_confidence, threshold_max)
+    return {
+        "schemaVersion": 1,
+        "status": "PASS",
+        "imageCount": len(image_paths),
+        "predictionCounts": prediction_counts,
+        "maxConfidence": max_confidence,
+        "overlayDir": str(output_dir),
+        "thresholds": thresholds,
+        "maxConfidenceProbeThreshold": max_confidence_probe_threshold,
+        "createdAt": utc_now(),
+    }
+
+
+def format_threshold(value: float) -> str:
+    return f"{value:.5f}".rstrip("0").rstrip(".").replace(".", "p")
 
 
 def metrics_summary(metrics: Any) -> dict[str, Any]:
