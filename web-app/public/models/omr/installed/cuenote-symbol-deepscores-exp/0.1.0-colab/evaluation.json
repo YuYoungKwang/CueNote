@@ -4,7 +4,7 @@
   "modelVersion": "0.1.0-colab",
   "status": "EXPERIMENTAL",
   "task": "SYMBOL_DETECTION",
-  "evaluatedAt": "2026-07-13T15:45:13.851172+00:00",
+  "evaluatedAt": "2026-07-13T16:14:14.617333+00:00",
   "metricsSummary": {
     "results_dict": {
       "metrics/precision(B)": 0.0,
@@ -14,10 +14,10 @@
       "fitness": 0.0
     },
     "speed": {
-      "preprocess": 0.6308555603027344,
-      "inference": 118.3847188949585,
-      "loss": 0.005245208740234375,
-      "postprocess": 4.433274269104004
+      "preprocess": 0.6157918409867721,
+      "inference": 23.747920989990234,
+      "loss": 0.0008453022349964489,
+      "postprocess": 3.2486265355890445
     },
     "names": {
       "0": "rest.quarter",

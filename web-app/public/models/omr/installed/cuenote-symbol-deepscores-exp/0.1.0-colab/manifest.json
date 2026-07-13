@@ -5,7 +5,7 @@
   "task": "SYMBOL_DETECTION",
   "status": "EXPERIMENTAL",
   "file": "cuenote-symbol-deepscores-exp-0.1.0-colab.onnx",
-  "sha256": "6e58f11379028a12f79153285116a5df3ba0e6fd69b0cda9e441954162291a95",
+  "sha256": "a7729134952b0235a615032f3702b9b1e2c3a5d9d624cadff722ff05823edc4f",
   "sizeBytes": 12340671,
   "input": {
     "width": 1024,
@@ -123,5 +123,5 @@
   "taxonomyVersion": "cuenote-omr-taxonomy-v1",
   "evaluationReport": "evaluation.json",
   "minimumAppVersion": "0.9.0",
-  "createdAt": "2026-07-13T15:45:19.453925+00:00"
+  "createdAt": "2026-07-13T16:14:26.526880+00:00"
 }

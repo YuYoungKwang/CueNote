@@ -20,15 +20,15 @@
       "builtIn": true
     },
     {
-      "id": "cuenote-symbol-deepscores-exp",
-      "label": "cuenote-symbol-deepscores-exp (EXPERIMENTAL)",
-      "url": "/models/omr/installed/cuenote-symbol-deepscores-exp/0.1.0-colab/manifest.json",
-      "builtIn": false
-    },
-    {
       "id": "cuenote-layout-deepscores-exp",
       "label": "cuenote-layout-deepscores-exp (EXPERIMENTAL)",
       "url": "/models/omr/installed/cuenote-layout-deepscores-exp/0.1.0-colab/manifest.json",
+      "builtIn": false
+    },
+    {
+      "id": "cuenote-symbol-deepscores-exp",
+      "label": "cuenote-symbol-deepscores-exp (EXPERIMENTAL)",
+      "url": "/models/omr/installed/cuenote-symbol-deepscores-exp/0.1.0-colab/manifest.json",
       "builtIn": false
     }
   ]

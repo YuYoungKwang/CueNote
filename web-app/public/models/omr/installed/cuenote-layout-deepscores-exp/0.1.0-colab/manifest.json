@@ -5,11 +5,11 @@
   "task": "LAYOUT_DETECTION",
   "status": "EXPERIMENTAL",
   "file": "cuenote-layout-deepscores-exp-0.1.0-colab.onnx",
-  "sha256": "ce71156fcaf202884034ea89a49f9c984308fa3ac9bb04b84a7c0724ec690ca1",
-  "sizeBytes": 12328666,
+  "sha256": "aa85f875eb7bb75784a93c0d72c0cbf9469d8e54e5f30c7e0d841d83eb79907f",
+  "sizeBytes": 12267950,
   "input": {
-    "width": 1024,
-    "height": 1024,
+    "width": 896,
+    "height": 896,
     "channels": 3,
     "tensorLayout": "NCHW",
     "resizeMode": "LETTERBOX",
@@ -48,5 +48,5 @@
   "taxonomyVersion": "cuenote-omr-taxonomy-v1",
   "evaluationReport": "evaluation.json",
   "minimumAppVersion": "0.9.0",
-  "createdAt": "2026-07-13T15:34:31.421372+00:00"
+  "createdAt": "2026-07-13T16:35:50.897324+00:00"
 }

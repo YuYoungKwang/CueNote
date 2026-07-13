@@ -1,17 +1,17 @@
 {
   "onnx": {
     "file": "cuenote-layout-deepscores-exp-0.1.0-colab.onnx",
-    "sha256": "ce71156fcaf202884034ea89a49f9c984308fa3ac9bb04b84a7c0724ec690ca1",
-    "sizeBytes": 12328666
+    "sha256": "aa85f875eb7bb75784a93c0d72c0cbf9469d8e54e5f30c7e0d841d83eb79907f",
+    "sizeBytes": 12267950
   },
   "manifest": {
     "file": "manifest.json",
-    "sha256": "816aa00d59fc86e3cc334af01f17b9321a2a299744a4b061e9c82d8fca258749",
-    "sizeBytes": 1224
+    "sha256": "46e95b385cba8b7e407072dea298009c6fbb31fd854792c36031b30dcd25e192",
+    "sizeBytes": 1222
   },
   "evaluation": {
     "file": "evaluation.json",
-    "sha256": "f5146841331a482375fff96d6aaf1e3b400be54e583bf11a2dfcd71aed9fe3b8",
-    "sizeBytes": 899
+    "sha256": "b6a817bbd5be84e78bb84fc9b4dac7f58443551a36180f23281b39a4c602c9fa",
+    "sizeBytes": 1091
   }
 }

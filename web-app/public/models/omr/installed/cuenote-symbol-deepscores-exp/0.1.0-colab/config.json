@@ -10,7 +10,7 @@
   "inputPolicy": "reviewed_system_crop_or_tiled_system_crop",
   "inputSize": 1024,
   "batchSize": 4,
-  "epochs": 1,
+  "epochs": 5,
   "workers": 2,
   "optimizer": "auto",
   "learningRate": 0.008,

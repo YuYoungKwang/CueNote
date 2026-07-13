@@ -1,17 +1,17 @@
 {
   "onnx": {
     "file": "cuenote-symbol-deepscores-exp-0.1.0-colab.onnx",
-    "sha256": "6e58f11379028a12f79153285116a5df3ba0e6fd69b0cda9e441954162291a95",
+    "sha256": "a7729134952b0235a615032f3702b9b1e2c3a5d9d624cadff722ff05823edc4f",
     "sizeBytes": 12340671
   },
   "manifest": {
     "file": "manifest.json",
-    "sha256": "2a7f4a857f078835b6c2d9412c49de2a18f81c70dc8f783201478a91a3d835bb",
+    "sha256": "effe7880f4dfa346ccea46e5de7cba39f5d03779d180a5bf2895c51f7f962856",
     "sizeBytes": 2578
   },
   "evaluation": {
     "file": "evaluation.json",
-    "sha256": "8152a307448e6474b8558e203017b8d5bb8a2060c52a1a34218dd614d9803893",
-    "sizeBytes": 1317
+    "sha256": "3a24f21dc7f321087d1d9d6e217a7290248988f35b10cd973daa1f99b98dfef7",
+    "sizeBytes": 1320
   }
 }
