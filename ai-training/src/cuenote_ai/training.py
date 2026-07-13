@@ -28,6 +28,10 @@ def train_yolo(
     local_last_checkpoint = output_dir / "train" / "weights" / "last.pt"
     checkpoint_to_resume = resume_checkpoint if resume_checkpoint and resume_checkpoint.exists() else local_last_checkpoint
     should_resume = resume and checkpoint_to_resume.exists()
+    resume_skipped_reason = None
+    if should_resume and checkpoint_finished_target_epochs(checkpoint_to_resume, int(config["epochs"])):
+        should_resume = False
+        resume_skipped_reason = "checkpoint_already_reached_target_epochs"
     model = YOLO(str(checkpoint_to_resume) if should_resume else config["pretrainedWeights"])
     args = {
         "data": str(dataset_yaml),
@@ -63,9 +67,24 @@ def train_yolo(
         "createdAt": utc_now(),
         "resultSummary": str(results),
         "resumedFrom": str(checkpoint_to_resume) if should_resume else None,
+        "resumeSkippedReason": resume_skipped_reason,
     }
     atomic_write_json(checkpoint_meta, meta)
     return meta
+
+
+def checkpoint_finished_target_epochs(checkpoint: Path, target_epochs: int) -> bool:
+    try:
+        import torch
+        loaded = torch.load(checkpoint, map_location="cpu", weights_only=False)
+    except Exception:
+        return False
+    if not isinstance(loaded, dict):
+        return False
+    epoch = loaded.get("epoch")
+    if epoch is None:
+        return False
+    return int(epoch) + 1 >= target_epochs
 
 
 def evaluate_yolo(checkpoint: Path, dataset_yaml: Path, config: dict[str, Any], report_dir: Path) -> dict[str, Any]:
