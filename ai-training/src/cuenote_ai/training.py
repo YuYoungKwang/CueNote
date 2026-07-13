@@ -49,6 +49,7 @@ def train_yolo(
         "resume": should_resume,
         "amp": config.get("precision") == "amp",
         "save_period": int(config.get("savePeriodEpochs", -1)),
+        "plots": False,
     }
     results = model.train(**args)
     kept_epoch_checkpoints = prune_epoch_checkpoints(
@@ -95,7 +96,7 @@ def evaluate_yolo(checkpoint: Path, dataset_yaml: Path, config: dict[str, Any], 
     except Exception as error:
         raise RuntimeError("Ultralytics is not installed.") from error
     model = YOLO(str(checkpoint))
-    metrics = model.val(data=str(dataset_yaml), split="test", imgsz=int(config["inputSize"]))
+    metrics = model.val(data=str(dataset_yaml), split="test", imgsz=int(config["inputSize"]), plots=False)
     report_dir.mkdir(parents=True, exist_ok=True)
     report = {
         "schemaVersion": 1,
