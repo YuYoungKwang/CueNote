@@ -157,8 +157,9 @@ def convert_coco_like_dataset(
 
     write_json(output_dir / "annotations.json", annotation_rows)
     dataset_yaml = output_dir / "dataset.yaml"
+    dataset_root = output_dir.resolve().as_posix()
     dataset_yaml.write_text(
-        "path: .\n"
+        f'path: "{dataset_root}"\n'
         "train: train/images\n"
         "val: validation/images\n"
         "test: test/images\n"
