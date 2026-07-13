@@ -121,12 +121,13 @@ def train_task(repo_root: Path, drive_root: Path, task: str, run_mode: str = "SM
     write_json(layout.reports / "drive-space-before-training.json", drive_space)
     run_dir = layout.runs / prefix
     try:
-        persisted_last_checkpoint = layout.checkpoints / prefix / "last.pt"
+        resume_enabled = bool(colab_config.get("checkpointPolicy", {}).get("resumeIfCompatible", False))
+        persisted_last_checkpoint = layout.checkpoints / prefix / "last.pt" if resume_enabled else None
         checkpoint_meta = train_yolo(
             dataset["converted"] / "dataset.yaml",
             config,
             run_dir,
-            resume=True,
+            resume=resume_enabled,
             resume_checkpoint=persisted_last_checkpoint,
         )
         checkpoint_meta = persist_checkpoints(checkpoint_meta, layout.checkpoints / prefix)
