@@ -392,10 +392,13 @@ Phase 9 product gates:
 - PASS required: local Windows/RX 580 is documented as validation-only, not product GPU training.
 - PASS required: dependency pins exist for Colab.
 - PASS required: Drive storage structure is documented and configurable.
+- PASS required: Drive policy assumes 14GB default capacity and stops training when free space is below 3GB.
+- PASS required: raw archives, extracted temporary files, training cache, and run directories are scratch data outside persistent Drive storage.
+- PASS required: DeepScoresV2 training modes start from the configured dense/source-group subset instead of the full dataset.
 - PASS required: dataset source registry records eligibility and excludes unverified sources by default.
 - PASS required: DeepScoresV2 dense source record includes official source, archive checksum, license evidence, attribution requirement, and user confirmation boundary.
 - PASS required: class mapping file separates `EXACT`, `APPROXIMATE`, and `EXCLUDED` mappings.
-- PASS required: checkpoint metadata and run-state files are written with resume compatibility checks.
+- PASS required: checkpoint metadata and run-state files are written with resume compatibility checks, while retaining only best, last, and the configured recent checkpoint.
 - PASS required: artifact zip structure is documented and validator checks manifest/model/checksum/evaluation/taxonomy/config.
 - PASS required: installer adds only validated artifacts to the static model catalog.
 - PASS required: UI does not show fake candidate models when no artifact is installed.

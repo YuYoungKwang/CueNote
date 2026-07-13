@@ -109,25 +109,31 @@ User steps:
 9. Download the final artifact zip from Drive.
 10. Run local artifact validation and installation.
 
-Default Drive layout:
+Drive storage policy:
+
+- Assume the default Google Drive quota is 14GB.
+- Training modes stop before training when Drive has less than 3GB free.
+- Do not use the full DeepScoresV2 dataset by default. Start from the configured dense source-group subset.
+- Keep only dataset manifests/license evidence, the minimum reusable converted subset, last checkpoint, best checkpoint, at most one recent epoch checkpoint, evaluation reports, ONNX/model manifest, and the final artifact zip in Drive.
+- Raw archives, extracted temporary files, training cache, and run directories use Colab `/content/cuenote-phase9` scratch storage and may be deleted after each successful stage.
+
+Default persistent Drive layout:
 
 ```text
 /content/drive/MyDrive/CueNote/
-├─ datasets/
-│  ├─ raw/
-│  ├─ converted/
-│  └─ manifests/
-├─ checkpoints/
-│  ├─ layout/
-│  └─ symbol/
-├─ artifacts/
-│  ├─ layout/
-│  ├─ symbol/
-│  └─ onnx/
-├─ reports/
-├─ logs/
-├─ cache/
-└─ runs/
+|-- datasets/
+|   |-- converted/
+|   `-- manifests/
+|-- checkpoints/
+|   |-- layout/
+|   `-- symbol/
+|-- artifacts/
+|   |-- layout/
+|   |-- symbol/
+|   `-- onnx/
+|-- reports/
+|-- logs/
+`-- run-state.json
 ```
 
 Free Colab limits:

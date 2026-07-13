@@ -17,7 +17,9 @@
   "scheduler": "ultralytics-default",
   "precision": "amp",
   "earlyStoppingPatience": 8,
-  "checkpointIntervalEpochs": 1,
+  "checkpointIntervalEpochs": -1,
+  "savePeriodEpochs": -1,
+  "keepRecentCheckpointCount": 1,
   "seed": 90210,
   "classes": [
     "system.region",

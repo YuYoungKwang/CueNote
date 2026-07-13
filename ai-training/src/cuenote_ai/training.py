@@ -33,8 +33,13 @@ def train_yolo(dataset_yaml: Path, config: dict[str, Any], output_dir: Path, res
         "seed": int(config.get("seed", 90210)),
         "resume": resume,
         "amp": config.get("precision") == "amp",
+        "save_period": int(config.get("savePeriodEpochs", -1)),
     }
     results = model.train(**args)
+    kept_epoch_checkpoints = prune_epoch_checkpoints(
+        output_dir / "train" / "weights",
+        keep_recent=int(config.get("keepRecentCheckpointCount", 1)),
+    )
     meta = {
         "schemaVersion": 1,
         "runId": f"{config['modelId']}-{config['modelVersion']}",
@@ -45,6 +50,7 @@ def train_yolo(dataset_yaml: Path, config: dict[str, Any], output_dir: Path, res
         "datasetYaml": str(dataset_yaml),
         "lastCheckpoint": str(output_dir / "train" / "weights" / "last.pt"),
         "bestCheckpoint": str(output_dir / "train" / "weights" / "best.pt"),
+        "recentEpochCheckpoints": [str(path) for path in kept_epoch_checkpoints],
         "createdAt": utc_now(),
         "resultSummary": str(results),
     }
@@ -73,3 +79,18 @@ def evaluate_yolo(checkpoint: Path, dataset_yaml: Path, config: dict[str, Any], 
     }
     atomic_write_json(report_dir / f"{config['modelId']}-evaluation.json", report)
     return report
+
+
+def prune_epoch_checkpoints(weights_dir: Path, *, keep_recent: int) -> list[Path]:
+    if not weights_dir.exists():
+        return []
+    epoch_checkpoints = sorted(
+        weights_dir.glob("epoch*.pt"),
+        key=lambda path: path.stat().st_mtime,
+        reverse=True,
+    )
+    keep = {path.resolve() for path in epoch_checkpoints[: max(0, keep_recent)]}
+    for path in epoch_checkpoints:
+        if path.resolve() not in keep:
+            path.unlink(missing_ok=True)
+    return [path for path in epoch_checkpoints if path.resolve() in keep]

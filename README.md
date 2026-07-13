@@ -75,6 +75,7 @@ CueNote/
 - Product OMR accuracy is not evaluated, and no model is promoted to `PRODUCT`.
 - Phase 9E-H prepares Google Colab GPU training notebooks and artifact installation tooling. The local Windows PC, including AMD Radeon RX 580, is used only for validation, CPU smoke/static checks, ONNX/package checks, and browser inference.
 - Actual Colab GPU training, Drive authorization, checkpoint creation, trained ONNX export, and candidate promotion require user-run Colab execution.
+- Colab training assumes a 14GB default Google Drive quota, starts from a dense/source-group subset rather than full DeepScoresV2, stops below 3GB free Drive space, and keeps raw archives/cache/runs in `/content` scratch storage.
 
 ### Backend
 

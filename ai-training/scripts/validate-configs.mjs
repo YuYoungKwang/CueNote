@@ -8,6 +8,14 @@ const failures = [];
 await mustRead('configs/colab/phase9_colab.json', (config) => {
   check(config.defaultRunMode === 'SMOKE', 'colab_default_mode', 'Colab default run mode must be SMOKE.');
   check(config.defaultDriveRoot.includes('/content/drive'), 'drive_root', 'Default Drive root must be under /content/drive.');
+  check(config.assumedDriveCapacityGb === 14, 'drive_capacity', 'Colab policy must assume 14GB Google Drive capacity.');
+  check(config.minimumFreeDriveGbBeforeTraining >= 3, 'drive_free_space', 'Training must require at least 3GB free Drive space.');
+  check(config.scratchRoot?.startsWith('/content/'), 'scratch_root', 'Raw archives, cache, and runs must use Colab /content scratch storage.');
+  check(!String(config.paths.raw).startsWith('datasets/'), 'raw_not_drive_dataset', 'Raw archives must not be stored under Drive datasets.');
+  check(config.checkpointPolicy?.saveEveryEpoch === false, 'checkpoint_epoch_policy', 'Epoch checkpoints must not be saved without limit.');
+  check(config.checkpointPolicy?.keepRecentCheckpointCount <= 1, 'checkpoint_recent_policy', 'Only the most recent epoch checkpoint may be retained.');
+  check(config.datasetPolicy?.maxDenseImagesForColabSubset <= 500, 'dense_subset_size', 'Colab must start from a small DeepScoresV2 subset.');
+  check(config.datasetPolicy?.maxDenseSourceGroupsForColabSubset <= 50, 'dense_source_group_subset', 'Colab must start from a small source-group subset.');
 });
 
 for (const file of ['configs/layout/yolo_layout_colab.json', 'configs/symbol/yolo_symbol_colab.json']) {
@@ -16,6 +24,8 @@ for (const file of ['configs/layout/yolo_layout_colab.json', 'configs/symbol/yol
     check(config.framework === 'ultralytics-yolo', 'framework', `${file} must declare framework.`);
     check(Array.isArray(config.classes) && config.classes.length > 0, 'classes', `${file} must list classes.`);
     check(config.batchSize <= 8, 'batch_size', `${file} default batch is too large for free Colab.`);
+    check(config.checkpointIntervalEpochs === -1, 'checkpoint_interval', `${file} must not save every epoch by default.`);
+    check(config.savePeriodEpochs === -1 || config.keepRecentCheckpointCount <= 1, 'checkpoint_policy', `${file} must avoid unlimited epoch checkpoints.`);
   });
 }
 

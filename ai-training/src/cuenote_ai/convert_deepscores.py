@@ -53,6 +53,7 @@ def convert_coco_like_dataset(
     dataset_id: str,
     dataset_version: str,
     max_items: int | None = None,
+    max_source_groups: int | None = None,
     seed: int = 90210,
 ) -> dict[str, Any]:
     mapping = load_mapping(mapping_path)
@@ -62,6 +63,16 @@ def convert_coco_like_dataset(
     categories = {category["id"]: category.get("name", str(category["id"])) for category in coco.get("categories", [])}
     images = coco.get("images", [])
     random.Random(seed).shuffle(images)
+    if max_source_groups:
+        selected_groups: set[str] = set()
+        selected_images = []
+        for image in images:
+            group = source_group_id(image)
+            if group not in selected_groups and len(selected_groups) >= max_source_groups:
+                continue
+            selected_groups.add(group)
+            selected_images.append(image)
+        images = selected_images
     if max_items:
         images = images[:max_items]
     annotations_by_image: dict[int, list[dict[str, Any]]] = {}
@@ -148,6 +159,9 @@ def convert_coco_like_dataset(
         "datasetId": dataset_id,
         "datasetVersion": dataset_version,
         "itemCount": len(annotation_rows),
+        "sourceGroupCount": len({row["sourceGroupId"] for row in annotation_rows}),
+        "maxItems": max_items,
+        "maxSourceGroups": max_source_groups,
         "classIds": class_ids,
         "excludedAnnotations": excluded_count,
         "approximateMappings": approximate_count,

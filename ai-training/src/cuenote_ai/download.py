@@ -46,4 +46,4 @@ def download_with_resume(url: str, target: Path, *, expected_md5: str = "", min_
 
 
 def manual_placement_message(target: Path) -> str:
-    return f"Place the manually downloaded archive at {target} and rerun the notebook."
+    return f"Place the manually downloaded archive at {target} in Colab /content scratch storage and rerun the notebook."

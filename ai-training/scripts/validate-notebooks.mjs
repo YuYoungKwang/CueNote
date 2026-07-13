@@ -5,6 +5,9 @@ import { aiRoot } from './lib/paths.mjs';
 const notebookDir = path.join(aiRoot, 'notebooks');
 const requiredPhrases = [
   'drive.mount',
+  '14GB',
+  '3GB',
+  '/content/cuenote-phase9',
   'CUENOTE_RUN_MODE',
   'Runtime',
   'GPU',

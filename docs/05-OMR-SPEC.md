@@ -495,10 +495,12 @@ Phase 9E-H prepares real training outside the browser and outside the local RX 5
 
 - Training target: Google Colab GPU.
 - Local target: validation, smoke/static checks, artifact validation, and browser inference.
-- Primary external dataset path: DeepScoresV2 dense from the official Zenodo record.
+- Primary external dataset path: DeepScoresV2 dense from the official Zenodo record, starting with a small dense/source-group subset rather than the full dataset.
 - DeepScoresV2 is synthetic/engraved data, not real camera/photo data; scan/photo performance must remain limited or unknown until separately evaluated.
-- Colab stores datasets, checkpoints, artifacts, reports, logs, cache, and run state in Google Drive.
-- Checkpoint writes must preserve last/best weights and metadata and avoid treating incompatible config/dataset/taxonomy as resumable.
+- Google Drive is assumed to have 14GB default capacity. Training must not start when less than 3GB is free.
+- Drive permanently stores only dataset manifests/license evidence, the minimum converted subset, last checkpoint, best checkpoint, at most one recent epoch checkpoint, evaluation reports, ONNX/model manifest, and final artifact zip.
+- Raw archives, extracted temporary files, training cache, and run directories are Colab `/content` scratch data and should be deleted after successful stages.
+- Checkpoint writes must preserve last/best weights and metadata, retain only the configured recent checkpoint, and avoid treating incompatible config/dataset/taxonomy as resumable.
 - Actual trained ONNX models use distinct model IDs such as `cuenote-layout-deepscores-exp` and `cuenote-symbol-deepscores-exp`.
 - YOLOv8 raw ONNX outputs are decoded separately from the Phase 9 smoke `BOX_XYWH_CONF_CLASS` models.
 - Candidate promotion requires actual Colab metrics, ONNX parity, browser runtime validation, and failure analysis.

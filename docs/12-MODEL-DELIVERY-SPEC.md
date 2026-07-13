@@ -200,3 +200,6 @@ Rules:
 - The app shows only built-in smoke models plus successfully installed artifacts.
 - Candidate or product status requires actual evaluation report, ONNX parity, browser runtime validation, and known failure report.
 - `YOLO_V8_RAW` output manifests require browser postprocessing support and are not interchangeable with the `BOX_XYWH_CONF_CLASS` smoke models.
+- Colab artifact production assumes 14GB default Google Drive capacity and must stop before training when Drive free space is below 3GB.
+- Drive should retain only dataset manifest/license evidence, the minimum converted subset, best/last/recent checkpoint, evaluation report, ONNX/model manifest, and final artifact zip.
+- Raw archives, extracted temporary files, training cache, and full run directories are Colab `/content` scratch data, not long-term Drive artifacts.

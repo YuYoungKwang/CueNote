@@ -143,13 +143,29 @@ class DriveLayout:
     run_state: Path
 
 
+def bytes_from_gb(value: int | float) -> int:
+    return int(float(value) * 1024 * 1024 * 1024)
+
+
+def ensure_min_free_space(path: Path, minimum_free_bytes: int, *, label: str) -> dict[str, int]:
+    report = disk_report(path)
+    if report["freeBytes"] < minimum_free_bytes:
+        raise RuntimeError(
+            f"{label} free space is below the required threshold. "
+            f"Required at least {minimum_free_bytes} bytes free, found {report['freeBytes']} bytes. "
+            "Clean raw archives, extracted temporary files, cache, old runs, or large artifacts before training."
+        )
+    return report
+
+
 def make_drive_layout(root: str | Path, colab_config: dict[str, Any]) -> DriveLayout:
     base = Path(root)
     paths = colab_config["paths"]
+    scratch = Path(colab_config.get("scratchRoot", "/content/cuenote-phase9"))
     layout = DriveLayout(
         root=base,
         datasets=base / paths["datasets"],
-        raw=base / paths["raw"],
+        raw=scratch / paths["raw"],
         converted=base / paths["converted"],
         manifests=base / paths["manifests"],
         checkpoints=base / paths["checkpoints"],
@@ -157,8 +173,8 @@ def make_drive_layout(root: str | Path, colab_config: dict[str, Any]) -> DriveLa
         onnx=base / paths["onnx"],
         reports=base / paths["reports"],
         logs=base / paths["logs"],
-        cache=base / paths["cache"],
-        runs=base / paths["runs"],
+        cache=scratch / paths["cache"],
+        runs=scratch / paths["runs"],
         run_state=base / colab_config["statusFile"],
     )
     for value in layout.__dict__.values():

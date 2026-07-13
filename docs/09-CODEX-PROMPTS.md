@@ -488,6 +488,10 @@ Implement:
 
 - Colab notebook with GPU guidance, Drive mount, run modes, dependency install, dataset prep, checkpoint/resume, evaluation, ONNX export, parity, and artifact zip
 - DeepScoresV2 dense source/license registry
+- Google Drive 14GB default-capacity assumption and a pre-training stop when free space is below 3GB
+- Dense/source-group subset training before any full DeepScoresV2 attempt
+- `/content` scratch handling for raw archives, extracted temporary files, training cache, and run directories
+- Drive retention limited to dataset manifest/license evidence, minimum converted subset, best/last/recent checkpoint, evaluation report, ONNX/model manifest, and final artifact zip
 - class mapping
 - source-group split/leakage validation
 - layout and symbol training configs

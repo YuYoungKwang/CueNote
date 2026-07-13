@@ -16,7 +16,7 @@ Phase 9A-D dataset infrastructure, experimental smoke models, ONNX browser execu
 ## Scope
 
 - Add reproducible Colab notebooks for Phase 9E-H.
-- Add Drive storage layout, checkpoint/resume, run-state, and artifact packaging policies.
+- Add Drive storage layout, scratch storage cleanup, checkpoint/resume, run-state, and artifact packaging policies.
 - Add dataset source registry and license eligibility records for DeepScoresV2 dense and CueNote synthetic data.
 - Add DeepScoresV2-to-CueNote class mapping with `EXACT`, `MERGED`, `APPROXIMATE`, and `EXCLUDED` mapping types.
 - Add Colab-oriented Python pipeline code for environment checks, dataset download/cache, conversion, source-group split/leakage checks, YOLO-format export, training config, checkpoint metadata, evaluation report, ONNX export/parity, and artifact packaging.
@@ -57,6 +57,14 @@ Decision: DeepScoresV2 dense is the first real external dataset path. The source
 
 Reason: It has an official archive, dense subset, published checksum, and object annotations. It is still synthetic/engraved rather than camera/photo data, so scan/photo performance remains limited or unknown.
 
+### Colab Drive Quota
+
+Decision: Assume the default Google Drive quota is 14GB. Training modes must check Drive free space before training and stop when less than 3GB is available.
+
+Reason: Full dataset archives, extracted data, caches, and unlimited epoch checkpoints can exhaust free Drive quickly.
+
+Alternative: Keep all raw archives and runs in Drive. Rejected because Phase 9E-H starts from dense/source-group subsets and should preserve only reusable or final artifacts.
+
 ### Artifact Installation
 
 Decision: Actual Colab artifacts are not shown in the app until `validate-model-artifact.mjs` and `install-model-artifact.mjs` succeed.
@@ -76,7 +84,8 @@ Reason: The UI must not display fake candidate models or stale artifacts. Instal
 
 ## Risks
 
-- DeepScoresV2 dense is large for free Colab and may require manual download/cache reuse.
+- DeepScoresV2 full data is too large for the assumed 14GB Drive budget. The pipeline starts from a dense/source-group subset and keeps raw archives, extracted files, cache, and runs in `/content` scratch storage.
+- Free Drive may still fall below the 3GB pre-training threshold; the notebook must stop and ask the user to clean raw archives, extracted temporary files, cache, old runs, or large artifacts.
 - Dataset class names and annotation formats may differ from the converter's first-pass assumptions; conversion script must fail clearly and produce mapping reports.
 - Free Colab GPU allocation is not guaranteed and sessions can disconnect.
 - Actual CANDIDATE status depends on user-run Colab artifacts and cannot be assigned by static preparation alone.
