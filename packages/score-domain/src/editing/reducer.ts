@@ -5,7 +5,8 @@ import type {
   EditableScoreDocument,
   EditCommand,
   EditHistoryState,
-  IdGenerator
+  IdGenerator,
+  OpaqueMusicXmlFragment
 } from './model';
 import { transposeChordSymbol, transposeKeySignature, transposePitch } from './transpose';
 import { validateEditableScore } from './validation';
@@ -173,36 +174,46 @@ function deleteMeasure(document: EditableScoreDocument, measureId: string) {
     return;
   }
   const deleteIndex = findMeasureIndex(document, measureId);
+  const removedParentIds = new Set<string>();
   document.parts.forEach((part) => {
     if (deleteIndex >= 0 && deleteIndex < part.measures.length) {
+      const removed = part.measures[deleteIndex];
+      removedParentIds.add(removed.id);
+      removed.events.forEach((event) => removedParentIds.add(event.id));
+      removed.chordSymbols.forEach((chord) => removedParentIds.add(chord.id));
       part.measures.splice(deleteIndex, 1);
       renumberMeasures(part.measures);
     }
   });
+  document.opaqueFragments = document.opaqueFragments.filter((fragment) => !removedParentIds.has(fragment.parentId));
 }
 
 function duplicateMeasure(document: EditableScoreDocument, measureId: string, idGenerator: IdGenerator) {
   const sourceIndex = findMeasureIndex(document, measureId);
+  const clonedFragments: OpaqueMusicXmlFragment[] = [];
   document.parts.forEach((part) => {
     const source = part.measures[sourceIndex];
     if (!source) {
       return;
     }
     const nextId = `${document.scoreId}:${part.id}:edit-measure:${idGenerator('measure')}`;
+    const duplicateEvents = source.events.map((event) => cloneEventWithNewId(event, nextId, idGenerator));
+    const duplicateChords = source.chordSymbols.map((chord) => ({
+      ...clone(chord),
+      id: `${nextId}:chord:${idGenerator('chord')}`,
+      measureId: nextId
+    }));
     const duplicate: EditableMeasure = {
       ...clone(source),
       id: nextId,
       sourceMeasureId: nextId,
       navigationMarks: [],
-      events: source.events.map((event) => cloneEventWithNewId(event, nextId, idGenerator)),
-      chordSymbols: source.chordSymbols.map((chord) => ({
-        ...clone(chord),
-        id: `${nextId}:chord:${idGenerator('chord')}`,
-        measureId: nextId
-      })),
+      events: duplicateEvents,
+      chordSymbols: duplicateChords,
       lyrics: []
     };
     const eventIdMap = new Map(source.events.map((event, index) => [event.id, duplicate.events[index].id]));
+    const chordIdMap = new Map(source.chordSymbols.map((chord, index) => [chord.id, duplicate.chordSymbols[index].id]));
     duplicate.lyrics = source.lyrics.map((lyric) => ({
       ...clone(lyric),
       id: `${nextId}:lyric:${idGenerator('lyric')}`,
@@ -213,9 +224,13 @@ function duplicateMeasure(document: EditableScoreDocument, measureId: string, id
         event.lyricIds = duplicate.lyrics.filter((lyric) => lyric.eventId === event.id).map((lyric) => lyric.id);
       }
     }
+    clonedFragments.push(...cloneOpaqueFragments(document.opaqueFragments, source.id, nextId, idGenerator));
+    eventIdMap.forEach((newId, oldId) => clonedFragments.push(...cloneOpaqueFragments(document.opaqueFragments, oldId, newId, idGenerator)));
+    chordIdMap.forEach((newId, oldId) => clonedFragments.push(...cloneOpaqueFragments(document.opaqueFragments, oldId, newId, idGenerator)));
     part.measures.splice(sourceIndex + 1, 0, duplicate);
     renumberMeasures(part.measures);
   });
+  document.opaqueFragments.push(...clonedFragments);
 }
 
 function transposeRange(
@@ -310,6 +325,21 @@ function cloneEventWithNewId(event: EditableEvent, measureId: string, idGenerato
     next.lyricIds = [];
   }
   return next;
+}
+
+function cloneOpaqueFragments(
+  fragments: OpaqueMusicXmlFragment[],
+  oldParentId: string,
+  newParentId: string,
+  idGenerator: IdGenerator
+): OpaqueMusicXmlFragment[] {
+  return fragments
+    .filter((fragment) => fragment.parentId === oldParentId && fragment.status === 'OPAQUE_PRESERVED')
+    .map((fragment) => ({
+      ...clone(fragment),
+      id: `${fragment.parentType}:${newParentId}:opaque-copy:${idGenerator('opaque')}`,
+      parentId: newParentId
+    }));
 }
 
 function cloneDocument(document: EditableScoreDocument): EditableScoreDocument {

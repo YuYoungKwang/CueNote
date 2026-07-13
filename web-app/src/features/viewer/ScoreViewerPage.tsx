@@ -20,6 +20,8 @@ import {
 } from '@cuenote/score-domain';
 import { createBrowserPlaybackClock, subscribeToPlaybackClock } from '../../core/playback/browserPlaybackClock';
 import { createApiClient } from '../../core/api/client';
+import type { EnsembleCapabilities, EnsembleRole } from '../../core/api/client';
+import { canCreateAnnotationScope, resolveCapabilities } from '../../core/api/roleCapabilities';
 import { createServerSessionStore } from '../../core/api/sessionStore';
 import { createMusicXMLService } from '../../core/musicxml/parser';
 import { createAnnotationGeometryProvider } from '../../core/rendering/annotationGeometryProvider';
@@ -77,6 +79,8 @@ interface ServerViewerContext {
   ensembleId: string;
   scoreId: string;
   scoreVersionId: string;
+  role?: EnsembleRole;
+  capabilities?: EnsembleCapabilities;
 }
 
 export function ScoreViewerPage() {
@@ -131,6 +135,10 @@ export function ScoreViewerPage() {
     countInRemainingMs: 0
   });
   const [manualBrowseSignal, setManualBrowseSignal] = useState(0);
+  const currentServerCapabilities =
+    status.kind === 'ready' && status.serverContext && (status.serverContext.capabilities || status.serverContext.role)
+      ? resolveCapabilities(status.serverContext.capabilities, status.serverContext.role)
+      : null;
 
   useEffect(() => {
     selectedMeasureIdRef.current = selectedMeasureId;
@@ -182,7 +190,9 @@ export function ScoreViewerPage() {
             userId: session.user.id,
             ensembleId: score.ensemble_id,
             scoreId: score.id,
-            scoreVersionId
+            scoreVersionId,
+            role: score.current_user_role,
+            capabilities: score.capabilities
           } satisfies ServerViewerContext
       };
     };
@@ -707,11 +717,18 @@ export function ScoreViewerPage() {
   };
 
   const upsertAnnotation = async (annotation: Annotation) => {
+    const serverContext = status.kind === 'ready' ? status.serverContext : undefined;
+    const capabilities = serverContext && (serverContext.capabilities || serverContext.role)
+      ? resolveCapabilities(serverContext.capabilities, serverContext.role)
+      : null;
+    if (capabilities && !canCreateAnnotationScope(capabilities, annotation.scope)) {
+      setAnnotationSaveState({ kind: 'error', message: 'Your ensemble role is read-only for this annotation scope.' });
+      return;
+    }
     setAnnotationSaveState({ kind: 'saving', message: status.kind === 'ready' && status.serverContext ? 'Saving annotation locally for sync…' : 'Saving annotation locally…' });
 
     try {
       const previous = annotations.find((item) => item.id === annotation.id);
-      const serverContext = status.kind === 'ready' ? status.serverContext : undefined;
       const nextAnnotation: Annotation = serverContext
         ? {
             ...annotation,
@@ -747,12 +764,18 @@ export function ScoreViewerPage() {
   };
 
   const deleteAnnotation = async (annotationId: string) => {
+    const existing = annotations.find((annotation) => annotation.id === annotationId);
+    const serverContext = status.kind === 'ready' ? status.serverContext : undefined;
+    const capabilities = serverContext && (serverContext.capabilities || serverContext.role)
+      ? resolveCapabilities(serverContext.capabilities, serverContext.role)
+      : null;
+    if (capabilities && existing && !canCreateAnnotationScope(capabilities, existing.scope)) {
+      setAnnotationSaveState({ kind: 'error', message: 'Your ensemble role cannot delete this server annotation.' });
+      return;
+    }
     setAnnotationSaveState({ kind: 'saving', message: status.kind === 'ready' && status.serverContext ? 'Deleting annotation locally for sync…' : 'Deleting annotation locally…' });
 
     try {
-      const existing = annotations.find((annotation) => annotation.id === annotationId);
-      const serverContext = status.kind === 'ready' ? status.serverContext : undefined;
-
       if (serverContext && existing) {
         const tombstone: Annotation = {
           ...existing,
@@ -842,8 +865,11 @@ export function ScoreViewerPage() {
     rendererState.kind === 'ready' && containerRef.current ? createAnnotationGeometryProvider(containerRef.current).supportsElementAnchors() : false;
   const performanceAnchorAvailable = playbackSnapshot.currentPerformanceMeasureId != null;
   const annotationInputBlocked = playbackSnapshot.status === 'PLAYING' || playbackSnapshot.status === 'COUNT_IN';
+  const annotationRoleBlocked = Boolean(currentServerCapabilities && !canCreateAnnotationScope(currentServerCapabilities, annotationScope));
   const annotationInputMessage = annotationInputBlocked
     ? 'Pause or stop playback before creating or editing annotations.'
+    : annotationRoleBlocked
+      ? 'Your ensemble role is read-only for this annotation scope.'
     : interactionMode === 'VIEW'
       ? 'Viewer gestures stay active in view mode.'
       : 'Annotation input is active.';
@@ -1049,6 +1075,8 @@ export function ScoreViewerPage() {
             bpm={bpm}
             countInMeasures={countInMeasures}
             manualBrowseSignal={manualBrowseSignal}
+            canCreateSession={currentServerCapabilities?.canCreateRehearsalSession ?? true}
+            canControlSession={currentServerCapabilities?.canControlRehearsal ?? true}
             onApplyState={applyRehearsalState}
           />
         ) : null}
@@ -1068,6 +1096,7 @@ export function ScoreViewerPage() {
                 type="button"
                 className={`control-button${interactionMode === 'ANNOTATE' ? ' is-active' : ''}`}
                 onClick={() => setInteractionMode('ANNOTATE')}
+                disabled={annotationRoleBlocked}
               >
                 Annotate mode
               </button>
@@ -1089,9 +1118,15 @@ export function ScoreViewerPage() {
             <label className="field">
               <span>Scope</span>
               <select value={annotationScope} onChange={(event) => setAnnotationScope(event.target.value as AnnotationScope)}>
-                <option value="PRIVATE">Private</option>
-                <option value="PART">Part</option>
-                <option value="ENSEMBLE">Ensemble</option>
+                <option value="PRIVATE" disabled={Boolean(currentServerCapabilities && !currentServerCapabilities.canCreatePrivateAnnotation)}>
+                  Private
+                </option>
+                <option value="PART" disabled={Boolean(currentServerCapabilities && !currentServerCapabilities.canCreatePartAnnotation)}>
+                  Part
+                </option>
+                <option value="ENSEMBLE" disabled={Boolean(currentServerCapabilities && !currentServerCapabilities.canCreateEnsembleAnnotation)}>
+                  Ensemble
+                </option>
               </select>
             </label>
 
@@ -1231,7 +1266,7 @@ export function ScoreViewerPage() {
               currentPartId={currentPartId}
               currentPerformanceMeasureId={playbackSnapshot.currentPerformanceMeasureId}
               playbackStatus={playbackSnapshot.status}
-              mode={interactionMode}
+              mode={annotationRoleBlocked ? 'VIEW' : interactionMode}
               tool={annotationTool}
               scope={annotationScope}
               anchorType={annotationAnchorType}
@@ -1280,7 +1315,7 @@ export function ScoreViewerPage() {
           <Link className="secondary-link" to="/">
             Library
           </Link>
-          {status.serverContext ? (
+          {status.serverContext && currentServerCapabilities?.canPublishScoreVersion ? (
             <Link
               className="secondary-link"
               data-testid="open-score-editor"

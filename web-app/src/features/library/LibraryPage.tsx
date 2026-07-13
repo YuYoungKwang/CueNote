@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { createApiClient, type AuthSession, type EnsembleSummary, type ServerScoreSummary } from '../../core/api/client';
+import { resolveCapabilities } from '../../core/api/roleCapabilities';
 import { createServerSessionStore } from '../../core/api/sessionStore';
 import { createRecentScoreStore, type RecentScoreRecord } from '../../core/storage/recentScoreStore';
 import { sampleCatalog } from '../../samples/catalog';
@@ -17,6 +18,8 @@ export function LibraryPage() {
   const [serverScores, setServerScores] = useState<ServerScoreSummary[]>([]);
   const [serverMessage, setServerMessage] = useState('Server library idle.');
   const [serverBusy, setServerBusy] = useState(false);
+  const selectedEnsemble = ensembles.find((ensemble) => ensemble.id === selectedEnsembleId) ?? null;
+  const selectedCapabilities = resolveCapabilities(selectedEnsemble?.capabilities, selectedEnsemble?.role);
 
   useEffect(() => {
     let cancelled = false;
@@ -132,6 +135,11 @@ export function LibraryPage() {
         setServerMessage('Sign in before publishing bundled samples.');
         return;
       }
+      const writableEnsemble = ensembles.find((ensemble) => ensemble.id === ensembleId);
+      if (writableEnsemble && !resolveCapabilities(writableEnsemble.capabilities, writableEnsemble.role).canCreateScore) {
+        setServerMessage('Your ensemble role is read-only for server score publishing.');
+        return;
+      }
 
       const existingTitles = new Set(serverScores.map((score) => score.title));
       for (const sample of SAMPLE_SCORES.slice(0, 2)) {
@@ -228,7 +236,13 @@ export function LibraryPage() {
           <button type="button" className="control-button" data-testid="server-ensemble-create" onClick={createEnsemble} disabled={!session || serverBusy}>
             Ensure ensemble
           </button>
-          <button type="button" className="control-button" data-testid="publish-samples" onClick={publishBundledSamples} disabled={!session || serverBusy}>
+          <button
+            type="button"
+            className="control-button"
+            data-testid="publish-samples"
+            onClick={publishBundledSamples}
+            disabled={!session || serverBusy || Boolean(selectedEnsemble && !selectedCapabilities.canCreateScore)}
+          >
             Publish bundled samples
           </button>
           <button type="button" className="control-button" onClick={() => void refreshServerLibrary()} disabled={!session || serverBusy}>
@@ -252,11 +266,17 @@ export function LibraryPage() {
             >
               {ensembles.map((ensemble) => (
                 <option key={ensemble.id} value={ensemble.id}>
-                  {ensemble.name}
+                  {ensemble.name} ({ensemble.role})
                 </option>
               ))}
             </select>
           </label>
+        ) : null}
+
+        {selectedEnsemble && !selectedCapabilities.canCreateScore ? (
+          <p className="annotation-toolbar__notice" data-testid="server-readonly-notice">
+            This ensemble role can open server scores but cannot publish new server score versions.
+          </p>
         ) : null}
 
         {serverScores.length === 0 ? (

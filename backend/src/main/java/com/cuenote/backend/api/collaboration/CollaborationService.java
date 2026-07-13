@@ -40,17 +40,20 @@ public class CollaborationService {
     private final JdbcTemplate jdbcTemplate;
     private final ObjectStorageService objectStorage;
     private final ObjectMapper objectMapper;
+    private final RoleAuthorizationService roles;
     private final long maxMusicXmlBytes;
 
     public CollaborationService(
             JdbcTemplate jdbcTemplate,
             ObjectStorageService objectStorage,
             ObjectMapper objectMapper,
+            RoleAuthorizationService roles,
             @Value("${cuenote.musicxml.max-bytes:2097152}") long maxMusicXmlBytes
     ) {
         this.jdbcTemplate = jdbcTemplate;
         this.objectStorage = objectStorage;
         this.objectMapper = objectMapper;
+        this.roles = roles;
         this.maxMusicXmlBytes = maxMusicXmlBytes;
     }
 
@@ -85,17 +88,23 @@ public class CollaborationService {
                 order by e.created_at desc
                 """,
                 user.id()
-        );
+        ).stream().map(this::withCapabilities).toList();
     }
 
     @Transactional
     public Map<String, Object> addMember(AuthenticatedUser user, String ensembleId, String targetUserId, String role) {
         Map<String, Object> ensemble = getEnsemble(user, ensembleId);
-        if (!user.id().equals(ensemble.get("owner_user_id"))) {
-            throw new ApiException(ErrorCode.FORBIDDEN, "Only the ensemble owner can add members");
+        String actorRole = String.valueOf(ensemble.get("role"));
+        String nextRole = role == null ? "" : role.trim().toUpperCase();
+        if (!roles.isValidRole(nextRole)) {
+            throw new ApiException(ErrorCode.VALIDATION_FAILED, "role must be OWNER, ADMIN, EDITOR, MEMBER, or VIEWER");
         }
-        if (!List.of("MEMBER", "ADMIN").contains(role)) {
-            throw new ApiException(ErrorCode.VALIDATION_FAILED, "role must be MEMBER or ADMIN");
+        String existingTargetRole = findMemberRole(ensembleId, targetUserId);
+        if (!roles.canManageMembers(actorRole, existingTargetRole, nextRole)) {
+            throw new ApiException(ErrorCode.FORBIDDEN, "Current role cannot assign the requested member role");
+        }
+        if (RoleAuthorizationService.OWNER.equals(existingTargetRole) && !RoleAuthorizationService.OWNER.equals(nextRole)) {
+            requireAnotherOwner(ensembleId, targetUserId);
         }
         jdbcTemplate.update(
                 """
@@ -106,14 +115,14 @@ public class CollaborationService {
                 AuthService.newId("mem"),
                 ensembleId,
                 targetUserId,
-                role
+                nextRole
         );
         return getEnsemble(user, ensembleId);
     }
 
     @Transactional
     public Map<String, Object> createScore(AuthenticatedUser user, String ensembleId, String title, String composer, MultipartFile file) {
-        requireMember(user, ensembleId);
+        requireScoreCreator(user, ensembleId);
         String scoreId = AuthService.newId("scr");
         jdbcTemplate.update(
                 """
@@ -144,7 +153,7 @@ public class CollaborationService {
             ScoreVersionPublishOptions options
     ) {
         Map<String, Object> score = getScore(user, scoreId);
-        requireScoreEditor(user, String.valueOf(score.get("ensemble_id")));
+        requireScorePublisher(user, String.valueOf(score.get("ensemble_id")));
         Map<String, Object> lockedScore = lockScore(scoreId);
         validatePublishOptions(scoreId, lockedScore, options);
         byte[] content = readMusicXml(file);
@@ -224,8 +233,10 @@ public class CollaborationService {
         if (scores.isEmpty()) {
             throw new ApiException(ErrorCode.NOT_FOUND, "Score not found");
         }
-        requireMember(user, String.valueOf(scores.get(0).get("ensemble_id")));
+        String role = requireMemberRole(user, String.valueOf(scores.get(0).get("ensemble_id")));
         Map<String, Object> score = new HashMap<>(scores.get(0));
+        score.put("current_user_role", role);
+        score.put("capabilities", roles.capabilitiesFor(role));
         score.put("versions", listVersions(scoreId));
         return score;
     }
@@ -279,7 +290,7 @@ public class CollaborationService {
     public Map<String, Object> syncAnnotations(AuthenticatedUser user, String scoreId, AnnotationSyncRequest request) {
         Map<String, Object> score = getScore(user, scoreId);
         String ensembleId = String.valueOf(score.get("ensemble_id"));
-        requireMember(user, ensembleId);
+        String role = requireMemberRole(user, ensembleId);
         getVersion(user, scoreId, request.scoreVersionId());
 
         List<Map<String, Object>> applied = new ArrayList<>();
@@ -318,7 +329,7 @@ public class CollaborationService {
                 continue;
             }
 
-            AnnotationRecord updated = applyAnnotationMutation(user, scoreId, request.scoreVersionId(), mutation, current);
+            AnnotationRecord updated = applyAnnotationMutation(user, role, scoreId, request.scoreVersionId(), mutation, current);
             jdbcTemplate.update(
                     "insert into client_mutations(id, user_id, client_mutation_id, annotation_id, result_revision, created_at) values (?, ?, ?, ?, ?, now())",
                     AuthService.newId("mut"),
@@ -344,6 +355,7 @@ public class CollaborationService {
 
     private AnnotationRecord applyAnnotationMutation(
             AuthenticatedUser user,
+            String role,
             String scoreId,
             String scoreVersionId,
             AnnotationMutation mutation,
@@ -354,7 +366,7 @@ public class CollaborationService {
             if (current == null) {
                 throw new ApiException(ErrorCode.NOT_FOUND, "Annotation not found");
             }
-            requireAnnotationWritable(user, current);
+            requireAnnotationWritable(user, role, current);
             long revision = current.revision() + 1;
             jdbcTemplate.update(
                     "update annotations set revision = ?, deleted_at = now(), updated_at = now(), author_user_id = ? where id = ?",
@@ -376,6 +388,9 @@ public class CollaborationService {
         if (!scoreId.equals(annotationScoreId) || !scoreVersionId.equals(annotationScoreVersionId)) {
             throw new ApiException(ErrorCode.VALIDATION_FAILED, "Annotation score/version does not match request path");
         }
+        if (current != null && (!scoreId.equals(current.scoreId()) || !scoreVersionId.equals(current.scoreVersionId()))) {
+            throw new ApiException(ErrorCode.VALIDATION_FAILED, "Existing annotation score/version does not match request path");
+        }
         String scope = requiredMapText(annotation, "scope");
         String type = requiredMapText(annotation, "type");
         String partId = blankToNull((String) annotation.get("partId"));
@@ -394,7 +409,9 @@ public class CollaborationService {
             throw new ApiException(ErrorCode.FORBIDDEN, "PRIVATE annotation belongs to another user");
         }
         if (current != null) {
-            requireAnnotationWritable(user, current);
+            requireAnnotationWritable(user, role, current);
+        } else if (!roles.canCreateAnnotation(role, scope)) {
+            throw new ApiException(ErrorCode.FORBIDDEN, "Current role cannot create this annotation scope");
         }
 
         long revision = current == null ? 1L : current.revision() + 1L;
@@ -448,14 +465,14 @@ public class CollaborationService {
         return findAnnotation(id);
     }
 
-    private void requireAnnotationWritable(AuthenticatedUser user, AnnotationRecord annotation) {
-        if ("PRIVATE".equals(annotation.scope()) && !annotation.ownerUserId().equals(user.id())) {
-            throw new ApiException(ErrorCode.FORBIDDEN, "PRIVATE annotation belongs to another user");
+    private void requireAnnotationWritable(AuthenticatedUser user, String role, AnnotationRecord annotation) {
+        boolean ownsAnnotation = annotation.ownerUserId().equals(user.id());
+        if (!roles.canModifyAnnotation(role, annotation.scope(), ownsAnnotation)) {
+            throw new ApiException(ErrorCode.FORBIDDEN, "Current role cannot modify this annotation");
         }
     }
 
     private Map<String, Object> getEnsemble(AuthenticatedUser user, String ensembleId) {
-        requireMember(user, ensembleId);
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(
                 """
                 select e.id, e.name, e.owner_user_id, m.role, e.created_at, e.updated_at
@@ -469,31 +486,69 @@ public class CollaborationService {
         if (rows.isEmpty()) {
             throw new ApiException(ErrorCode.NOT_FOUND, "Ensemble not found");
         }
-        return rows.get(0);
+        return withCapabilities(rows.get(0));
     }
 
     private void requireMember(AuthenticatedUser user, String ensembleId) {
-        Integer count = jdbcTemplate.queryForObject(
-                "select count(*) from ensemble_members where ensemble_id = ? and user_id = ?",
-                Integer.class,
-                ensembleId,
-                user.id()
-        );
-        if (count == null || count == 0) {
-            throw new ApiException(ErrorCode.FORBIDDEN, "Ensemble membership is required");
-        }
+        requireMemberRole(user, ensembleId);
     }
 
-    private void requireScoreEditor(AuthenticatedUser user, String ensembleId) {
+    private String requireMemberRole(AuthenticatedUser user, String ensembleId) {
         List<String> roles = jdbcTemplate.queryForList(
                 "select role from ensemble_members where ensemble_id = ? and user_id = ?",
                 String.class,
                 ensembleId,
                 user.id()
         );
-        if (roles.isEmpty() || !List.of("OWNER", "ADMIN").contains(roles.get(0))) {
-            throw new ApiException(ErrorCode.FORBIDDEN, "OWNER or ADMIN role is required to publish score edits");
+        if (roles.isEmpty()) {
+            throw new ApiException(ErrorCode.FORBIDDEN, "Ensemble membership is required");
         }
+        return roles.get(0);
+    }
+
+    private void requireScoreCreator(AuthenticatedUser user, String ensembleId) {
+        String role = requireMemberRole(user, ensembleId);
+        if (!roles.canCreateScore(role)) {
+            throw new ApiException(ErrorCode.FORBIDDEN, "Current role cannot create scores");
+        }
+    }
+
+    private void requireScorePublisher(AuthenticatedUser user, String ensembleId) {
+        String role = requireMemberRole(user, ensembleId);
+        if (!roles.canPublishScoreVersion(role)) {
+            throw new ApiException(ErrorCode.FORBIDDEN, "OWNER, ADMIN, or EDITOR role is required to publish score edits");
+        }
+    }
+
+    private String findMemberRole(String ensembleId, String userId) {
+        List<String> existingRoles = jdbcTemplate.queryForList(
+                "select role from ensemble_members where ensemble_id = ? and user_id = ?",
+                String.class,
+                ensembleId,
+                userId
+        );
+        return existingRoles.isEmpty() ? null : existingRoles.get(0);
+    }
+
+    private void requireAnotherOwner(String ensembleId, String demotedOwnerUserId) {
+        Integer ownerCount = jdbcTemplate.queryForObject(
+                "select count(*) from ensemble_members where ensemble_id = ? and role = 'OWNER' and user_id <> ?",
+                Integer.class,
+                ensembleId,
+                demotedOwnerUserId
+        );
+        if (ownerCount == null || ownerCount == 0) {
+            throw new ApiException(ErrorCode.CONFLICT, "At least one OWNER is required");
+        }
+    }
+
+    private Map<String, Object> withCapabilities(Map<String, Object> row) {
+        Map<String, Object> next = new HashMap<>(row);
+        Object role = next.get("role");
+        if (role instanceof String roleText) {
+            next.put("capabilities", roles.capabilitiesFor(roleText));
+        }
+        return next;
     }
 
     private Map<String, Object> lockScore(String scoreId) {
@@ -586,6 +641,10 @@ public class CollaborationService {
     }
 
     private String musicXmlRootElement(String xml) {
+        String normalized = xml.toLowerCase();
+        if (normalized.contains("<!doctype") || normalized.contains("<!entity")) {
+            throw new ApiException(ErrorCode.VALIDATION_FAILED, "Uploaded MusicXML cannot contain DOCTYPE or entity declarations");
+        }
         try {
             javax.xml.parsers.DocumentBuilderFactory factory = javax.xml.parsers.DocumentBuilderFactory.newInstance();
             factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
@@ -732,6 +791,14 @@ public class CollaborationService {
 
         String scope() {
             return String.valueOf(values.get("scope"));
+        }
+
+        String scoreId() {
+            return String.valueOf(values.get("score_id"));
+        }
+
+        String scoreVersionId() {
+            return String.valueOf(values.get("score_version_id"));
         }
 
         String ownerUserId() {

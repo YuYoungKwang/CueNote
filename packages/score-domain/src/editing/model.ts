@@ -9,7 +9,23 @@ export interface ValidationIssue {
   partId?: ScorePartID;
   measureId?: StableMeasureId;
   eventId?: string;
+  fragmentId?: string;
   blocking: boolean;
+}
+
+export type OpaqueMusicXmlParentType = 'SCORE_PARTWISE' | 'PART_LIST' | 'PART' | 'MEASURE' | 'NOTE' | 'DIRECTION' | 'HARMONY';
+
+export type OpaqueMusicXmlFragmentStatus = 'OPAQUE_PRESERVED' | 'DROPPED_FOR_SECURITY' | 'UNSUPPORTED_UNPRESERVABLE';
+
+export interface OpaqueMusicXmlFragment {
+  id: string;
+  parentType: OpaqueMusicXmlParentType;
+  parentId: string;
+  originalOrder: number;
+  elementName: string;
+  xml: string;
+  namespaceUri?: string;
+  status: OpaqueMusicXmlFragmentStatus;
 }
 
 export interface EditableScoreDocument {
@@ -19,6 +35,7 @@ export interface EditableScoreDocument {
   parts: EditablePart[];
   revision: number;
   dirty: boolean;
+  opaqueFragments: OpaqueMusicXmlFragment[];
   validationIssues: ValidationIssue[];
 }
 
@@ -62,6 +79,7 @@ export interface EditableNoteEvent {
   voice?: string;
   staff?: string;
   tie?: 'start' | 'stop' | 'continue';
+  originalOrder?: number;
   lyricIds: string[];
   unsupported?: string[];
 }
@@ -72,6 +90,7 @@ export interface EditableRestEvent {
   duration: DurationValue;
   voice?: string;
   staff?: string;
+  originalOrder?: number;
   unsupported?: string[];
 }
 
@@ -100,6 +119,7 @@ export interface EditableChordSymbol {
   bass?: { step: PitchStep; alter: -1 | 0 | 1 };
   displayText: string;
   measureId: StableMeasureId;
+  originalOrder?: number;
 }
 
 export type ChordQuality = 'major' | 'minor' | 'dominant' | 'major-seventh' | 'minor-seventh' | 'half-diminished' | 'other';

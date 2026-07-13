@@ -25,6 +25,7 @@ import {
   type StableMeasureId
 } from '@cuenote/score-domain';
 import { createApiClient, type ServerScoreDetail } from '../../core/api/client';
+import { resolveCapabilities } from '../../core/api/roleCapabilities';
 import { createServerSessionStore } from '../../core/api/sessionStore';
 import { createMusicXMLService } from '../../core/musicxml/parser';
 import { createVerovioScoreRenderer } from '../../core/rendering/verovioScoreRenderer';
@@ -89,6 +90,12 @@ export function ScoreEditPage() {
         throw new Error('Sign in from the library before editing a server score.');
       }
       const score = await apiClient.getScore(session.accessToken, scoreId);
+      const capabilities = score.capabilities || score.current_user_role
+        ? resolveCapabilities(score.capabilities, score.current_user_role)
+        : null;
+      if (capabilities && !capabilities.canPublishScoreVersion) {
+        throw new Error('Your ensemble role can view this score but cannot edit or publish server score versions.');
+      }
       const baseVersionId = requestedVersionId ?? score.current_version_id;
       if (!baseVersionId) {
         throw new Error('Score has no editable current version.');

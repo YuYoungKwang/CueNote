@@ -1,101 +1,97 @@
-# Phase 6 Plan
+# Pre-Phase 7 Reinforcement Plan
 
-Implement only ROADMAP Phase 6: a limited structured score editor for existing MusicXML score versions in the Web PWA.
+This work does not start Phase 7. It reinforces the completed Phase 6 Web PWA/server score editing path before PDF/image import and OMR work begin.
 
 ## Repository Analysis
 
-- Phase 0-5 are complete and the primary platform is the React + TypeScript Web PWA.
-- The viewer already parses MusicXML, renders with Verovio via a route-level dynamic import, maps stable measure IDs to rendered measures, supports local playback, annotations, server score versions, and server-backed rehearsal sync.
-- The current domain model has stable score, part, measure, annotation, playback, and rehearsal types, but no structured editable note/rest model yet.
-- The backend already stores MusicXML in object storage through append-only `ScoreVersion` records. It needs a narrow publish extension for edit metadata, base-version validation, optimistic revision checks, and publish permissions.
-- `legacy/ios-app` is archival Phase 11 material and remains untouched.
+- Phase 0-6 are complete and the primary implementation target is the React + TypeScript Web PWA.
+- `legacy/ios-app` is archival Phase 11 material and remains out of scope.
+- Backend ensemble roles are currently stored as strings and permission checks are spread across collaboration and rehearsal services.
+- The implemented backend roles are `OWNER`, `ADMIN`, and `MEMBER`; Phase 6 documented `EDITOR`/`VIEWER` as a future limitation.
+- Score publish permissions currently allow only `OWNER`/`ADMIN`.
+- Rehearsal session creation and leadership transfer currently allow only `OWNER`/`ADMIN`.
+- Server annotation sync currently enforces membership, PRIVATE ownership, and PART `partId`, but it does not distinguish read-only viewers or ensemble-edit roles.
+- Frontend role behavior is mostly implicit. The server remains the final authority, but UI controls need capability-aware disabling/hiding.
+- The editable MusicXML parser/serializer supports the structured Phase 6 subset and currently drops unsupported MusicXML elements instead of preserving them as opaque XML fragments.
 
 ## Scope
 
-- Add an editable score model and command reducer under `packages/score-domain/src/editing`.
-- Parse existing MusicXML into an editable document and serialize the editable document back to well-formed MusicXML.
-- Support note selection through a stable event list, not through Verovio note DOM order.
-- Support pitch, duration, rest duration, chord symbol, lyric, insert/delete/duplicate measure, transpose, validation, undo/redo, cancel, local export, and publish-as-new-version.
-- Keep Verovio as preview-only display. The editable document is the source of truth.
-- Add IndexedDB draft autosave/restore for score edit drafts.
-- Add a separate `/scores/:scoreId/edit` route for server score editing.
-- Extend the existing multipart `POST /api/v1/scores/{scoreId}/versions` publish path with optional `baseScoreVersionId`, `editSummary`, `annotationMigrationPolicy`, and `expectedScoreRevision`.
-- Preserve existing Phase 1-5 viewer, annotation, rehearsal, and backend behavior.
+- Add explicit role support for `OWNER`, `ADMIN`, `EDITOR`, `MEMBER`, and `VIEWER`.
+- Centralize backend role capability decisions in a dedicated service instead of ordinal comparisons or scattered string checks.
+- Preserve existing `OWNER`, `ADMIN`, and `MEMBER` rows while allowing `EDITOR` and `VIEWER`.
+- Add Flyway migration constraints for valid membership roles.
+- Allow score creation and score-version publishing for `OWNER`, `ADMIN`, and `EDITOR`; deny `MEMBER` and `VIEWER`.
+- Allow rehearsal create/control/leader transfer for `OWNER`, `ADMIN`, and `EDITOR`; keep `MEMBER` and `VIEWER` as followers.
+- Enforce annotation write permissions explicitly. `VIEWER` is read-only; `ENSEMBLE` writes require `EDITOR` or above; `PRIVATE` remains owner-only for normal members; PART remains limited by existing `partId` validation because no part assignment ACL exists yet.
+- Expose capability metadata from backend responses where the frontend needs UI decisions.
+- Add frontend capability helpers and apply them to publish, edit, annotation, and rehearsal controls.
+- Add opaque MusicXML fragment preservation to the editable domain model, parser, serializer, edit reducer, and validation.
+- Preserve safe unsupported MusicXML children as serialized XML strings with parent identity and original order.
+- Reject unsafe XML such as DOCTYPE and entity declarations before browser/backend parsing.
+- Add focused backend, frontend, score-domain, and E2E coverage for the reinforcement.
 
 ## Out of Scope
 
-- Phase 7 PDF/image import, OMR, ONNX Runtime Web, WebGPU/WASM model inference, and image workers.
-- Full notation composition, tuplets editing, beams, slurs, articulations, layout editing, and realtime collaborative editing.
-- Editing directly through SVG notes or patching MusicXML strings by index.
-- Automatic annotation copying to new score versions. Phase 6 exposes safe measure-anchor migration logic, but publish does not clone annotations by default.
-- Backend draft CRUD. Drafts remain browser-local IndexedDB records.
+- Phase 7 PDF/image import, OMR layout detection, symbol detection, PDF.js, OpenCV.js, ONNX Runtime Web, WebGPU, WASM inference, and image workers.
+- Complex part assignment ACLs for PART annotations. Existing membership has no `partId`, so this work documents and tests the current limitation instead of inventing a new schema.
+- Ensemble deletion and ownership transfer flows if they are not already implemented.
+- Server-side opaque fragment storage. The server receives and validates final MusicXML only.
+- Realtime collaborative score editing, CRDTs, or automatic MusicXML merge.
 - Any changes under `legacy/ios-app`.
 
 ## Implementation Order
 
-1. Add score-domain editing model, parser, serializer, commands, reducer, validation, transpose, and annotation migration helpers.
-2. Add focused unit tests for parsing, serialization, edit commands, validation, undo/redo, transpose, and migration policy.
-3. Add IndexedDB edit draft stores and tests.
-4. Add API client support for publishing an edited MusicXML version.
-5. Add backend Flyway V4 fields and publish validation for base version, revision, metadata, role, and immutable object storage writes.
-6. Add a dedicated score edit route and UI using the existing renderer adapter for preview.
-7. Add Playwright coverage for opening a server score in edit mode, editing, validating, publishing, and reopening the new version.
-8. Update README and docs with the implemented Phase 6 behavior and limits.
-9. Run frontend, backend, E2E, Markdown, diff, and legacy validations.
+1. Add backend role capability service and Flyway role constraint migration.
+2. Update collaboration authorization for member role changes, score creation, score-version publish, and annotation sync.
+3. Update rehearsal authorization for session creation, leader eligibility, end, transfer, and playback control.
+4. Add backend role and MusicXML security tests.
+5. Add frontend role capability helper and apply read-only UI behavior.
+6. Extend score-domain editing model with opaque MusicXML fragments.
+7. Update parser/serializer to preserve safe unsupported fragments and reject unsafe XML.
+8. Update edit commands and validation for duplicate/delete/transpose opaque-fragment behavior.
+9. Add score-domain round-trip tests for supported opaque preservation and unsafe XML rejection.
+10. Add/update Playwright coverage without replacing real Verovio rendering or server authority.
+11. Run frontend/backend/E2E/Markdown/Docker/diff validations and record any unavailable checks honestly.
 
 ## Design Decisions
 
-### Renderer Boundary
+### Role Capabilities
 
-Decision: Verovio remains preview-only. Measure clicks select a measure; note/rest selection happens from an event list generated from the editable document.
+Decision: Use explicit capability methods such as `canManageMembers`, `canCreateScore`, `canPublishScoreVersion`, `canCreateAnnotation`, `canModifyAnnotation`, `canCreateRehearsalSession`, `canControlRehearsal`, and `canTransferLeader`.
 
-Reason: The current stable renderer contract maps measures, not notes. Using SVG DOM order for note identity would be brittle across Verovio rerenders, zoom, and pagination.
+Reason: The role model is not a simple linear hierarchy. `ADMIN` can manage most members but not `OWNER`; `VIEWER` can read and join; `MEMBER` can participate without publishing or leading.
 
-Alternative: Add element-level SVG note mapping now. Deferred because it needs stable source element IDs across all note serialization paths and is larger than Phase 6 MVP.
+Alternative: Compare role ordinals. Rejected because OWNER-management and read-only viewer rules are not safely represented by a single ordering.
 
-### Parser and Serializer
+### Member Role Changes
 
-Decision: Use the browser/Node DOMParser path to parse MusicXML into a structured editable model and serialize with deterministic string generation from that model.
+Decision: `OWNER` may assign all valid roles, including `OWNER`; `ADMIN` may assign `ADMIN`, `EDITOR`, `MEMBER`, and `VIEWER`, but cannot grant, demote, or otherwise manage `OWNER`.
 
-Reason: No new dependency is needed, and the model can stay independent from React and Verovio. Serialization from the model avoids regex-based XML patching.
+Reason: This matches the requested policy and protects ownership changes. The last `OWNER` cannot be demoted.
 
-Impact: Common MusicXML elements needed by Phase 6 are round-tripped semantically. Unsupported structures generate validation warnings instead of being silently treated as fully editable.
+### Annotation Permissions
 
-### Publish API
+Decision: Preserve PRIVATE owner-only behavior, require `partId` for PART annotations, allow `ENSEMBLE` writes only for `OWNER`/`ADMIN`/`EDITOR`, and make `VIEWER` read-only for server-synced annotations.
 
-Decision: Reuse the existing multipart `POST /api/v1/scores/{scoreId}/versions` endpoint and add optional edit metadata plus `expectedScoreRevision`.
+Reason: The current schema does not store member-to-part assignments. This avoids unsafe pretend ACLs while making the changed MEMBER/VIEWER behavior explicit.
 
-Reason: The backend already has object storage, MusicXML validation, version append, and current-version pointer updates. A new draft/publish API would duplicate this path.
+### Opaque MusicXML Preservation
 
-Alternative: Add `/versions/publish-edit`. Deferred until server-side draft lifecycle or collaborative editing exists.
+Decision: Store unsupported safe XML fragments as strings with deterministic IDs, parent type, parent ID, original order, element name, and namespace URI. Do not store DOM nodes.
 
-### Permissions
+Reason: The structured editor can safely edit the supported subset while round-tripping common unsupported notation and metadata through parse -> edit -> serialize.
 
-Decision: In the current backend role model, `OWNER` and `ADMIN` may publish edited score versions; `MEMBER` is read/comment only.
+Alternative: Patch the original XML by string offsets. Rejected because edits such as measure duplicate/delete and deterministic serialization make offset-based patching brittle.
 
-Reason: Phase 6 docs mention OWNER/EDITOR versus MEMBER/VIEWER, but the implemented backend has OWNER/ADMIN/MEMBER. This keeps writes server-side and conservative until explicit EDITOR/VIEWER roles are added.
+### Security
 
-### Conflict Handling
+Decision: Reject DOCTYPE and entity declarations in the editor parser and backend upload/publish validation. Do not preserve remote-resource or parser-unsafe XML.
 
-Decision: Publish sends `baseScoreVersionId` and `expectedScoreRevision`. A mismatch returns `409 CONFLICT`; the browser keeps the local draft and does not attempt automatic three-way merge.
-
-Reason: Score editing merge is musically ambiguous and out of Phase 6 scope.
-
-### Editing During Rehearsal
-
-Decision: The edit route is separate from rehearsal UI and does not join or mutate active rehearsal sessions. Active sessions remain pinned to their original `scoreVersionId`.
-
-Reason: WebSocket rehearsal sync is score-version authoritative. Publishing a new score version must not silently swap a running session.
-
-### Draft Storage
-
-Decision: Store edit drafts in IndexedDB as browser-local records keyed by `scoreId` and `baseScoreVersionId`. Autosave timestamps live in storage metadata, not in the deterministic editable document.
-
-Reason: The same base version plus command sequence should produce the same editable model and MusicXML.
+Reason: Opaque preservation must not become an XML parser or external entity attack path.
 
 ## Risks
 
-- The MVP serializer intentionally supports a limited set of MusicXML notation features. Unsupported data is reported as warnings, not fully preserved as arbitrary opaque XML.
-- Verovio preview rerendering after every edit can be expensive on large scores; Phase 6 keeps fixtures and edits modest and defers worker/chunk optimization.
-- Current backend roles do not include EDITOR/VIEWER, so Phase 6 maps publish rights to OWNER/ADMIN and documents that limitation.
-- Offline edit drafts are local-first, but publishing a new immutable `ScoreVersion` requires network access and server permission.
+- Opaque preservation is intentionally scoped to safe XML fragments under known parents. Some unsupported or cross-referenced MusicXML may still be warned as not preserved.
+- PART annotation ACLs remain coarse until a future schema records member part assignments.
+- Frontend capability checks improve UX but the backend remains the source of truth.
+- Existing real backend E2E is environment-sensitive because it depends on PostgreSQL and S3-compatible object storage containers.

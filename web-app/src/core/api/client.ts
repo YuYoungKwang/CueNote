@@ -32,10 +32,26 @@ export interface AuthSession {
   refreshTokenExpiresAt: string;
 }
 
+export type EnsembleRole = 'OWNER' | 'ADMIN' | 'EDITOR' | 'MEMBER' | 'VIEWER';
+
+export interface EnsembleCapabilities {
+  canManageMembers: boolean;
+  canCreateScore: boolean;
+  canPublishScoreVersion: boolean;
+  canCreatePrivateAnnotation: boolean;
+  canCreatePartAnnotation: boolean;
+  canCreateEnsembleAnnotation: boolean;
+  canCreateRehearsalSession: boolean;
+  canControlRehearsal: boolean;
+  canTransferLeader: boolean;
+  canBeRehearsalLeader: boolean;
+}
+
 export interface EnsembleSummary {
   id: string;
   name: string;
-  role: string;
+  role: EnsembleRole;
+  capabilities?: EnsembleCapabilities;
 }
 
 export interface ServerScoreSummary {
@@ -70,6 +86,8 @@ export interface CreateScoreVersionOptions {
 
 export interface ServerScoreDetail extends ServerScoreSummary {
   versions: ServerScoreVersion[];
+  current_user_role?: EnsembleRole;
+  capabilities?: EnsembleCapabilities;
 }
 
 export interface AnnotationSyncMutation {

@@ -179,6 +179,14 @@ class CollaborationIntegrationTest {
                 HttpStatus.BAD_REQUEST
         );
         uploadMusicXml(
+                "/api/v1/scores/" + workspace.scoreId() + "/versions",
+                workspace.ownerToken(),
+                "Unsafe XML",
+                UNSAFE_MUSICXML,
+                Map.of(),
+                HttpStatus.BAD_REQUEST
+        );
+        uploadMusicXml(
                 "/api/v1/ensembles/" + workspace.ensembleId() + "/scores",
                 outsiderToken,
                 "Outsider Upload",
@@ -191,6 +199,76 @@ class CollaborationIntegrationTest {
                 Map.of("userId", outsiderSession.path("user").path("id").asText(), "role", "MEMBER"),
                 HttpStatus.FORBIDDEN);
         getJson("/api/v1/scores/" + workspace.scoreId(), outsiderToken, HttpStatus.FORBIDDEN);
+    }
+
+    @Test
+    void supportsEditorViewerRolesCapabilitiesAndLastOwnerProtection() {
+        JsonNode ownerSession = login(uniqueEmail("owner"), "Owner");
+        JsonNode adminSession = login(uniqueEmail("admin"), "Admin");
+        JsonNode editorSession = login(uniqueEmail("editor"), "Editor");
+        JsonNode viewerSession = login(uniqueEmail("viewer"), "Viewer");
+        JsonNode ownerTwoSession = login(uniqueEmail("owner2"), "Owner Two");
+        String ownerToken = ownerSession.path("accessToken").asText();
+        String adminToken = adminSession.path("accessToken").asText();
+        String editorToken = editorSession.path("accessToken").asText();
+        String viewerToken = viewerSession.path("accessToken").asText();
+
+        JsonNode ensemble = postJson("/api/v1/ensembles", ownerToken, Map.of("name", "Role Matrix"), HttpStatus.OK);
+        String ensembleId = ensemble.path("id").asText();
+        assertThat(ensemble.path("capabilities").path("canManageMembers").asBoolean()).isTrue();
+
+        postJson("/api/v1/ensembles/" + ensembleId + "/members", ownerToken,
+                Map.of("userId", adminSession.path("user").path("id").asText(), "role", "ADMIN"), HttpStatus.OK);
+        postJson("/api/v1/ensembles/" + ensembleId + "/members", ownerToken,
+                Map.of("userId", editorSession.path("user").path("id").asText(), "role", "EDITOR"), HttpStatus.OK);
+        postJson("/api/v1/ensembles/" + ensembleId + "/members", ownerToken,
+                Map.of("userId", viewerSession.path("user").path("id").asText(), "role", "VIEWER"), HttpStatus.OK);
+
+        JsonNode editorEnsembles = getJson("/api/v1/ensembles", editorToken, HttpStatus.OK);
+        assertThat(editorEnsembles.get(0).path("role").asText()).isEqualTo("EDITOR");
+        assertThat(editorEnsembles.get(0).path("capabilities").path("canPublishScoreVersion").asBoolean()).isTrue();
+        JsonNode viewerEnsembles = getJson("/api/v1/ensembles", viewerToken, HttpStatus.OK);
+        assertThat(viewerEnsembles.get(0).path("capabilities").path("canPublishScoreVersion").asBoolean()).isFalse();
+
+        JsonNode score = uploadMusicXml("/api/v1/ensembles/" + ensembleId + "/scores", editorToken, "Editor Upload", SAMPLE_MUSICXML, HttpStatus.OK);
+        String scoreId = score.path("id").asText();
+        String versionId = score.path("current_version_id").asText();
+
+        uploadMusicXml(
+                "/api/v1/scores/" + scoreId + "/versions",
+                editorToken,
+                "Editor Version",
+                SECOND_SAMPLE_MUSICXML,
+                Map.of("baseScoreVersionId", versionId, "expectedScoreRevision", String.valueOf(score.path("revision").asLong())),
+                HttpStatus.OK
+        );
+        uploadMusicXml(
+                "/api/v1/scores/" + scoreId + "/versions",
+                viewerToken,
+                "Viewer Version",
+                SECOND_SAMPLE_MUSICXML,
+                Map.of("baseScoreVersionId", versionId),
+                HttpStatus.FORBIDDEN
+        );
+        sync(viewerToken, scoreId, versionId, "viewer-annotation", "PRIVATE", null, 0, "mutation-viewer", HttpStatus.FORBIDDEN);
+        sync(editorToken, scoreId, versionId, "editor-ensemble", "ENSEMBLE", null, 0, "mutation-editor-ensemble", HttpStatus.OK);
+
+        JsonNode outsider = login(uniqueEmail("new"), "New Member");
+        postJson("/api/v1/ensembles/" + ensembleId + "/members", adminToken,
+                Map.of("userId", outsider.path("user").path("id").asText(), "role", "VIEWER"), HttpStatus.OK);
+        postJson("/api/v1/ensembles/" + ensembleId + "/members", editorToken,
+                Map.of("userId", outsider.path("user").path("id").asText(), "role", "MEMBER"), HttpStatus.FORBIDDEN);
+        postJson("/api/v1/ensembles/" + ensembleId + "/members", adminToken,
+                Map.of("userId", ownerTwoSession.path("user").path("id").asText(), "role", "OWNER"), HttpStatus.FORBIDDEN);
+
+        postJson("/api/v1/ensembles/" + ensembleId + "/members", ownerToken,
+                Map.of("userId", ownerTwoSession.path("user").path("id").asText(), "role", "OWNER"), HttpStatus.OK);
+        postJson("/api/v1/ensembles/" + ensembleId + "/members", adminToken,
+                Map.of("userId", ownerTwoSession.path("user").path("id").asText(), "role", "EDITOR"), HttpStatus.FORBIDDEN);
+
+        JsonNode solo = postJson("/api/v1/ensembles", ownerToken, Map.of("name", "Solo Owner"), HttpStatus.OK);
+        postJson("/api/v1/ensembles/" + solo.path("id").asText() + "/members", ownerToken,
+                Map.of("userId", ownerSession.path("user").path("id").asText(), "role", "VIEWER"), HttpStatus.CONFLICT);
     }
 
     @Test
@@ -450,6 +528,17 @@ class CollaborationIntegrationTest {
                   <note><pitch><step>D</step><octave>4</octave></pitch><duration>3</duration><type>half</type></note>
                 </measure>
               </part>
+            </score-partwise>
+            """;
+
+    private static final String UNSAFE_MUSICXML = """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <!DOCTYPE score-partwise [
+              <!ENTITY ext SYSTEM "file:///etc/passwd">
+            ]>
+            <score-partwise version="4.0">
+              <part-list><score-part id="P1"><part-name>Piano</part-name></score-part></part-list>
+              <part id="P1"><measure number="1"><note><rest/><duration>1</duration><type>quarter</type></note></measure></part>
             </score-partwise>
             """;
 }

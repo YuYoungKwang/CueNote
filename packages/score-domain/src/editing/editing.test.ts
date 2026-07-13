@@ -219,4 +219,124 @@ describe('Phase 6 editable score domain', () => {
     expect(result.migrated).toHaveLength(1);
     expect(result.migrated[0].scoreVersionId).toBe('ver_new');
   });
+
+  it('preserves safe unsupported MusicXML fragments as opaque XML through round trip', () => {
+    const document = editableScoreFromMusicXml(opaqueVersion);
+
+    expect(document.opaqueFragments.map((fragment) => fragment.elementName)).toEqual(
+      expect.arrayContaining(['identification', 'credit', 'print', 'direction', 'beam', 'notations', 'frame'])
+    );
+    expect(document.validationIssues.some((issue) => issue.code === 'OPAQUE_FRAGMENT_PRESERVED')).toBe(true);
+    expect(document.validationIssues.some((issue) => issue.code === 'OPAQUE_CONTENT_NOT_TRANSPOSED')).toBe(true);
+
+    const xml = serializeEditableScoreToMusicXml(document);
+    expect(xml).toContain('<articulations>');
+    expect(xml).toContain('<accent');
+    expect(xml).toContain('<dynamics>');
+    expect(xml).toContain('<sound tempo="96"');
+    expect(xml).toContain('<slur');
+    expect(xml).toContain('<beam number="1">begin</beam>');
+    expect(xml).toContain('<tuplet type="start"');
+    expect(xml).toContain('<print');
+    expect(xml).toContain('<credit-words>Fixture credit</credit-words>');
+    expect(xml).toContain('<software>CueNote fixture</software>');
+    expect(xml).toContain('<frame>');
+
+    const roundTrip = editableScoreFromMusicXml({ ...opaqueVersion, sourceXml: xml });
+    expect(roundTrip.opaqueFragments.length).toBeGreaterThanOrEqual(document.opaqueFragments.length);
+  });
+
+  it('keeps note-level opaque notation when editing pitch and duration', () => {
+    const document = editableScoreFromMusicXml(opaqueVersion);
+    const measure = document.parts[0].measures[0];
+    const note = measure.events[0];
+    const changed = dispatchEditCommand(createEditHistory(document), {
+      type: 'CHANGE_PITCH',
+      partId: 'P1',
+      measureId: measure.id,
+      eventId: note.id,
+      pitch: { step: 'E', alter: 0, octave: 4 }
+    }).present;
+
+    const xml = serializeEditableScoreToMusicXml(changed);
+    expect(xml).toContain('<step>E</step>');
+    expect(xml).toContain('<articulations>');
+    expect(xml).toContain('<slur');
+  });
+
+  it('copies opaque fragments on measure duplicate and removes them on measure delete', () => {
+    const document = editableScoreFromMusicXml(opaqueVersion);
+    const firstMeasureId = document.parts[0].measures[0].id;
+    const duplicated = dispatchEditCommand(createEditHistory(document), { type: 'DUPLICATE_MEASURE', measureId: firstMeasureId }, (prefix) => `${prefix}_copy`).present;
+
+    expect(duplicated.parts[0].measures).toHaveLength(2);
+    expect(duplicated.opaqueFragments.length).toBeGreaterThan(document.opaqueFragments.length);
+    expect(serializeEditableScoreToMusicXml(duplicated).match(/<direction/g)?.length).toBeGreaterThanOrEqual(2);
+
+    const deleted = dispatchEditCommand(createEditHistory(duplicated), { type: 'DELETE_MEASURE', measureId: firstMeasureId }).present;
+    expect(deleted.parts[0].measures).toHaveLength(1);
+    expect(deleted.opaqueFragments.every((fragment) => fragment.parentId !== firstMeasureId)).toBe(true);
+  });
+
+  it('rejects unsafe XML before opaque preservation', () => {
+    expect(() => editableScoreFromMusicXml({ ...opaqueVersion, sourceXml: unsafeXml })).toThrow(/Unsafe MusicXML/);
+  });
 });
+
+const opaqueVersion: ScoreVersion = {
+  id: 'ver_opaque',
+  scoreId: 'scr_opaque',
+  title: 'Opaque Fixture',
+  parts: [],
+  sourceXml: `<?xml version="1.0" encoding="UTF-8"?>
+<score-partwise version="4.0">
+  <work><work-title>Opaque Fixture</work-title></work>
+  <identification><encoding><software>CueNote fixture</software></encoding><miscellaneous><miscellaneous-field name="fixture">opaque</miscellaneous-field></miscellaneous></identification>
+  <credit page="1"><credit-words>Fixture credit</credit-words></credit>
+  <part-list>
+    <score-part id="P1"><part-name>Voice</part-name></score-part>
+  </part-list>
+  <part id="P1">
+    <measure number="1" xml:id="om1">
+      <print new-system="yes"/>
+      <attributes>
+        <divisions>4</divisions>
+        <key><fifths>0</fifths></key>
+        <time><beats>4</beats><beat-type>4</beat-type></time>
+        <clef><sign>G</sign><line>2</line></clef>
+      </attributes>
+      <direction placement="above">
+        <direction-type><dynamics><f/></dynamics></direction-type>
+        <sound tempo="96"/>
+      </direction>
+      <harmony>
+        <root><root-step>C</root-step></root>
+        <kind text="C">major</kind>
+        <frame><frame-strings>6</frame-strings></frame>
+      </harmony>
+      <note>
+        <pitch><step>C</step><octave>4</octave></pitch>
+        <duration>4</duration>
+        <voice>1</voice>
+        <type>quarter</type>
+        <beam number="1">begin</beam>
+        <notations>
+          <articulations><accent/></articulations>
+          <slur type="start" number="1"/>
+          <tuplet type="start" number="1"/>
+        </notations>
+      </note>
+      <note><rest/><duration>12</duration><type>half</type><dot/></note>
+    </measure>
+  </part>
+</score-partwise>`
+};
+
+const unsafeXml = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE score-partwise [
+  <!ENTITY ext SYSTEM "file:///etc/passwd">
+]>
+<score-partwise version="4.0">
+  <part-list><score-part id="P1"><part-name>Voice</part-name></score-part></part-list>
+  <part id="P1"><measure number="1"><note><rest/><duration>1</duration><type>quarter</type></note></measure></part>
+</score-partwise>`;

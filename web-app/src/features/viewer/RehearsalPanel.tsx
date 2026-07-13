@@ -26,6 +26,8 @@ interface RehearsalPanelProps {
   bpm: number;
   countInMeasures: number;
   manualBrowseSignal: number;
+  canCreateSession: boolean;
+  canControlSession: boolean;
   onApplyState(state: AuthoritativePlaybackState, estimatedServerNowMs: number): void;
 }
 
@@ -132,6 +134,10 @@ export function RehearsalPanel(props: RehearsalPanelProps) {
   };
 
   const createSession = async () => {
+    if (!props.canCreateSession) {
+      setMessage('Your ensemble role cannot create rehearsal sessions.');
+      return;
+    }
     const firstMeasure = props.performanceMeasures[0];
     const currentId = props.playbackSnapshot.currentPerformanceMeasureId ?? firstMeasure?.id;
     const currentMeasure = props.performanceMeasures.find((measure) => measure.id === currentId) ?? firstMeasure;
@@ -263,7 +269,7 @@ export function RehearsalPanel(props: RehearsalPanelProps) {
     await refreshSessions();
   };
 
-  const isLeader = activeSession?.leaderUserId === props.userId;
+  const isLeader = activeSession?.leaderUserId === props.userId && props.canControlSession;
   const activeState = controllerRef.current?.getState().authoritativeState ?? activeSession?.state ?? null;
 
   return (
@@ -288,7 +294,7 @@ export function RehearsalPanel(props: RehearsalPanelProps) {
       </div>
 
       <div className="playback-button-row">
-        <button type="button" className="control-button" data-testid="rehearsal-create" onClick={createSession}>
+        <button type="button" className="control-button" data-testid="rehearsal-create" onClick={createSession} disabled={!props.canCreateSession}>
           Create session
         </button>
         <button type="button" className="control-button" data-testid="rehearsal-refresh" onClick={refreshSessions}>

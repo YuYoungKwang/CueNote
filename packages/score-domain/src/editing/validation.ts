@@ -4,6 +4,8 @@ export function validateEditableScore(document: EditableScoreDocument): Validati
   const issues: ValidationIssue[] = [];
   const seenMeasureIds = new Set<string>();
   const seenEventIds = new Set<string>();
+  const seenFragmentIds = new Set<string>();
+  const knownParentIds = new Set<string>([document.scoreId, `${document.scoreId}:part-list`]);
 
   if (document.parts.length === 0) {
     issues.push(globalIssue('NO_PARTS', 'The score must contain at least one part.', true));
@@ -11,6 +13,7 @@ export function validateEditableScore(document: EditableScoreDocument): Validati
 
   const measureCount = document.parts[0]?.measures.length ?? 0;
   document.parts.forEach((part) => {
+    knownParentIds.add(part.id);
     if (part.measures.length === 0) {
       issues.push({
         code: 'NO_MEASURES',
@@ -31,7 +34,8 @@ export function validateEditableScore(document: EditableScoreDocument): Validati
       });
     }
 
-    part.measures.forEach((measure, measureIndex) => {
+      part.measures.forEach((measure, measureIndex) => {
+      knownParentIds.add(measure.id);
       if (seenMeasureIds.has(measure.id)) {
         issues.push(measureIssue('DUPLICATE_MEASURE_ID', 'Measure IDs must be unique.', part.id, measure, true));
       }
@@ -49,6 +53,7 @@ export function validateEditableScore(document: EditableScoreDocument): Validati
       }
 
       measure.events.forEach((event) => {
+        knownParentIds.add(event.id);
         if (seenEventIds.has(event.id)) {
           issues.push({
             code: 'DUPLICATE_EVENT_ID',
@@ -120,7 +125,61 @@ export function validateEditableScore(document: EditableScoreDocument): Validati
           issues.push(measureIssue('NAVIGATION_MARK_MISMATCH', 'Navigation mark must reference its owning measure.', part.id, measure, true));
         }
       });
+      measure.chordSymbols.forEach((chord) => knownParentIds.add(chord.id));
     });
+  });
+
+  document.opaqueFragments.forEach((fragment) => {
+    if (seenFragmentIds.has(fragment.id)) {
+      issues.push({
+        code: 'OPAQUE_FRAGMENT_DUPLICATE_ID',
+        severity: 'ERROR',
+        message: 'Opaque MusicXML fragment IDs must be unique.',
+        fragmentId: fragment.id,
+        blocking: true
+      });
+    }
+    seenFragmentIds.add(fragment.id);
+
+    if (!knownParentIds.has(fragment.parentId)) {
+      issues.push({
+        code: 'OPAQUE_FRAGMENT_PARENT_MISSING',
+        severity: 'WARNING',
+        message: 'An opaque MusicXML fragment refers to a parent that no longer exists and will not be serialized.',
+        fragmentId: fragment.id,
+        blocking: false
+      });
+    }
+
+    if (isUnsafeXml(fragment.xml)) {
+      issues.push({
+        code: 'UNSAFE_XML_REMOVED',
+        severity: 'ERROR',
+        message: 'Unsafe opaque MusicXML content is not allowed.',
+        fragmentId: fragment.id,
+        blocking: true
+      });
+    }
+
+    if (fragment.status === 'OPAQUE_PRESERVED') {
+      issues.push({
+        code: 'OPAQUE_FRAGMENT_PRESERVED',
+        severity: 'WARNING',
+        message: `${fragment.elementName} is preserved as opaque MusicXML and is not structurally editable.`,
+        fragmentId: fragment.id,
+        blocking: false
+      });
+    }
+
+    if (['notations', 'beam', 'technical', 'articulations', 'ornaments'].includes(fragment.elementName)) {
+      issues.push({
+        code: 'OPAQUE_CONTENT_NOT_TRANSPOSED',
+        severity: 'WARNING',
+        message: 'Opaque notation content is preserved but not transposed or rhythmically recalculated.',
+        fragmentId: fragment.id,
+        blocking: false
+      });
+    }
   });
 
   return issues;
@@ -171,4 +230,9 @@ function measureIssue(code: string, message: string, partId: string, measure: Ed
     measureId: measure.id,
     blocking
   };
+}
+
+function isUnsafeXml(xml: string): boolean {
+  const normalized = xml.toLowerCase();
+  return normalized.includes('<!doctype') || normalized.includes('<!entity') || normalized.includes('<xi:include') || normalized.includes('xinclude');
 }

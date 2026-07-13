@@ -128,6 +128,30 @@ class RehearsalIntegrationTest {
         patchJson("/api/v1/rehearsal-sessions/" + sessionId + "/leader", workspace.memberToken(), Map.of("leaderUserId", workspace.memberUserId()), HttpStatus.FORBIDDEN);
     }
 
+    @Test
+    void allowsEditorToLeadAndKeepsViewerAsFollowerOnly() {
+        Workspace workspace = createWorkspace();
+        JsonNode editor = login(uniqueEmail("editor"), "Editor");
+        JsonNode viewer = login(uniqueEmail("viewer"), "Viewer");
+        String editorToken = editor.path("accessToken").asText();
+        String viewerToken = viewer.path("accessToken").asText();
+        String editorUserId = editor.path("user").path("id").asText();
+        String viewerUserId = viewer.path("user").path("id").asText();
+
+        postJson("/api/v1/ensembles/" + workspace.ensembleId() + "/members", workspace.ownerToken(), Map.of("userId", editorUserId, "role", "EDITOR"), HttpStatus.OK);
+        postJson("/api/v1/ensembles/" + workspace.ensembleId() + "/members", workspace.ownerToken(), Map.of("userId", viewerUserId, "role", "VIEWER"), HttpStatus.OK);
+
+        JsonNode session = createRehearsalSession(editorToken, workspace.ensembleId(), workspace.scoreId(), workspace.versionId(), HttpStatus.OK);
+        String sessionId = session.path("id").asText();
+        assertThat(session.path("leaderUserId").asText()).isEqualTo(editorUserId);
+
+        postJson("/api/v1/rehearsal-sessions/" + sessionId + "/join", viewerToken, Map.of("followMode", "FOLLOWING_LEADER"), HttpStatus.OK);
+        patchJson("/api/v1/rehearsal-sessions/" + sessionId + "/leader", viewerToken, Map.of("leaderUserId", viewerUserId), HttpStatus.FORBIDDEN);
+        patchJson("/api/v1/rehearsal-sessions/" + sessionId + "/leader", workspace.ownerToken(), Map.of("leaderUserId", viewerUserId), HttpStatus.FORBIDDEN);
+        patchJson("/api/v1/rehearsal-sessions/" + sessionId + "/leader", workspace.ownerToken(), Map.of("leaderUserId", workspace.memberUserId()), HttpStatus.FORBIDDEN);
+        patchJson("/api/v1/rehearsal-sessions/" + sessionId + "/leader", workspace.ownerToken(), Map.of("leaderUserId", editorUserId), HttpStatus.OK);
+    }
+
     private Workspace createWorkspace() {
         JsonNode ownerSession = login(uniqueEmail("owner"), "Owner");
         JsonNode memberSession = login(uniqueEmail("member"), "Member");

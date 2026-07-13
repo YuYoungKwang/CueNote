@@ -2,6 +2,7 @@ package com.cuenote.backend.api.rehearsal;
 
 import com.cuenote.backend.api.auth.AuthService;
 import com.cuenote.backend.api.auth.AuthenticatedUser;
+import com.cuenote.backend.api.collaboration.RoleAuthorizationService;
 import com.cuenote.backend.api.error.ApiException;
 import com.cuenote.backend.api.error.ErrorCode;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -31,17 +32,20 @@ public class RehearsalService {
     private final JdbcTemplate jdbcTemplate;
     private final ObjectMapper objectMapper;
     private final RehearsalSocketNotifier notifier;
+    private final RoleAuthorizationService roles;
     private final long effectiveDelayMs;
 
     public RehearsalService(
             JdbcTemplate jdbcTemplate,
             ObjectMapper objectMapper,
             RehearsalSocketNotifier notifier,
+            RoleAuthorizationService roles,
             @Value("${cuenote.rehearsal.effective-delay-ms:150}") long effectiveDelayMs
     ) {
         this.jdbcTemplate = jdbcTemplate;
         this.objectMapper = objectMapper;
         this.notifier = notifier;
+        this.roles = roles;
         this.effectiveDelayMs = effectiveDelayMs;
     }
 
@@ -49,8 +53,8 @@ public class RehearsalService {
     public Map<String, Object> createSession(AuthenticatedUser user, String ensembleId, CreateRehearsalSessionRequest request) {
         ScoreVersionRef scoreVersion = requireScoreVersionMember(user, ensembleId, request.scoreId(), request.scoreVersionId());
         String role = requireMemberRole(user, ensembleId);
-        if (!isOwnerOrAdmin(role)) {
-            throw new ApiException(ErrorCode.FORBIDDEN, "Only OWNER or ADMIN can create rehearsal sessions");
+        if (!roles.canCreateRehearsalSession(role)) {
+            throw new ApiException(ErrorCode.FORBIDDEN, "Only OWNER, ADMIN, or EDITOR can create rehearsal sessions");
         }
         if (request.performanceOrder() == null || request.performanceOrder().isEmpty()) {
             throw new ApiException(ErrorCode.VALIDATION_FAILED, "performanceOrder is required");
@@ -155,8 +159,8 @@ public class RehearsalService {
     public Map<String, Object> endSession(AuthenticatedUser user, String sessionId) {
         Map<String, Object> session = readSessionRow(sessionId);
         String role = requireMemberRole(user, String.valueOf(session.get("ensembleId")));
-        if (!user.id().equals(session.get("leaderUserId")) && !isOwnerOrAdmin(role)) {
-            throw new ApiException(ErrorCode.FORBIDDEN, "Only the leader, OWNER, or ADMIN can end a rehearsal session");
+        if (!user.id().equals(session.get("leaderUserId")) && !roles.canControlRehearsal(role)) {
+            throw new ApiException(ErrorCode.FORBIDDEN, "Only the leader, OWNER, ADMIN, or EDITOR can end a rehearsal session");
         }
         if ("ENDED".equals(session.get("status"))) {
             return getSession(user, sessionId);
@@ -195,10 +199,13 @@ public class RehearsalService {
     public Map<String, Object> transferLeader(AuthenticatedUser user, String sessionId, String nextLeaderUserId) {
         Map<String, Object> session = readSessionRow(sessionId);
         String role = requireMemberRole(user, String.valueOf(session.get("ensembleId")));
-        if (!isOwnerOrAdmin(role)) {
-            throw new ApiException(ErrorCode.FORBIDDEN, "Only OWNER or ADMIN can transfer leadership");
+        if (!roles.canTransferLeader(role)) {
+            throw new ApiException(ErrorCode.FORBIDDEN, "Only OWNER, ADMIN, or EDITOR can transfer leadership");
         }
-        requireMemberRole(new AuthenticatedUser(nextLeaderUserId, "", ""), String.valueOf(session.get("ensembleId")));
+        String nextRole = requireMemberRole(new AuthenticatedUser(nextLeaderUserId, "", ""), String.valueOf(session.get("ensembleId")));
+        if (!roles.canBeRehearsalLeader(nextRole)) {
+            throw new ApiException(ErrorCode.FORBIDDEN, "New leader must be OWNER, ADMIN, or EDITOR");
+        }
         rejectIfEnded(session);
         jdbcTemplate.update(
                 "update rehearsal_sessions set leader_user_id = ?, revision = revision + 1 where id = ?",
@@ -299,6 +306,10 @@ public class RehearsalService {
 
         if (!user.id().equals(session.get("leaderUserId"))) {
             throw new ApiException(ErrorCode.FORBIDDEN, "Only the leader can change shared playback state");
+        }
+        String leaderRole = requireMemberRole(user, String.valueOf(session.get("ensembleId")));
+        if (!roles.canControlRehearsal(leaderRole)) {
+            throw new ApiException(ErrorCode.FORBIDDEN, "Current role cannot control shared playback");
         }
 
         Map<String, Object> current = readState(sessionId, session);
@@ -618,10 +629,6 @@ public class RehearsalService {
         } catch (JsonProcessingException exception) {
             throw new ApiException(ErrorCode.VALIDATION_FAILED, "performanceOrder JSON is invalid");
         }
-    }
-
-    private static boolean isOwnerOrAdmin(String role) {
-        return "OWNER".equals(role) || "ADMIN".equals(role);
     }
 
     private static String normalizeFollowMode(String followMode) {
