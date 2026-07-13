@@ -6,6 +6,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
@@ -157,8 +158,8 @@ public class AuthService {
                 user.id(),
                 hashToken(accessToken),
                 hashToken(refreshToken),
-                accessExpiresAt,
-                refreshExpiresAt
+                Timestamp.from(accessExpiresAt),
+                Timestamp.from(refreshExpiresAt)
         );
 
         return new AuthSession(user, accessToken, refreshToken, accessExpiresAt.toString(), refreshExpiresAt.toString());

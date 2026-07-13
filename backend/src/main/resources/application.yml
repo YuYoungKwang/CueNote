@@ -30,4 +30,10 @@ cuenote:
   musicxml:
     max-bytes: ${CUENOTE_MUSICXML_MAX_BYTES:2097152}
   object-storage:
+    type: ${CUENOTE_OBJECT_STORAGE_TYPE:local}
     local-root: ${CUENOTE_OBJECT_STORAGE_LOCAL_ROOT:target/object-storage}
+    minio:
+      endpoint: ${CUENOTE_MINIO_ENDPOINT:http://localhost:9000}
+      access-key: ${CUENOTE_MINIO_ACCESS_KEY:cuenote}
+      secret-key: ${CUENOTE_MINIO_SECRET_KEY:cuenote_dev_minio_password}
+      bucket: ${CUENOTE_MINIO_BUCKET:cuenote-scores}

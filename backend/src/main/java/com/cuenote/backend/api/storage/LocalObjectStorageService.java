@@ -5,10 +5,12 @@ import com.cuenote.backend.api.error.ErrorCode;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 @Service
+@ConditionalOnProperty(name = "cuenote.object-storage.type", havingValue = "local", matchIfMissing = true)
 public class LocalObjectStorageService implements ObjectStorageService {
 
     private final Path root;

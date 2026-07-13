@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -22,6 +23,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import org.w3c.dom.Document;
+import org.xml.sax.InputSource;
 
 @Service
 public class CollaborationService {
@@ -252,6 +255,7 @@ public class CollaborationService {
         Map<String, Object> score = getScore(user, scoreId);
         String ensembleId = String.valueOf(score.get("ensemble_id"));
         requireMember(user, ensembleId);
+        getVersion(user, scoreId, request.scoreVersionId());
 
         List<Map<String, Object>> applied = new ArrayList<>();
         List<Map<String, Object>> conflicts = new ArrayList<>();
@@ -342,6 +346,11 @@ public class CollaborationService {
         }
 
         String id = requiredMapText(annotation, "id");
+        String annotationScoreId = requiredMapText(annotation, "scoreId");
+        String annotationScoreVersionId = requiredMapText(annotation, "scoreVersionId");
+        if (!scoreId.equals(annotationScoreId) || !scoreVersionId.equals(annotationScoreVersionId)) {
+            throw new ApiException(ErrorCode.VALIDATION_FAILED, "Annotation score/version does not match request path");
+        }
         String scope = requiredMapText(annotation, "scope");
         String type = requiredMapText(annotation, "type");
         String partId = blankToNull((String) annotation.get("partId"));
@@ -389,8 +398,8 @@ public class CollaborationService {
                     anchorJson,
                     payloadJson,
                     revision,
-                    createdAt,
-                    updatedAt
+                    Timestamp.from(createdAt),
+                    Timestamp.from(updatedAt)
             );
         } else {
             jdbcTemplate.update(
@@ -407,7 +416,7 @@ public class CollaborationService {
                     anchorJson,
                     payloadJson,
                     revision,
-                    updatedAt,
+                    Timestamp.from(updatedAt),
                     id
             );
         }
@@ -477,12 +486,28 @@ public class CollaborationService {
         try {
             byte[] content = file.getBytes();
             String asText = new String(content, StandardCharsets.UTF_8);
-            if (!asText.contains("<score-partwise") && !asText.contains("<score-timewise")) {
+            String rootElement = musicXmlRootElement(asText);
+            if (!List.of("score-partwise", "score-timewise").contains(rootElement)) {
                 throw new ApiException(ErrorCode.VALIDATION_FAILED, "Uploaded file is not a supported MusicXML score");
             }
             return content;
         } catch (IOException exception) {
             throw new ApiException(ErrorCode.INTERNAL_ERROR, "MusicXML upload read failed");
+        }
+    }
+
+    private String musicXmlRootElement(String xml) {
+        try {
+            javax.xml.parsers.DocumentBuilderFactory factory = javax.xml.parsers.DocumentBuilderFactory.newInstance();
+            factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+            factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
+            factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+            factory.setXIncludeAware(false);
+            factory.setExpandEntityReferences(false);
+            Document document = factory.newDocumentBuilder().parse(new InputSource(new java.io.StringReader(xml)));
+            return document.getDocumentElement().getTagName();
+        } catch (Exception exception) {
+            throw new ApiException(ErrorCode.VALIDATION_FAILED, "Uploaded MusicXML is not well-formed XML");
         }
     }
 
