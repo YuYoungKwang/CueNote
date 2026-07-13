@@ -85,6 +85,8 @@
 - Actuator
 - S3-compatible SDK
 
+Phase 4 구현은 Spring Security adapter를 아직 도입하지 않고 명시적 token/session service로 권한을 검증한다. MusicXML 원본은 `ObjectStorageService` adapter 뒤에 저장하며, dev/test 기본 구현은 로컬 파일 storage이고 Docker Compose에는 S3-compatible MinIO 초안을 포함한다.
+
 ### AI Training
 
 - Windows 또는 WSL2
@@ -365,6 +367,8 @@ Auth provider credential
 ```
 
 인증 provider는 Phase별 구현에서 결정한다. 후보는 Apple, Google, Email Magic Link다. WebSocket도 동일 사용자 인증을 사용한다.
+
+Phase 4에서는 `/dev-auth/login` 개발 endpoint가 opaque access/refresh token을 발급한다. 외부 provider token 검증은 이후 provider 통합 Phase에서 수행한다.
 
 ## 12. 합주 동기화
 

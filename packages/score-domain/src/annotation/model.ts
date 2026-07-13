@@ -61,6 +61,9 @@ export interface BaseAnnotation {
   updatedAt: number;
   partId?: ScorePartID;
   localOwnerId?: string;
+  serverRevision?: number;
+  syncState?: 'LOCAL_ONLY' | 'PENDING' | 'SYNCED' | 'CONFLICT' | 'FAILED';
+  syncError?: string;
   deletedAt?: number;
   zIndex?: number;
 }

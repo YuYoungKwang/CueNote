@@ -104,9 +104,18 @@ OPFS 지원 여부는 브라우저별 검증이 필요하다. 지원하지 않�
 
 동기화 큐는 IndexedDB에 저장한다.
 
+Phase 4 구현 store:
+
+- DB: `cuenote`
+- version: `3`
+- annotation data store: `annotations`
+- sync queue store: `annotation_sync_queue`
+
+Annotation queue record는 `clientMutationId`, `scoreId`, `scoreVersionId`, `annotationId`, `action`, `baseRevision`, `annotation`, `status`, `attempts`, `lastError`를 가진다.
+
 처리 원칙:
 
-- operationId 기준 idempotent
+- `clientMutationId` 기준 idempotent
 - 생성 순서 보존
 - 실패 시 재시도
 - 권한 오류는 사용자에게 표시

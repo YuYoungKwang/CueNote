@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   type Annotation,
   type AnnotationAnchor,
@@ -18,11 +18,15 @@ import {
   type StableMeasureId
 } from '@cuenote/score-domain';
 import { createBrowserPlaybackClock, subscribeToPlaybackClock } from '../../core/playback/browserPlaybackClock';
+import { createApiClient } from '../../core/api/client';
+import { createServerSessionStore } from '../../core/api/sessionStore';
 import { createMusicXMLService } from '../../core/musicxml/parser';
 import { createAnnotationGeometryProvider } from '../../core/rendering/annotationGeometryProvider';
 import { createVerovioScoreRenderer } from '../../core/rendering/verovioScoreRenderer';
 import { createAnnotationPreferenceStore } from '../../core/storage/annotationPreferenceStore';
 import { createAnnotationRepository } from '../../core/storage/annotationRepository';
+import { createAnnotationSyncQueue } from '../../core/storage/annotationSyncQueue';
+import { createAnnotationSyncService } from '../../core/storage/annotationSyncService';
 import { createRecentScoreStore } from '../../core/storage/recentScoreStore';
 import { AnnotationOverlay, type ViewerAnnotationTool, type ViewerInteractionMode } from './AnnotationOverlay';
 import { getSampleById } from '../../samples/catalog';
@@ -41,6 +45,7 @@ type ViewerStatus =
       measuresById: Record<string, Measure>;
       performanceMeasures: PerformanceMeasure[];
       warnings: RepeatExpansionWarning[];
+      serverContext?: ServerViewerContext;
     }
   | { kind: 'not-found' }
   | { kind: 'parse-error'; message: string };
@@ -64,19 +69,35 @@ const DEFAULT_LAYER_FILTERS: AnnotationLayerFilterState = {
   ensembleVisible: true
 };
 
+interface ServerViewerContext {
+  accessToken: string;
+  scoreId: string;
+  scoreVersionId: string;
+}
+
 export function ScoreViewerPage() {
   const { scoreId = '' } = useParams();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const rendererRef = useRef<ReturnType<typeof createVerovioScoreRenderer> | null>(null);
   const timelineRef = useRef<PlaybackTimeline | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const selectedMeasureIdRef = useRef<StableMeasureId | null>(null);
   const playbackClock = useMemo(() => createBrowserPlaybackClock(), []);
+  const apiClient = useMemo(() => createApiClient(), []);
+  const sessionStore = useMemo(() => createServerSessionStore(), []);
   const recentStore = useMemo(() => createRecentScoreStore(), []);
   const annotationRepository = useMemo(() => createAnnotationRepository(), []);
+  const annotationSyncQueue = useMemo(() => createAnnotationSyncQueue(), []);
+  const annotationSyncService = useMemo(
+    () => createAnnotationSyncService(apiClient, annotationRepository, annotationSyncQueue),
+    [apiClient, annotationRepository, annotationSyncQueue]
+  );
   const annotationPreferenceStore = useMemo(() => createAnnotationPreferenceStore(), []);
   const musicXmlService = useMemo(() => createMusicXMLService(), []);
-  const sample = useMemo(() => getSampleById(scoreId), [scoreId]);
+  const sourceMode = searchParams.get('source') === 'server' ? 'server' : 'sample';
+  const requestedVersionId = searchParams.get('versionId');
+  const sample = useMemo(() => (sourceMode === 'sample' ? getSampleById(scoreId) : null), [scoreId, sourceMode]);
   const [status, setStatus] = useState<ViewerStatus>({ kind: 'loading' });
   const [rendererState, setRendererState] = useState<RendererState>({ kind: 'idle' });
   const [rendererRetryKey, setRendererRetryKey] = useState(0);
@@ -87,6 +108,7 @@ export function ScoreViewerPage() {
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
   const [annotationLoadState, setAnnotationLoadState] = useState<AnnotationLoadState>({ kind: 'idle' });
   const [annotationSaveState, setAnnotationSaveState] = useState<AnnotationSaveState>({ kind: 'idle', message: 'Annotations idle.' });
+  const [annotationSyncState, setAnnotationSyncState] = useState({ message: 'Annotation sync idle.', pending: 0, failed: 0, conflicts: 0 });
   const [interactionMode, setInteractionMode] = useState<ViewerInteractionMode>('VIEW');
   const [annotationTool, setAnnotationTool] = useState<ViewerAnnotationTool>('SELECT');
   const [annotationScope, setAnnotationScope] = useState<AnnotationScope>('PRIVATE');
@@ -110,37 +132,79 @@ export function ScoreViewerPage() {
   }, [selectedMeasureId]);
 
   useEffect(() => {
-    if (!sample) {
-      timelineRef.current = null;
-      setRendererState({ kind: 'idle' });
-      setAnnotationLoadState({ kind: 'idle' });
-      setAnnotations([]);
-      setStatus({ kind: 'not-found' });
-      return;
-    }
-
     let cancelled = false;
     setRendererRetryKey(0);
     setRendererState({ kind: 'idle' });
     setAnnotationLoadState({ kind: 'idle' });
+    setAnnotationSyncState({ message: 'Annotation sync idle.', pending: 0, failed: 0, conflicts: 0 });
     setAnnotations([]);
     setStatus({ kind: 'loading' });
 
-    try {
-      const parsed = musicXmlService.parse(sample.sourceXml, {
-        scoreId: sample.id,
-        sample: true
-      });
+    const loadScore = async () => {
+      if (sourceMode === 'sample') {
+        if (!sample) {
+          timelineRef.current = null;
+          setRendererState({ kind: 'idle' });
+          setStatus({ kind: 'not-found' });
+          return;
+        }
 
-      const representativePart = parsed.version.parts[0];
-      const measures = representativePart?.measures ?? [];
-      const measuresById = Object.fromEntries(measures.map((measure) => [measure.id, measure]));
-      const representativePartWarnings = analyzeRepresentativePartWarnings(parsed.version.parts);
-      const performanceOrder = expandRepeats(measures);
-      const warnings = [...representativePartWarnings, ...performanceOrder.warnings];
-      const firstMeasureId = measures[0]?.id ?? null;
+        return {
+          sourceXml: sample.sourceXml,
+          parseScoreId: sample.id,
+          sample: true,
+          serverContext: undefined
+        };
+      }
 
-      void recentStore.load(parsed.document.id).then((record) => {
+      const session = sessionStore.load();
+      if (!session) {
+        throw new Error('Sign in from the library before opening a server score.');
+      }
+
+      const score = await apiClient.getScore(session.accessToken, scoreId);
+      const scoreVersionId = requestedVersionId ?? score.current_version_id;
+      if (!scoreVersionId) {
+        throw new Error('Server score does not have a current version.');
+      }
+      const sourceXml = await apiClient.getScoreVersionSource(session.accessToken, score.id, scoreVersionId);
+      return {
+        sourceXml,
+        parseScoreId: score.id,
+        sample: false,
+        serverContext: {
+          accessToken: session.accessToken,
+          scoreId: score.id,
+          scoreVersionId
+        } satisfies ServerViewerContext
+      };
+    };
+
+    void loadScore()
+      .then(async (loaded) => {
+        if (!loaded || cancelled) {
+          return;
+        }
+
+        const parsed = musicXmlService.parse(loaded.sourceXml, {
+          scoreId: loaded.parseScoreId,
+          sample: loaded.sample
+        });
+        const version: ScoreVersion = loaded.serverContext
+          ? { ...parsed.version, id: loaded.serverContext.scoreVersionId }
+          : parsed.version;
+        const document: ScoreDocument = loaded.serverContext
+          ? { ...parsed.document, currentVersionId: loaded.serverContext.scoreVersionId, versions: [version] }
+          : parsed.document;
+
+        const representativePart = version.parts[0];
+        const measures = representativePart?.measures ?? [];
+        const measuresById = Object.fromEntries(measures.map((measure) => [measure.id, measure]));
+        const representativePartWarnings = analyzeRepresentativePartWarnings(version.parts);
+        const performanceOrder = expandRepeats(measures);
+        const warnings = [...representativePartWarnings, ...performanceOrder.warnings];
+        const firstMeasureId = measures[0]?.id ?? null;
+        const record = await recentStore.load(document.id);
         if (cancelled) {
           return;
         }
@@ -172,31 +236,35 @@ export function ScoreViewerPage() {
         timelineRef.current = timeline;
         setStatus({
           kind: 'ready',
-          document: parsed.document,
-          version: parsed.version,
+          document,
+          version,
           representativePartName: representativePart?.name ?? 'Part 1',
           measures,
           measuresById,
           performanceMeasures: performanceOrder.measures,
-          warnings
+          warnings,
+          serverContext: loaded.serverContext
         });
         setZoom(restoredZoom);
         setBpm(restoredBpm);
         setCountInMeasures(restoredCountInMeasures);
         setPlaybackSnapshot(initialSnapshot);
         setSelectedMeasureId((initialSnapshot.currentSourceMeasureId as StableMeasureId | null) ?? restoredSelection ?? null);
+      })
+      .catch((error) => {
+        if (cancelled) {
+          return;
+        }
+        const message = error instanceof Error ? error.message : 'Unexpected MusicXML parse error.';
+        timelineRef.current = null;
+        setRendererState({ kind: 'idle' });
+        setStatus({ kind: 'parse-error', message });
       });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unexpected MusicXML parse error.';
-      timelineRef.current = null;
-      setRendererState({ kind: 'idle' });
-      setStatus({ kind: 'parse-error', message });
-    }
 
     return () => {
       cancelled = true;
     };
-  }, [musicXmlService, playbackClock, recentStore, sample]);
+  }, [apiClient, musicXmlService, playbackClock, recentStore, requestedVersionId, sample, scoreId, sessionStore, sourceMode]);
 
   useEffect(() => {
     if (status.kind !== 'ready') {
@@ -212,9 +280,12 @@ export function ScoreViewerPage() {
 
     void Promise.all([
       annotationRepository.listByScore(status.document.id, status.version.id),
-      annotationPreferenceStore.load(status.document.id, status.version.id)
+      annotationPreferenceStore.load(status.document.id, status.version.id),
+      status.serverContext
+        ? apiClient.listAnnotations(status.serverContext.accessToken, status.serverContext.scoreId, status.serverContext.scoreVersionId).catch(() => [])
+        : Promise.resolve([])
     ])
-      .then(([storedAnnotations, storedPreferences]) => {
+      .then(async ([storedAnnotations, storedPreferences, serverAnnotations]) => {
         if (cancelled) {
           return;
         }
@@ -224,13 +295,24 @@ export function ScoreViewerPage() {
             ? storedPreferences.currentPartId
             : representativePartId;
 
-        setAnnotations(storedAnnotations);
+        const mergedAnnotations = mergeAnnotations(storedAnnotations, serverAnnotations);
+        if (serverAnnotations.length > 0) {
+          await Promise.all(serverAnnotations.map((annotation) => annotationRepository.upsert({ ...annotation, syncState: 'SYNCED' })));
+        }
+        if (cancelled) {
+          return;
+        }
+
+        setAnnotations(mergedAnnotations);
         setCurrentPartId(nextPartId);
         setAnnotationScope(storedPreferences?.activeScope ?? 'PRIVATE');
         setAnnotationAnchorType(storedPreferences?.activeAnchorType ?? 'MEASURE');
         setAnnotationFilters(storedPreferences?.filters ?? DEFAULT_LAYER_FILTERS);
         setAnnotationLoadState({ kind: 'ready' });
         setAnnotationSaveState({ kind: 'idle', message: 'Annotations ready.' });
+        if (status.serverContext) {
+          void syncPendingAnnotations(status.serverContext);
+        }
       })
       .catch((error) => {
         if (cancelled) {
@@ -247,7 +329,7 @@ export function ScoreViewerPage() {
     return () => {
       cancelled = true;
     };
-  }, [annotationPreferenceStore, annotationRepository, status]);
+  }, [annotationPreferenceStore, annotationRepository, apiClient, status]);
 
   useEffect(() => {
     if (status.kind !== 'ready' || annotationLoadState.kind !== 'ready') {
@@ -443,6 +525,34 @@ export function ScoreViewerPage() {
     zoom
   ]);
 
+  const syncPendingAnnotations = async (serverContext: ServerViewerContext) => {
+    try {
+      const summary = await annotationSyncService.syncPending(serverContext.accessToken, serverContext.scoreId, serverContext.scoreVersionId);
+      const queueRecords = await annotationSyncQueue.listByScore(serverContext.scoreId, serverContext.scoreVersionId);
+      const refreshedAnnotations = await annotationRepository.listByScore(serverContext.scoreId, serverContext.scoreVersionId);
+      setAnnotations(refreshedAnnotations);
+      setAnnotationSyncState({
+        message:
+          summary.conflicts > 0
+            ? 'Annotation sync conflict needs review.'
+            : summary.failed > 0
+              ? 'Annotation sync failed. Retry is available.'
+              : summary.synced > 0
+                ? 'Annotations synced.'
+                : 'Annotation sync up to date.',
+        pending: queueRecords.filter((record) => record.status === 'PENDING').length,
+        failed: queueRecords.filter((record) => record.status === 'FAILED').length,
+        conflicts: queueRecords.filter((record) => record.status === 'CONFLICT').length
+      });
+    } catch (error) {
+      setAnnotationSyncState((current) => ({
+        ...current,
+        message: error instanceof Error ? error.message : 'Annotation sync failed.',
+        failed: current.failed + 1
+      }));
+    }
+  };
+
   const updatePlaybackSnapshot = (nextSnapshot: PlaybackSnapshot) => {
     setPlaybackSnapshot(nextSnapshot);
     if (nextSnapshot.currentSourceMeasureId) {
@@ -569,12 +679,38 @@ export function ScoreViewerPage() {
   };
 
   const upsertAnnotation = async (annotation: Annotation) => {
-    setAnnotationSaveState({ kind: 'saving', message: 'Saving annotation locally…' });
+    setAnnotationSaveState({ kind: 'saving', message: status.kind === 'ready' && status.serverContext ? 'Saving annotation locally for sync…' : 'Saving annotation locally…' });
 
     try {
-      await annotationRepository.upsert(annotation);
-      setAnnotations((current) => upsertAnnotationRecord(current, annotation));
-      setAnnotationSaveState({ kind: 'saved', message: 'Annotation saved locally.' });
+      const previous = annotations.find((item) => item.id === annotation.id);
+      const serverContext = status.kind === 'ready' ? status.serverContext : undefined;
+      const nextAnnotation: Annotation = serverContext
+        ? {
+            ...annotation,
+            serverRevision: previous?.serverRevision ?? annotation.serverRevision ?? 0,
+            syncState: 'PENDING',
+            syncError: undefined
+          }
+        : annotation;
+
+      await annotationRepository.upsert(nextAnnotation);
+      if (serverContext) {
+        await annotationSyncQueue.enqueue({
+          clientMutationId: createAnnotationMutationId(),
+          scoreId: serverContext.scoreId,
+          scoreVersionId: serverContext.scoreVersionId,
+          annotationId: nextAnnotation.id,
+          action: 'UPSERT',
+          baseRevision: nextAnnotation.serverRevision ?? 0,
+          annotation: nextAnnotation
+        });
+      }
+
+      setAnnotations((current) => upsertAnnotationRecord(current, nextAnnotation));
+      setAnnotationSaveState({ kind: 'saved', message: serverContext ? 'Annotation saved locally and queued.' : 'Annotation saved locally.' });
+      if (serverContext) {
+        void syncPendingAnnotations(serverContext);
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Annotation save failed.';
       setAnnotationSaveState({ kind: 'error', message });
@@ -583,12 +719,36 @@ export function ScoreViewerPage() {
   };
 
   const deleteAnnotation = async (annotationId: string) => {
-    setAnnotationSaveState({ kind: 'saving', message: 'Deleting annotation locally…' });
+    setAnnotationSaveState({ kind: 'saving', message: status.kind === 'ready' && status.serverContext ? 'Deleting annotation locally for sync…' : 'Deleting annotation locally…' });
 
     try {
-      await annotationRepository.delete(annotationId);
-      setAnnotations((current) => current.filter((annotation) => annotation.id !== annotationId));
-      setAnnotationSaveState({ kind: 'saved', message: 'Annotation deleted locally.' });
+      const existing = annotations.find((annotation) => annotation.id === annotationId);
+      const serverContext = status.kind === 'ready' ? status.serverContext : undefined;
+
+      if (serverContext && existing) {
+        const tombstone: Annotation = {
+          ...existing,
+          deletedAt: Date.now(),
+          syncState: 'PENDING',
+          syncError: undefined
+        };
+        await annotationRepository.upsert(tombstone);
+        await annotationSyncQueue.enqueue({
+          clientMutationId: createAnnotationMutationId(),
+          scoreId: serverContext.scoreId,
+          scoreVersionId: serverContext.scoreVersionId,
+          annotationId,
+          action: 'DELETE',
+          baseRevision: existing.serverRevision ?? 0
+        });
+        setAnnotations((current) => upsertAnnotationRecord(current, tombstone));
+        setAnnotationSaveState({ kind: 'saved', message: 'Annotation delete queued.' });
+        void syncPendingAnnotations(serverContext);
+      } else {
+        await annotationRepository.delete(annotationId);
+        setAnnotations((current) => current.filter((annotation) => annotation.id !== annotationId));
+        setAnnotationSaveState({ kind: 'saved', message: 'Annotation deleted locally.' });
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Annotation delete failed.';
       setAnnotationSaveState({ kind: 'error', message });
@@ -954,15 +1114,32 @@ export function ScoreViewerPage() {
               <span className="summary-label">Input</span>
               <strong>{annotationInputMessage}</strong>
             </div>
-            <div>
-              <span className="summary-label">Save status</span>
-              <strong data-testid="annotation-save-status">{annotationSaveState.message}</strong>
-            </div>
-            <div>
-              <span className="summary-label">Annotations</span>
-              <strong>{annotations.length}</strong>
-            </div>
+          <div>
+            <span className="summary-label">Save status</span>
+            <strong data-testid="annotation-save-status">{annotationSaveState.message}</strong>
           </div>
+          <div>
+            <span className="summary-label">Sync status</span>
+            <strong data-testid="annotation-sync-status">
+              {annotationSyncState.message} P{annotationSyncState.pending} F{annotationSyncState.failed} C{annotationSyncState.conflicts}
+            </strong>
+          </div>
+          <div>
+            <span className="summary-label">Annotations</span>
+            <strong>{annotations.length}</strong>
+          </div>
+        </div>
+
+          {status.serverContext && (annotationSyncState.failed > 0 || annotationSyncState.conflicts > 0) ? (
+            <button
+              type="button"
+              className="control-button"
+              data-testid="annotation-sync-retry"
+              onClick={() => void syncPendingAnnotations(status.serverContext!)}
+            >
+              Retry annotation sync
+            </button>
+          ) : null}
 
           {!elementAnchorSupported ? (
             <p className="annotation-toolbar__notice">
@@ -1077,6 +1254,23 @@ function upsertAnnotationRecord(current: Annotation[], next: Annotation): Annota
   const updated = [...current];
   updated[existingIndex] = next;
   return updated.sort((left, right) => left.createdAt - right.createdAt || left.id.localeCompare(right.id));
+}
+
+function mergeAnnotations(localAnnotations: Annotation[], serverAnnotations: Annotation[]): Annotation[] {
+  const merged = new Map<string, Annotation>();
+  localAnnotations.forEach((annotation) => merged.set(annotation.id, annotation));
+  serverAnnotations.forEach((annotation) => {
+    const local = merged.get(annotation.id);
+    if (local?.syncState === 'PENDING' || local?.syncState === 'CONFLICT' || local?.syncState === 'FAILED') {
+      return;
+    }
+    merged.set(annotation.id, { ...annotation, syncState: 'SYNCED' });
+  });
+  return [...merged.values()].sort((left, right) => left.createdAt - right.createdAt || left.id.localeCompare(right.id));
+}
+
+function createAnnotationMutationId(): string {
+  return `mut_${crypto.randomUUID()}`;
 }
 
 function clampBpm(value: number): number {

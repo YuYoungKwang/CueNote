@@ -136,11 +136,12 @@
 
 ## 8. Phase 4
 
-- 인증 provider token 또는 login code를 서버에서 검증한다.
+- Phase 4 개발 인증 endpoint가 사용자를 생성/재사용하고 token을 발급한다. 실제 provider token 검증은 이후 인증 provider 통합 Phase에서 수행한다.
 - access/refresh token이 동작한다.
 - 악보 CRUD 권한 테스트가 있다.
 - 권한 없는 악보 접근이 차단된다.
-- presigned upload의 MIME/크기/소유권을 검증한다.
+- multipart MusicXML upload의 MIME/크기/소유권을 검증한다.
+- MusicXML은 object storage adapter 뒤에 저장된다.
 - 버전 생성·다운로드가 된다.
 - revision 충돌 시 409.
 - 팀 메모 scope를 서버에서 필터링한다.

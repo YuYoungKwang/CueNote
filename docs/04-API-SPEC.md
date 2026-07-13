@@ -44,6 +44,39 @@
 
 인증 provider는 특정 서비스로 고정하지 않는다. 후보는 `APPLE`, `GOOGLE`, `EMAIL_MAGIC_LINK`이며, 실제 구현 provider와 우선순위는 해당 Phase에서 결정한다.
 
+Phase 4 구현은 production provider가 아니라 개발·테스트용 endpoint를 사용한다.
+
+### POST `/dev-auth/login`
+
+개발 환경에서만 사용하는 로그인이다. 사용자를 생성하거나 재사용하고 opaque access/refresh token을 반환한다. token은 서버 DB에 hash로 저장한다.
+
+```json
+{
+  "email": "phase4@cuenote.local",
+  "displayName": "Phase 4 Tester"
+}
+```
+
+Response:
+
+```json
+{
+  "data": {
+    "user": {
+      "id": "usr_xxx",
+      "email": "phase4@cuenote.local",
+      "displayName": "Phase 4 Tester"
+    },
+    "accessToken": "ct_access_xxx",
+    "refreshToken": "ct_refresh_xxx",
+    "accessTokenExpiresAt": "2026-07-13T10:00:00Z",
+    "refreshTokenExpiresAt": "2026-07-27T08:00:00Z"
+  }
+}
+```
+
+실제 provider 검증은 이후 Phase에서 `/auth/provider` 후보 계약을 구체화한다.
+
 ### POST `/auth/provider`
 
 ```json
@@ -93,6 +126,10 @@ Response:
 
 현재 refresh token을 폐기한다. 브라우저 로컬 데이터 삭제 여부는 클라이언트가 사용자에게 별도 확인한다.
 
+### GET `/auth/me`
+
+`Authorization: Bearer <accessToken>`으로 현재 사용자 정보를 반환한다.
+
 ## 3. 사용자
 
 ### GET `/me`
@@ -108,6 +145,32 @@ Response:
 ```
 
 ## 4. 악보
+
+Phase 4 구현은 ensemble-scoped score API를 사용한다. MusicXML 업로드는 presigned URL이 아니라 multipart endpoint로 처리하며, 서버는 MIME, 크기, MusicXML 구조, 소유 ensemble membership을 검증한다. ScoreVersion은 append-only이고 현재 version pointer만 갱신한다.
+
+### POST `/ensembles/{ensembleId}/scores`
+
+`multipart/form-data`
+
+- `title`: string
+- `composer`: optional string
+- `file`: MusicXML XML file
+
+### GET `/ensembles/{ensembleId}/scores`
+
+해당 ensemble member에게 보이는 Score 목록을 반환한다.
+
+### GET `/scores/{scoreId}`
+
+Score metadata와 version 목록을 반환한다. ensemble member가 아니면 `FORBIDDEN`.
+
+### POST `/scores/{scoreId}/versions`
+
+`multipart/form-data`로 새 immutable ScoreVersion을 추가한다.
+
+### GET `/scores/{scoreId}/versions/{versionId}/source`
+
+권한 확인 후 MusicXML 원본을 반환한다.
 
 ### POST `/scores`
 
@@ -268,6 +331,52 @@ Response:
 ```
 
 ## 8. 메모
+
+Phase 4 구현은 로컬-first annotation mutation queue와 다음 batch sync endpoint를 사용한다.
+
+### POST `/scores/{scoreId}/annotations/sync`
+
+```json
+{
+  "scoreVersionId": "ver_xxx",
+  "mutations": [
+    {
+      "clientMutationId": "mut_xxx",
+      "baseRevision": 0,
+      "action": "UPSERT",
+      "annotation": {
+        "id": "annotation-id",
+        "schemaVersion": 1,
+        "scoreId": "scr_xxx",
+        "scoreVersionId": "ver_xxx",
+        "type": "TEXT",
+        "scope": "ENSEMBLE",
+        "partId": null,
+        "anchor": {
+          "type": "MEASURE",
+          "sourceMeasureId": "scr_xxx:p1:m1:m1"
+        },
+        "payload": {
+          "text": "cue",
+          "x": 0.2,
+          "y": 0.2,
+          "width": 0.4,
+          "height": 0.12,
+          "fontSizeRatio": 0.1
+        },
+        "createdAt": 1700000000000,
+        "updatedAt": 1700000000000
+      }
+    }
+  ]
+}
+```
+
+서버는 `clientMutationId`로 idempotency를 보장한다. 현재 서버 revision과 `baseRevision`이 다르면 `409 CONFLICT`와 `conflicts` 상세를 반환한다.
+
+### GET `/scores/{scoreId}/annotations?scoreVersionId={versionId}`
+
+PRIVATE는 owner 본인에게만 반환한다. PART와 ENSEMBLE은 score ensemble member에게 반환하며, PART는 `partId`가 필수다.
 
 ### POST `/scores/{scoreId}/versions/{versionId}/annotations`
 

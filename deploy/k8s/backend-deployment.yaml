@@ -42,6 +42,10 @@ spec:
                 secretKeyRef:
                   name: cuenote-backend-secret
                   key: SPRING_DATASOURCE_PASSWORD
+            - name: CUENOTE_OBJECT_STORAGE_LOCAL_ROOT
+              value: /data/object-storage
+            - name: CUENOTE_MUSICXML_MAX_BYTES
+              value: "2097152"
           readinessProbe:
             httpGet:
               path: /actuator/health/readiness
@@ -64,6 +68,8 @@ spec:
           volumeMounts:
             - name: tmp
               mountPath: /tmp
+            - name: object-storage
+              mountPath: /data/object-storage
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
@@ -72,4 +78,6 @@ spec:
                 - ALL
       volumes:
         - name: tmp
+          emptyDir: {}
+        - name: object-storage
           emptyDir: {}

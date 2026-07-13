@@ -27,3 +27,7 @@ management:
 
 cuenote:
   version: ${APP_VERSION:0.1.0}
+  musicxml:
+    max-bytes: ${CUENOTE_MUSICXML_MAX_BYTES:2097152}
+  object-storage:
+    local-root: ${CUENOTE_OBJECT_STORAGE_LOCAL_ROOT:target/object-storage}

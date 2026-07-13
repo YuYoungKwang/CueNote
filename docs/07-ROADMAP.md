@@ -118,12 +118,21 @@
 - access/refresh token
 - Score CRUD
 - ScoreVersion 업로드/다운로드
-- presigned upload
+- multipart MusicXML upload
+- object storage adapter
 - 권한
 - Ensemble
 - Annotation 동기화
 - 낙관적 잠금
 - 오프라인 재시도
+
+Phase 4 구현 선택:
+
+- 인증은 개발·테스트용 `/dev-auth/login`과 opaque access/refresh token으로 시작한다.
+- MusicXML은 presigned URL 대신 multipart endpoint로 업로드하고, backend의 object storage adapter 뒤에 저장한다.
+- ScoreVersion은 append-only로 생성한다.
+- Annotation sync는 `clientMutationId`, `baseRevision`, server `revision`으로 idempotency와 `409 CONFLICT`를 처리한다.
+- PRIVATE/PART/ENSEMBLE visibility는 서버에서 membership과 owner 기준으로 필터링한다.
 
 ### 완료 데모
 

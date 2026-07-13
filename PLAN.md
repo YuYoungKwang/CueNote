@@ -1,158 +1,96 @@
-# Phase 3 Plan
+# Phase 4 Plan
+
+Implement only ROADMAP Phase 4: backend account, sharing, score persistence, and annotation sync for the Web PWA.
 
 ## Scope
 
-Implement only ROADMAP Phase 3:
-
-- Canvas-based annotation overlay on top of real Verovio rendering
-- Pointer Events input for mouse, touch, and pen
-- Pen, highlighter, object eraser, and text memo flows
-- Measure-default anchors, advanced performance-measure anchors, and explicit element-anchor unavailability when stable source element IDs do not exist
-- PRIVATE / PART / ENSEMBLE annotation scopes stored locally
-- Layer filter UI with local preference persistence
-- IndexedDB persistence and migration for annotations and annotation UI preferences
-- Resize / zoom / rerender-safe relative-coordinate rendering
-- Phase 3 unit tests and Playwright coverage on top of the real viewer
+- Development auth foundation for local/test use
+- Ensemble and membership persistence
+- Server-side Score and immutable ScoreVersion persistence
+- MusicXML upload/download through an object-storage adapter
+- Permission checks for score, version, and annotation APIs
+- Annotation server persistence with PRIVATE, PART, and ENSEMBLE visibility
+- Browser IndexedDB local-first annotation sync queue with retry and conflict state
+- Integration/E2E coverage for auth, score persistence, permission denial, annotation sync, conflict, offline queue, and retry
 
 ## Out of Scope
 
-- Backend annotation API
-- WebSocket annotation sync
-- MusicXML mutation or annotation injection into source XML
-- Real score editing
-- OMR or ONNX model execution
-- Verovio preload, worker offloading, or chunk-level optimization
-- Partial stroke eraser, undo/redo history, or Phase 4+ collaboration features
-- Changes to `backend`, `deploy`, or `legacy/ios-app`
+- External OAuth, Apple login, email magic links, or production identity provider integration
+- WebSocket ensemble sync
+- Realtime cursors or page-turn broadcasting
+- Presigned upload URLs
+- New OMR, ONNX Runtime, rendering, editing, or Phase 5+ collaboration features
+- Any change under `legacy/ios-app`
 
 ## Implementation Order
 
-1. Replace the Phase 2 plan with Phase 3 decisions and risks.
-2. Add platform-neutral annotation types, coordinate utilities, and filtering rules in `packages/score-domain`.
-3. Add IndexedDB schema version 2 with dedicated stores for annotations and annotation UI preferences while preserving recent-score data.
-4. Implement a DOM-side annotation geometry provider that resolves anchors, page surfaces, relative points, and client points without leaking DOM types into the domain package.
-5. Add per-page canvas overlays that track Verovio page surfaces across rerender, zoom, resize, and device-pixel-ratio changes.
-6. Integrate annotation mode, tools, scope controls, layer filters, text editing, save feedback, and playback-aware input disabling into the score viewer.
-7. Add unit coverage for coordinate conversion, filtering, pressure fallback, repository behavior, and eraser hit testing.
-8. Add Playwright E2E for real canvas overlay creation, persistence, reload restore, filtering, erasing, playback coexistence, and error-free rendering.
-9. Run build, unit tests, E2E, link verification, git diffs, and a Phase 3 acceptance self-check.
+1. Add Phase 4 backend schema migration for users, sessions, ensembles, memberships, scores, versions, annotations, and idempotent client mutations.
+2. Implement backend auth, permission, object storage, score/version, ensemble, and annotation sync services.
+3. Add backend integration tests using Testcontainers.
+4. Extend web API client, auth/session storage, server score library, and server score viewer loading.
+5. Extend IndexedDB annotation persistence with sync queue records, revision metadata, retry, and conflict state.
+6. Add UI status and retry controls without changing Phase 1-3 viewer behavior.
+7. Update docs/API/acceptance notes to match the implemented Phase 4 contract.
+8. Run backend, frontend, E2E, compose, Kubernetes, PWA, Markdown link, and diff validations.
 
-## Decisions
+## Design Decisions
 
-### Domain Placement
+### Development Auth
 
-Put reusable annotation types, coordinate helpers, and filtering rules in `packages/score-domain`.
+Reason: Phase 4 needs authenticated ownership and permission behavior before production provider integration exists.
 
-Reason: Annotation payloads and anchor semantics must stay platform-neutral and reusable by future clients.
+Decision: Implement a development login endpoint that creates or reuses a user by email/provider subject and returns opaque access and refresh tokens. Tokens are hashed before storage. API endpoints read `Authorization: Bearer <token>`.
 
-Impact: Web-only DOM work stays in `web-app`, while stored annotation records remain independent of Verovio, Canvas, and React.
+Impact: Frontend and tests can exercise real auth and permission checks. Production identity provider verification remains a later integration, not a hidden fake.
 
-Alternative: Keep all annotation logic in `web-app`. Rejected because the roadmap and domain model expect shared domain types.
+Alternative considered: Add Spring Security now. Rejected for this phase because the current backend has no security dependency and Phase 4 can enforce permissions explicitly with a small request-auth service.
 
-### Annotation Object Model
+### MusicXML Object Storage
 
-Store one persisted annotation object per stroke or text memo.
+Reason: ScoreVersion source must be persisted outside UI state and downloadable by other devices.
 
-Reason: Phase 3 needs simple CRUD, object erasing, scope filtering, and persistence semantics without introducing group-edit history.
+Decision: Use multipart upload/download endpoints backed by an `ObjectStorageService` interface. The Phase 4 implementation uses local filesystem object storage for dev/test and keeps the adapter boundary for S3-compatible storage.
 
-Impact: A pen stroke, highlighter stroke, or text memo can be created, updated, filtered, and deleted independently.
+Impact: Tests do not require a MinIO container. Docker Compose includes MinIO as the intended S3-compatible development dependency, while backend code can switch adapter later without changing API shape.
 
-Alternative: Store page bitmaps or aggregate many strokes into one page payload. Rejected because it weakens anchor-level behavior and makes selective erasing harder.
+Alternative considered: Presigned upload URLs. Rejected for this phase because multipart upload keeps the MVP smaller and still validates MIME, size, ownership, versioning, and permission behavior.
 
-### Coordinate Storage
+### ScoreVersion Immutability
 
-Store annotation geometry only as anchor-relative coordinates and ratios.
+Reason: Existing viewer, repeat expansion, annotation anchors, and sync revisions all depend on a stable source document.
 
-Reason: Zoom, resize, rerender, and device-pixel-ratio changes must not invalidate stored annotations.
+Decision: ScoreVersion records are append-only. Upload creates version `n + 1`, stores a content hash and object key, and updates the score's current version pointer.
 
-Impact: The app resolves current DOM bounds only when converting between client points and relative points for drawing and hit testing.
+Impact: Existing annotations remain tied to the version they were created against. Editing a source file in place is not supported in Phase 4.
 
-Alternative: Persist canvas pixels, DOMRects, or viewport pixels. Rejected because those values are unstable across browser layout changes.
+### Annotation Revisions and Idempotency
 
-### Out-of-Range Stroke Policy
+Reason: Offline mutation replay must avoid duplicate writes and must surface stale writes clearly.
 
-Keep the anchor chosen on `pointerdown`, and allow relative coordinates outside the nominal `0..1` range when the stroke leaves the anchor bounds.
+Decision: Each annotation has a monotonically increasing server `revision`. Sync mutations include `baseRevision` and `clientMutationId`. Replayed mutation IDs return the previous result. If `baseRevision` does not match the current server revision, the server returns `409 CONFLICT` with the current annotation.
 
-Reason: Users naturally overshoot measure bounds while writing, and splitting strokes at the boundary would add unnecessary complexity in this phase.
+Impact: The browser can queue offline writes, retry when online, and mark conflicts without losing local data.
 
-Impact: Coordinate utilities and rendering must preserve negative or greater-than-one relative points.
+Alternative considered: Last-write-wins. Rejected because it hides conflicts between ensemble members and makes offline edits unsafe.
 
-Alternative: Clamp coordinates or split strokes at anchor edges. Rejected because it distorts user input and complicates editing behavior.
+### Annotation Scope Semantics
 
-### Canvas Overlay Structure
+Reason: Phase 3 stored scope labels locally, but Phase 4 must enforce them server-side.
 
-Use one canvas overlay per rendered Verovio page surface instead of a single canvas over the whole score stage.
+Decision: PRIVATE annotations are visible only to the owner. PART and ENSEMBLE annotations require score ensemble membership. PART annotations require `partId`; ENSEMBLE annotations are visible to all score ensemble members.
 
-Reason: Verovio already paginates the source score, and per-page overlays keep alignment, resizing, and redraw scope predictable.
+Impact: The UI can still filter scopes locally, but the server never returns annotations outside the authenticated user's permission.
 
-Impact: Each page surface owns its own canvas backing store and redraw cycle, while annotations are still stored as score-level records.
+### Logout Cache Policy
 
-Alternative: One giant stage canvas. Rejected because it is more fragile across multi-page layout, scrolling, and rerender timing.
+Reason: Offline PWA data can contain private annotations and recently opened score state.
 
-### Anchor Geometry Adapter
+Decision: Phase 4 logout clears auth tokens and sync status. It does not automatically purge IndexedDB score/viewer data; user-controlled cache purge is deferred to a later account settings phase.
 
-Introduce a web-only geometry provider that resolves anchors, converts points, and tracks which page surface contains each anchor.
-
-Reason: The viewer should not scatter DOMRect math and hit testing across React event handlers.
-
-Impact: Pointer controllers and overlay rendering share one tested geometry layer, and the domain package stays free of DOM types.
-
-Alternative: Inline all geometry logic inside `ScoreViewerPage`. Rejected because it would make rerender and testing much harder.
-
-### Default and Optional Anchor Types
-
-Use `MEASURE` as the default anchor, expose `PERFORMANCE_MEASURE` as an advanced option, and disable `ELEMENT` creation when stable `sourceElementId` data is unavailable.
-
-Reason: The parser and renderer already provide stable measure IDs and performance order, while stable source-element IDs are not yet guaranteed for the current fixtures and renderer mapping.
-
-Impact: The UI must make element-anchor unavailability explicit instead of silently falling back to measure anchors.
-
-Alternative: Quietly map element requests to measure anchors or invent unstable DOM-derived IDs. Rejected because the policy explicitly forbids silent fallback and Verovio-only IDs are not stable source IDs.
-
-### Playback Interaction Policy
-
-Show existing annotations during playback, but disable new annotation input while playback is in `COUNT_IN` or `PLAYING`.
-
-Reason: Playback position and pointer drawing should not compete for control in the same phase.
-
-Impact: The toolbar stays visible, the overlay still renders, and users can annotate again after pause or stop.
-
-Alternative: Allow simultaneous playback and drawing. Rejected because it creates conflicting interaction priority and increases flaky behavior.
-
-### Layer Filter Persistence
-
-Treat layer filter state as local UI preference, not score data, and persist it separately from annotation records.
-
-Reason: Visibility toggles are device-local viewing preferences rather than shared annotation content.
-
-Impact: Hidden layers are excluded from render and hit testing, but toggling them does not mutate annotation records.
-
-Alternative: Persist filter state inside each score annotation payload. Rejected because it couples local view settings to content records.
-
-### IndexedDB Migration
-
-Upgrade the existing `cuenote` database from schema version 1 to version 2 and add dedicated stores for annotation records and annotation UI preferences.
-
-Reason: Phase 3 must preserve recent viewer state while adding new offline data.
-
-Impact: Existing Phase 1 and 2 persistence remains available after upgrade, and annotation storage stays isolated from recent-score state.
-
-Alternative: Create a second database. Rejected because one app-level schema is easier to migrate and inspect for this MVP.
-
-### State Management
-
-Keep Phase 3 on local React state plus focused controllers and repositories. Do not add a new state library.
-
-Reason: The new complexity is about geometry, persistence, and input flow, not shared app-wide orchestration.
-
-Impact: Annotation state can stay close to the viewer while pure logic remains testable in domain modules.
-
-Alternative: Add Zustand, XState, or another store. Rejected because it increases surface area without solving the core geometry problem.
+Impact: Existing offline viewer behavior is preserved. Shared-device data removal remains a known follow-up.
 
 ## Risks
 
-- The current renderer decorates source measures by DOM order, so the geometry layer must carefully reuse the existing mapping without destabilizing Phase 1 and 2 behavior.
-- Stable source-element IDs may be missing in current MusicXML fixtures, so element anchors must fail explicitly and safely.
-- Canvas overlays must survive Verovio rerender and zoom changes without leaving duplicate canvases behind.
-- IndexedDB schema migration must preserve recent-score records while adding new stores.
-- Real browser E2E for canvas drawing can become flaky if overlay readiness and page-surface selection are not explicit.
+- Browser integration with a live backend can be flaky if tests depend on external ports; E2E will mock network state only where necessary and use deterministic selectors.
+- Local filesystem object storage validates the service boundary but is not equivalent to S3 consistency or presigned URL behavior.
+- Conflict UI is intentionally minimal in Phase 4: it surfaces conflict state and retry controls, but does not implement a merge editor.

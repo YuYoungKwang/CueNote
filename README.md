@@ -25,7 +25,7 @@ CueNote/
 ### 역할
 
 - `web-app`: React, TypeScript, PWA, 렌더링, 필기, 로컬 OMR, 합주 UI
-- `backend`: 인증, 악보 공유, 버전 관리, 팀 메모, 합주 WebSocket
+- `backend`: 개발 인증, 악보 공유, 버전 관리, 팀 메모 동기화, 향후 합주 WebSocket
 - `ai-training`: 데이터셋 검사, 합성 데이터 생성, PyTorch 학습, 평가, ONNX 변환
 - `packages/score-domain`: 플랫폼 독립 악보 타입, 반복 펼치기 엔진, 재생 타임라인, 합주 메시지 타입, JSON Schema
 - `deploy`: Docker Compose, K3s 매니페스트
