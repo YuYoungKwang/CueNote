@@ -6,7 +6,13 @@ from typing import Any
 from .common import atomic_write_json, config_checksum, set_seed, utc_now
 
 
-def train_yolo(dataset_yaml: Path, config: dict[str, Any], output_dir: Path, resume: bool = True) -> dict[str, Any]:
+def train_yolo(
+    dataset_yaml: Path,
+    config: dict[str, Any],
+    output_dir: Path,
+    resume: bool = True,
+    resume_checkpoint: Path | None = None,
+) -> dict[str, Any]:
     try:
         from ultralytics import YOLO
         import torch
@@ -19,7 +25,10 @@ def train_yolo(dataset_yaml: Path, config: dict[str, Any], output_dir: Path, res
     set_seed(int(config.get("seed", 90210)))
     output_dir.mkdir(parents=True, exist_ok=True)
     checkpoint_meta = output_dir / "checkpoint-metadata.json"
-    model = YOLO(config["pretrainedWeights"])
+    local_last_checkpoint = output_dir / "train" / "weights" / "last.pt"
+    checkpoint_to_resume = resume_checkpoint if resume_checkpoint and resume_checkpoint.exists() else local_last_checkpoint
+    should_resume = resume and checkpoint_to_resume.exists()
+    model = YOLO(str(checkpoint_to_resume) if should_resume else config["pretrainedWeights"])
     args = {
         "data": str(dataset_yaml),
         "imgsz": int(config["inputSize"]),
@@ -31,7 +40,7 @@ def train_yolo(dataset_yaml: Path, config: dict[str, Any], output_dir: Path, res
         "exist_ok": True,
         "patience": int(config.get("earlyStoppingPatience", 8)),
         "seed": int(config.get("seed", 90210)),
-        "resume": resume,
+        "resume": should_resume,
         "amp": config.get("precision") == "amp",
         "save_period": int(config.get("savePeriodEpochs", -1)),
     }
@@ -53,6 +62,7 @@ def train_yolo(dataset_yaml: Path, config: dict[str, Any], output_dir: Path, res
         "recentEpochCheckpoints": [str(path) for path in kept_epoch_checkpoints],
         "createdAt": utc_now(),
         "resultSummary": str(results),
+        "resumedFrom": str(checkpoint_to_resume) if should_resume else None,
     }
     atomic_write_json(checkpoint_meta, meta)
     return meta

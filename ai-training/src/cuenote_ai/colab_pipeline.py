@@ -104,7 +104,14 @@ def train_task(repo_root: Path, drive_root: Path, task: str, run_mode: str = "SM
     write_json(layout.reports / "drive-space-before-training.json", drive_space)
     run_dir = layout.runs / prefix
     try:
-        checkpoint_meta = train_yolo(dataset["converted"] / "dataset.yaml", config, run_dir, resume=True)
+        persisted_last_checkpoint = layout.checkpoints / prefix / "last.pt"
+        checkpoint_meta = train_yolo(
+            dataset["converted"] / "dataset.yaml",
+            config,
+            run_dir,
+            resume=True,
+            resume_checkpoint=persisted_last_checkpoint,
+        )
         checkpoint_meta = persist_checkpoints(checkpoint_meta, layout.checkpoints / prefix)
         update_run_state(layout.run_state, **{f"{prefix}TrainingStatus": "PASS"})
         evaluation = evaluate_yolo(Path(checkpoint_meta["bestCheckpoint"]), dataset["converted"] / "dataset.yaml", config, layout.reports)
