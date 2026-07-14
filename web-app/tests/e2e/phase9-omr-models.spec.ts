@@ -41,6 +41,10 @@ test('runs installed Colab experimental layout and symbol artifacts without prom
 
   await runInstalledExperimentalModel(page, 'cuenote-symbol-deepscores-exp', 'cuenote-symbol-deepscores-exp');
   await runInstalledExperimentalModel(page, 'cuenote-symbol-deepscores-exp-0.1.0-colab-tile', 'cuenote-symbol-deepscores-exp', true);
+  await exerciseOmrReviewUi(page);
+  await page.getByTestId('omr-model-select').selectOption('cuenote-symbol-deepscores-exp-0.1.0-colab-tile');
+  await page.getByTestId('omr-load-model').click();
+  await expect.poll(async () => page.getByTestId('omr-provider').textContent(), { timeout: 30000 }).toMatch(/WEBGPU|WASM/);
   await page.context().setOffline(true);
   await page.getByTestId('omr-load-model').click();
   await expect.poll(async () => page.getByTestId('omr-cache-state').textContent(), { timeout: 30000 }).toBe('hit');
@@ -61,6 +65,57 @@ async function runModel(page: Page, modelId: string, resultPattern: RegExp, dete
   await expect(page.getByTestId('omr-runtime-result')).toContainText(/detections: [1-9]/, { timeout: 30000 });
   await expect(page.getByTestId('omr-result-list')).toContainText(resultPattern);
   await expect(page.getByTestId('omr-detection-list')).toContainText(detectionPattern);
+}
+
+async function exerciseOmrReviewUi(page: Page) {
+  const detectionBoxes = page.getByTestId('omr-detection-box');
+  const initialBoxCount = await detectionBoxes.count();
+  expect(initialBoxCount).toBeGreaterThan(0);
+
+  await page.getByTestId('omr-confidence-threshold').evaluate((input) => {
+    const element = input as HTMLInputElement;
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+    setter?.call(element, '1');
+    element.dispatchEvent(new Event('input', { bubbles: true }));
+    element.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+  await expect(page.getByTestId('omr-detection-list')).toContainText('No visible detections');
+  await page.getByTestId('omr-confidence-threshold').evaluate((input) => {
+    const element = input as HTMLInputElement;
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+    setter?.call(element, '0');
+    element.dispatchEvent(new Event('input', { bubbles: true }));
+    element.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+  await expect(detectionBoxes.first()).toBeVisible();
+
+  const firstClass = ((await page.getByTestId('omr-detection-list-item').first().locator('.measure-item__number').textContent()) ?? '').trim();
+  await page.getByTestId(`omr-class-toggle-${firstClass.replace(/[^a-zA-Z0-9_-]+/g, '-')}`).click();
+  await expect.poll(async () => page.getByTestId('omr-detection-box').count()).toBeLessThan(initialBoxCount);
+  await page.getByTestId(`omr-class-toggle-${firstClass.replace(/[^a-zA-Z0-9_-]+/g, '-')}`).click();
+
+  await page.getByTestId('omr-detection-list-item').first().click();
+  await expect(page.getByTestId('omr-selected-detection')).not.toHaveText('No detection selected');
+  await page.getByTestId('omr-symbol-class-select').selectOption({ index: 0 });
+  await page.getByTestId('omr-change-class').click();
+  await expect(page.getByTestId('omr-correction-count')).toContainText(/1 corrections saved|2 corrections saved/);
+  await page.getByTestId('omr-delete-detection').click();
+  await expect(page.getByTestId('omr-correction-count')).toContainText(/2 corrections saved|3 corrections saved/);
+
+  await page.getByTestId('omr-add-detection-mode').click();
+  await page.locator('.import-region--system').click();
+  await expect(page.getByTestId('omr-correction-count')).toContainText(/3 corrections saved|4 corrections saved/);
+
+  await page.getByTestId('omr-export-review-json').click();
+  await expect(page.getByTestId('omr-review-json')).toContainText('CUENOTE_OMR_REVIEW');
+  await expect(page.getByTestId('omr-review-json')).toContainText('corrections');
+  await page.getByTestId('omr-import-review-json').click();
+  await expect(page.getByTestId('omr-runtime-status')).toContainText('Review JSON imported');
+
+  await page.reload();
+  await expect(page.getByTestId('omr-runtime-page')).toBeVisible();
+  await expect(page.getByTestId('omr-correction-count')).toContainText(/corrections saved/);
+  await expect(page.getByTestId('omr-review-json')).toBeVisible();
 }
 
 async function runInstalledExperimentalModel(page: Page, catalogId: string, resultModelId = catalogId, requireOverlay = false) {

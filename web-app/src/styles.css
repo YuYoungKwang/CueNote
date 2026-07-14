@@ -675,6 +675,61 @@ a {
   cursor: default;
 }
 
+.import-region--omr-detection.is-selected {
+  border-color: #dc2626;
+  background: rgba(220, 38, 38, 0.14);
+  box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.24);
+}
+
+.import-region-overlay.is-adding {
+  cursor: crosshair;
+}
+
+.omr-review-toolbar,
+.omr-review-editor {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+  padding: 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.omr-class-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  max-height: 132px;
+  overflow: auto;
+}
+
+.omr-class-toggles label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 0 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+  font-size: 12px;
+}
+
+.omr-detection-review-list .measure-item {
+  border: 0;
+}
+
+.omr-review-json {
+  min-height: 120px;
+  width: 100%;
+  resize: vertical;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 8px;
+  font: 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
 .import-region.is-selected {
   border-color: #dc2626;
   box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.18);
