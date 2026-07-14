@@ -25,6 +25,41 @@ export function createOmrDetectionResult(
   return createDetectionModelResult(projectId, input, manifest, raw, tensor);
 }
 
+export function createOmrDetectionResultFromDetections(
+  projectId: string,
+  input: OmrModelInputManifest,
+  manifest: OmrModelManifest,
+  raw: RawOmrOutput,
+  detections: OmrDetection[],
+  warnings: OmrInferenceWarning[]
+): OmrDetectionResult {
+  appendNonProductWarning(manifest, input, warnings);
+  return baseResult(projectId, input, manifest, raw, detections, warnings);
+}
+
+export function decodeOmrDetections(
+  input: OmrModelInputManifest,
+  manifest: OmrModelManifest,
+  raw: RawOmrOutput,
+  tensor?: OmrTensorInput,
+  warnings: OmrInferenceWarning[] = []
+): OmrDetection[] {
+  const outputSpec = manifest.outputs?.find((output) => output.format === 'BOX_XYWH_CONF_CLASS' || output.format === 'YOLO_V8_RAW');
+  if (!outputSpec) {
+    warnings.push({ code: 'INVALID_MODEL_OUTPUT', message: 'Detection model did not declare a supported detection output.', severity: 'error', systemId: input.systemId });
+    return [];
+  }
+  const output = raw.outputs[outputSpec.name] ?? Object.values(raw.outputs)[0];
+  if (!output || !(output.data instanceof Float32Array)) {
+    warnings.push({ code: 'INVALID_MODEL_OUTPUT', message: 'Detection model output was missing or not float32.', severity: 'error', systemId: input.systemId });
+    return [];
+  }
+  if (outputSpec.format === 'YOLO_V8_RAW') {
+    return decodeYoloV8Detections(output.data, output.dims, input, manifest, tensor, warnings);
+  }
+  return decodeBoxXywhDetections(output.data, outputSpec, input, manifest, tensor, warnings);
+}
+
 export function createRuntimeSmokeDetectionResult(
   projectId: string,
   input: OmrModelInputManifest,
@@ -51,37 +86,29 @@ function createDetectionModelResult(
   tensor?: OmrTensorInput
 ): OmrDetectionResult {
   const warnings: OmrInferenceWarning[] = [];
-  const outputSpec = manifest.outputs?.find((output) => output.format === 'BOX_XYWH_CONF_CLASS' || output.format === 'YOLO_V8_RAW');
-  if (!outputSpec) {
-    return baseResult(projectId, input, manifest, raw, [], [
-      { code: 'INVALID_MODEL_OUTPUT', message: 'Detection model did not declare a supported detection output.', severity: 'error', systemId: input.systemId }
-    ]);
-  }
+  const detections = decodeOmrDetections(input, manifest, raw, tensor, warnings);
+  appendNonProductWarning(manifest, input, warnings);
+  return baseResult(projectId, input, manifest, raw, detections, warnings);
+}
 
-  const output = raw.outputs[outputSpec.name] ?? Object.values(raw.outputs)[0];
-  if (!output || !(output.data instanceof Float32Array)) {
-    return baseResult(projectId, input, manifest, raw, [], [
-      { code: 'INVALID_MODEL_OUTPUT', message: 'Detection model output was missing or not float32.', severity: 'error', systemId: input.systemId }
-    ]);
-  }
-
-  if (outputSpec.format === 'YOLO_V8_RAW') {
-    const detections = decodeYoloV8Detections(output.data, output.dims, input, manifest, tensor, warnings);
-    appendNonProductWarning(manifest, input, warnings);
-    return baseResult(projectId, input, manifest, raw, detections, warnings);
-  }
-
+function decodeBoxXywhDetections(
+  data: Float32Array,
+  outputSpec: NonNullable<OmrModelManifest['outputs']>[number],
+  input: OmrModelInputManifest,
+  manifest: OmrModelManifest,
+  tensor: OmrTensorInput | undefined,
+  warnings: OmrInferenceWarning[]
+): OmrDetection[] {
   const valuesPerDetection = 6;
-  if (output.data.length % valuesPerDetection !== 0) {
-    return baseResult(projectId, input, manifest, raw, [], [
-      { code: 'INVALID_MODEL_OUTPUT', message: 'Detection output length must be divisible by 6.', severity: 'error', systemId: input.systemId }
-    ]);
+  if (data.length % valuesPerDetection !== 0) {
+    warnings.push({ code: 'INVALID_MODEL_OUTPUT', message: 'Detection output length must be divisible by 6.', severity: 'error', systemId: input.systemId });
+    return [];
   }
 
   const classIndex = createOmrClassIndexMap(manifest);
   const detections: OmrDetection[] = [];
-  for (let offset = 0; offset < output.data.length; offset += valuesPerDetection) {
-    const [x, y, width, height, confidence, classIndexValue] = output.data.slice(offset, offset + valuesPerDetection);
+  for (let offset = 0; offset < data.length; offset += valuesPerDetection) {
+    const [x, y, width, height, confidence, classIndexValue] = data.slice(offset, offset + valuesPerDetection);
     if (confidence < manifest.postprocessing.confidenceThreshold) {
       continue;
     }
@@ -120,9 +147,7 @@ function createDetectionModelResult(
     });
   }
 
-  appendNonProductWarning(manifest, input, warnings);
-
-  return baseResult(projectId, input, manifest, raw, detections, warnings);
+  return detections;
 }
 
 function appendNonProductWarning(manifest: OmrModelManifest, input: OmrModelInputManifest, warnings: OmrInferenceWarning[]) {
@@ -206,7 +231,7 @@ function decodeYoloV8Detections(
   return nms(detections, manifest.postprocessing.nmsThreshold).slice(0, 300);
 }
 
-function nms(detections: OmrDetection[], threshold: number): OmrDetection[] {
+export function nms(detections: OmrDetection[], threshold: number): OmrDetection[] {
   const sorted = [...detections].sort((a, b) => b.confidence - a.confidence);
   const kept: OmrDetection[] = [];
   for (const detection of sorted) {

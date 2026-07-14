@@ -40,7 +40,7 @@ test('runs installed Colab experimental layout and symbol artifacts without prom
   await page.context().setOffline(false);
 
   await runInstalledExperimentalModel(page, 'cuenote-symbol-deepscores-exp', 'cuenote-symbol-deepscores-exp');
-  await runInstalledExperimentalModel(page, 'cuenote-symbol-deepscores-exp-0.1.0-colab-tile', 'cuenote-symbol-deepscores-exp');
+  await runInstalledExperimentalModel(page, 'cuenote-symbol-deepscores-exp-0.1.0-colab-tile', 'cuenote-symbol-deepscores-exp', true);
   await page.context().setOffline(true);
   await page.getByTestId('omr-load-model').click();
   await expect.poll(async () => page.getByTestId('omr-cache-state').textContent(), { timeout: 30000 }).toBe('hit');
@@ -63,7 +63,7 @@ async function runModel(page: Page, modelId: string, resultPattern: RegExp, dete
   await expect(page.getByTestId('omr-detection-list')).toContainText(detectionPattern);
 }
 
-async function runInstalledExperimentalModel(page: Page, catalogId: string, resultModelId = catalogId) {
+async function runInstalledExperimentalModel(page: Page, catalogId: string, resultModelId = catalogId, requireOverlay = false) {
   await expect(page.getByTestId('omr-model-select').locator(`option[value="${catalogId}"]`)).toHaveCount(1);
   await page.getByTestId('omr-model-select').selectOption(catalogId);
   await expect(page.getByTestId('omr-model-kind')).toHaveText(catalogId);
@@ -74,6 +74,9 @@ async function runInstalledExperimentalModel(page: Page, catalogId: string, resu
   await page.getByTestId('omr-run-system').click();
   await expect(page.getByTestId('omr-runtime-result')).toContainText(/detections: \d+/, { timeout: 60000 });
   await expect(page.getByTestId('omr-result-list')).toContainText(resultModelId);
+  if (requireOverlay) {
+    await expect(page.getByTestId('omr-detection-box').first()).toBeVisible();
+  }
   await expect(page.getByTestId('omr-draft-deferred')).not.toBeVisible();
 }
 

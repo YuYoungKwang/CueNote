@@ -1,11 +1,12 @@
 /// <reference lib="webworker" />
 
-import type { OmrModelManifest } from '@cuenote/score-domain';
+import type { OmrDetection, OmrInferenceWarning, OmrModelManifest } from '@cuenote/score-domain';
 import { fetchOmrModelManifest } from '../core/omr/modelManifest';
 import { createOmrModelRepository, type OmrModelCacheMetadata } from '../core/omr/modelRepository';
-import { createOnnxRuntimeAdapter, type LoadedOmrModel } from '../core/omr/onnxRuntimeAdapter';
-import { createOmrDetectionResult } from '../core/omr/postprocessing';
+import { createOnnxRuntimeAdapter, type LoadedOmrModel, type RawOmrOutput } from '../core/omr/onnxRuntimeAdapter';
+import { createOmrDetectionResult, createOmrDetectionResultFromDetections, decodeOmrDetections } from '../core/omr/postprocessing';
 import { buildOmrTensorFromImageData } from '../core/omr/tensorBuilder';
+import { createImageTiles, mergeTileDetections, resolveTilePolicy, stitchTileDetections } from '../core/omr/tileInference';
 import type { OmrWorkerRequest, OmrWorkerResponse } from '../core/omr/workerProtocol';
 
 const scope = self as DedicatedWorkerGlobalScope;
@@ -100,6 +101,11 @@ async function analyzeSystem(request: Extract<OmrWorkerRequest, { type: 'ANALYZE
     throw new Error('MODEL_SESSION_FAILED');
   }
   post({ type: 'JOB_STARTED', jobId: request.jobId, progress: 0.05 });
+  const tilePolicy = resolveTilePolicy(loadedManifest);
+  if (tilePolicy) {
+    await analyzeSystemWithTiles(request, tilePolicy);
+    return;
+  }
   const tensor = buildOmrTensorFromImageData(request.imageData, loadedManifest.input);
   post({ type: 'JOB_PROGRESS', jobId: request.jobId, progress: 0.45 });
   if (isCancelled(request.jobId)) return;
@@ -120,6 +126,60 @@ async function analyzeSystem(request: Extract<OmrWorkerRequest, { type: 'ANALYZE
     sourceUrl: loadedManifestUrl ?? loadedManifest.file,
     status: 'VERIFIED'
   };
+  post({ type: 'JOB_COMPLETED', jobId: request.jobId, result, runtimeOutputNames: loadedModel.outputNames });
+}
+
+async function analyzeSystemWithTiles(request: Extract<OmrWorkerRequest, { type: 'ANALYZE_SYSTEM' }>, tilePolicy: NonNullable<ReturnType<typeof resolveTilePolicy>>) {
+  if (!loadedModel || !loadedManifest) {
+    throw new Error('MODEL_SESSION_FAILED');
+  }
+  const tiles = createImageTiles(request.imageData, tilePolicy);
+  const stitchedDetections: OmrDetection[] = [];
+  const warnings: OmrInferenceWarning[] = [];
+  let inferenceTimeMs = 0;
+  let lastRaw: RawOmrOutput | null = null;
+
+  for (const tile of tiles) {
+    if (isCancelled(request.jobId)) return;
+    const tensor = buildOmrTensorFromImageData(tile.imageData, loadedManifest.input);
+    const raw = await runtime.run(loadedModel, tensor);
+    lastRaw = raw;
+    inferenceTimeMs += raw.inferenceTimeMs;
+    const tileWarnings: OmrInferenceWarning[] = [];
+    const tileDetections = decodeOmrDetections(request.input, loadedManifest, raw, tensor, tileWarnings);
+    warnings.push(...tileWarnings);
+    stitchedDetections.push(...stitchTileDetections(tileDetections, tile, request.input.crop.pageBounds, loadedManifest.postprocessing.nmsThreshold));
+    post({ type: 'JOB_PROGRESS', jobId: request.jobId, progress: 0.1 + 0.75 * ((tile.index + 1) / tiles.length) });
+  }
+
+  const merged = mergeTileDetections(stitchedDetections, loadedManifest.postprocessing.nmsThreshold).slice(0, 300);
+  warnings.push({
+    code: 'TILE_INFERENCE_ORCHESTRATED',
+    message: `Symbol tile inference ran ${tiles.length} tile(s) with ${Math.round(tilePolicy.overlap * 100)}% overlap and NMS stitching.`,
+    severity: 'info',
+    systemId: request.input.systemId
+  });
+  const raw = lastRaw ?? { provider: loadedModel.provider, outputs: {}, inferenceTimeMs };
+  const result = createOmrDetectionResultFromDetections(
+    request.input.projectId,
+    request.input,
+    loadedManifest,
+    { ...raw, inferenceTimeMs },
+    merged,
+    warnings
+  );
+  loadedMetadata = loadedMetadata ?? {
+    id: `${loadedManifest.modelId}:${loadedManifest.version}`,
+    modelId: loadedManifest.modelId,
+    version: loadedManifest.version,
+    sha256: loadedManifest.sha256,
+    sizeBytes: loadedManifest.sizeBytes,
+    cachedAt: Date.now(),
+    verifiedAt: Date.now(),
+    sourceUrl: loadedManifestUrl ?? loadedManifest.file,
+    status: 'VERIFIED'
+  };
+  post({ type: 'JOB_PROGRESS', jobId: request.jobId, progress: 0.9 });
   post({ type: 'JOB_COMPLETED', jobId: request.jobId, result, runtimeOutputNames: loadedModel.outputNames });
 }
 

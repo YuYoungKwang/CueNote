@@ -17,6 +17,8 @@ const root = await resolveArtifactRoot(artifactPath);
 await validateArtifact(artifactPath);
 
 const manifest = await readJson(path.join(root, 'manifest.json'));
+const evaluation = await readJson(path.join(root, 'evaluation.json'));
+const config = await readJson(path.join(root, 'config.json'));
 const modelSource = path.join(root, manifest.file);
 const targetDir = path.join(webModelRoot, 'installed', manifest.modelId, manifest.version);
 await fs.mkdir(targetDir, { recursive: true });
@@ -24,6 +26,7 @@ const modelTarget = path.join(targetDir, manifest.file);
 await fs.copyFile(modelSource, modelTarget);
 const webManifest = {
   ...manifest,
+  ...(tileManifestMetadata(manifest, evaluation, config)),
   file: manifest.file,
   evaluationReport: 'evaluation.json'
 };
@@ -77,4 +80,20 @@ function catalogEntryId(catalog, manifest) {
     return manifest.modelId;
   }
   return `${manifest.modelId}-${manifest.version}`;
+}
+
+function tileManifestMetadata(manifest, evaluation, config) {
+  const isTileModel = config.trainingInput === 'TILE_CROP' || evaluation.mode === 'SYMBOL_TILE_TRAIN' || String(manifest.version).includes('tile');
+  if (!isTileModel) {
+    return {};
+  }
+  return {
+    tiling: {
+      enabled: true,
+      tileWidth: Number(evaluation.dataset?.cropSize ?? manifest.input?.width ?? config.inputSize),
+      tileHeight: Number(evaluation.dataset?.cropSize ?? manifest.input?.height ?? config.inputSize),
+      overlap: Number(evaluation.dataset?.overlap ?? config.smallObjectPolicy?.tileOverlap ?? 0.25),
+      duplicateMerge: 'NMS'
+    }
+  };
 }

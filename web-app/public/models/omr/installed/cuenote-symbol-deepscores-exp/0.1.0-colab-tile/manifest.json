@@ -178,5 +178,12 @@
   "taxonomyVersion": "cuenote-omr-taxonomy-v1",
   "evaluationReport": "evaluation.json",
   "minimumAppVersion": "0.9.0",
-  "createdAt": "2026-07-14T01:45:47.733440+00:00"
+  "createdAt": "2026-07-14T01:45:47.733440+00:00",
+  "tiling": {
+    "enabled": true,
+    "tileWidth": 768,
+    "tileHeight": 768,
+    "overlap": 0.25,
+    "duplicateMerge": "NMS"
+  }
 }

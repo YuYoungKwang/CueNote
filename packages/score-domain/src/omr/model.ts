@@ -73,6 +73,13 @@ export interface OmrModelManifest {
     autoAcceptThreshold?: number;
     lowConfidenceThreshold?: number;
   };
+  tiling?: {
+    enabled: boolean;
+    tileWidth: number;
+    tileHeight: number;
+    overlap: number;
+    duplicateMerge: 'NMS';
+  };
   datasetVersion?: string;
   taxonomyVersion?: string;
   evaluationReport?: string;
