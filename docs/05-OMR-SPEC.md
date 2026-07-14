@@ -565,3 +565,19 @@ Policy:
 - Record crop image count, crop label count, empty crop count, bad label count, train mAP50, max confidence, and prediction counts at confidence thresholds `0.001`, `0.01`, and `0.05`.
 
 If tile/crop overfit fails, full `SYMBOL_TRAIN` must not be repeated until the crop/data/training path is fixed.
+
+### Phase 9K Tile-Based Symbol Training
+
+`SYMBOL_TILE_TRAIN` is the recommended experimental training path for the symbol detector after tile overfit confirmed that full-page symbol detection is unsuitable.
+
+Policy:
+
+- Build `deepscoresv2-dense-symbol-tile` from `deepscoresv2-dense-symbol`.
+- Preserve source-group train/validation/test splits before generating tiles.
+- Generate crop-relative YOLO labels with the same clipping and small-box policy as `SYMBOL_TILE_OVERFIT`.
+- Default crop size is `768`, overlap is `0.25`, and empty crops are skipped.
+- Record dropped small boxes, dropped outside boxes, empty crops, crop image count, and label count.
+- Evaluate against tile validation/test splits and label reports as tile-based metrics.
+- Keep model status `EXPERIMENTAL`; do not promote to `CANDIDATE` or `PRODUCT`.
+
+The full-page `SYMBOL_TRAIN` path remains available only as a deprecated diagnostic baseline. Phase 8 runtime does not yet perform complete tile inference orchestration/stitching, so Phase 10 structure assembly, pitch/duration inference, and MusicXML generation remain `NOT READY`.

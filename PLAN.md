@@ -119,3 +119,13 @@ Decision: Add `SYMBOL_TILE_OVERFIT` as a diagnostic-only Colab run mode. It deri
 Impact: The diagnostic distinguishes "symbol training cannot learn at all" from "full-page scale is the problem." Existing full-page converted datasets and installed experimental model manifests remain untouched.
 
 Alternative: Repeat full `SYMBOL_TRAIN` with more epochs. Rejected until tile/crop overfit passes.
+
+## Phase 9K Tile-Based Symbol Training Pipeline
+
+Reason: `SYMBOL_TILE_OVERFIT` produced learnable confidence and non-zero train mAP while full-page `SYMBOL_OVERFIT` stayed near initialization confidence. The failure is therefore tied to full-page symbol scale/density, not the entire training pipeline.
+
+Decision: Add `SYMBOL_TILE_TRAIN` as the recommended experimental symbol detector training path. It builds `deepscoresv2-dense-symbol-tile` from the existing `deepscoresv2-dense-symbol` converted dataset, preserves source-group train/validation/test splits, recalculates crop-relative YOLO labels, skips empty crops by default, and trains with crop size/input size 768, overlap 0.25, batch size 4, 40 epochs, patience 5, pretrained weights, and plots disabled.
+
+Impact: Symbol artifacts from this path remain `EXPERIMENTAL`; evaluation reports are tile validation/test metrics. Existing full-page `SYMBOL_TRAIN` remains available only as deprecated diagnostic comparison. Existing Phase 8 runtime and installed experimental model manifests remain compatible, but Phase 8 does not yet orchestrate tile inference/stitching, so Phase 10 readiness remains `NOT READY`.
+
+Alternative: Continue full-page `SYMBOL_TRAIN` with more epochs. Rejected because full-page tiny-overfit failed while tile-overfit succeeded.

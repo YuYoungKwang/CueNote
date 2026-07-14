@@ -450,6 +450,136 @@ def train_symbol_tile_overfit(repo_root: Path, drive_root: Path, run_mode: str =
         raise
 
 
+def train_symbol_tile_train(repo_root: Path, drive_root: Path, run_mode: str = "SYMBOL_TILE_TRAIN") -> dict[str, Any]:
+    prepared = prepare_environment(repo_root, drive_root, run_mode)
+    colab_config = prepared["config"]
+    layout = prepared["layout"]
+    policy = colab_config["tileTrainPolicy"]
+    config_path = repo_root / "ai-training/configs/symbol/yolo_symbol_colab.json"
+    config = read_json(config_path)
+    source_converted = layout.converted / policy["sourceConvertedDataset"]
+    if not (source_converted / "dataset.yaml").exists():
+        prepared_dataset = prepare_dataset(
+            repo_root,
+            drive_root,
+            "SYMBOL_TRAIN",
+            converted_name=policy["sourceConvertedDataset"],
+            allowed_class_ids=config.get("classes", []),
+        )
+        source_converted = prepared_dataset["converted"]
+        layout = prepared_dataset["layout"]
+    tile_converted = layout.converted / policy["convertedDataset"]
+    tile_report = create_symbol_tile_dataset(
+        source_converted,
+        tile_converted,
+        label_overlay_dir=layout.reports / "symbol-tile-train-labels",
+        policy=policy,
+    )
+    tile_config = {
+        **config,
+        "modelVersion": f"{config['modelVersion']}-tile",
+        "status": "EXPERIMENTAL",
+        "trainingInput": "TILE_CROP",
+        "inputPolicy": "source_group_preserving_tile_crop",
+        "batchSize": int(policy["batchSize"]),
+        "inputSize": int(policy["inputSize"]),
+        "epochs": int(policy["epochs"]),
+        "earlyStoppingPatience": int(policy["earlyStoppingPatience"]),
+        "pretrained": bool(policy.get("pretrained", True)),
+        "plots": bool(policy.get("plots", False)),
+        "savePeriodEpochs": -1,
+        "checkpointIntervalEpochs": -1,
+        "keepRecentCheckpointCount": 1,
+    }
+    drive_space = ensure_min_free_space(
+        layout.root,
+        bytes_from_gb(colab_config.get("minimumFreeDriveGbBeforeTraining", 3)),
+        label="Google Drive",
+    )
+    write_json(layout.reports / "drive-space-before-training.json", drive_space)
+    run_dir = layout.runs / "symbol-tile"
+    try:
+        resume_enabled = bool(colab_config.get("checkpointPolicy", {}).get("resumeIfCompatible", False))
+        persisted_last_checkpoint = layout.checkpoints / "symbol-tile" / "last.pt" if resume_enabled else None
+        checkpoint_meta = train_yolo(
+            tile_converted / "dataset.yaml",
+            tile_config,
+            run_dir,
+            resume=resume_enabled,
+            resume_checkpoint=persisted_last_checkpoint,
+        )
+        checkpoint_meta = persist_checkpoints(checkpoint_meta, layout.checkpoints / "symbol-tile")
+        validation_evaluation = evaluate_yolo(
+            Path(checkpoint_meta["bestCheckpoint"]),
+            tile_converted / "dataset.yaml",
+            tile_config,
+            layout.reports,
+            split="val",
+            report_name=f"{tile_config['modelId']}-tile-validation-evaluation.json",
+        )
+        test_evaluation = evaluate_yolo(
+            Path(checkpoint_meta["bestCheckpoint"]),
+            tile_converted / "dataset.yaml",
+            tile_config,
+            layout.reports,
+            split="test",
+            report_name=f"{tile_config['modelId']}-tile-test-evaluation.json",
+        )
+        evaluation_report = {
+            "schemaVersion": 1,
+            "mode": "SYMBOL_TILE_TRAIN",
+            "status": "EXPERIMENTAL",
+            "modelId": tile_config["modelId"],
+            "modelVersion": tile_config["modelVersion"],
+            "task": tile_config["task"],
+            "datasetId": tile_report["datasetId"],
+            "evaluationBasis": "tile validation/test splits from source-group-preserving DeepScoresV2 dense symbol crops",
+            "dataset": tile_report,
+            "training": {
+                "batchSize": tile_config["batchSize"],
+                "inputSize": tile_config["inputSize"],
+                "epochs": tile_config["epochs"],
+                "earlyStoppingPatience": tile_config["earlyStoppingPatience"],
+                "pretrained": tile_config["pretrained"],
+                "plots": tile_config["plots"],
+            },
+            "validation": validation_evaluation,
+            "test": test_evaluation,
+            "promotionRecommendation": "EXPERIMENTAL",
+            "knownFailures": [
+                "Phase 8 runtime does not yet orchestrate tile inference/stitching for symbol detections.",
+                "Phase 10 structure assembly, pitch/duration inference, and MusicXML generation are not implemented.",
+                "Do not promote this artifact to CANDIDATE or PRODUCT without fixed-split metrics and browser tile inference validation.",
+            ],
+        }
+        evaluation_path = layout.reports / f"{tile_config['modelId']}-tile-evaluation.json"
+        write_json(evaluation_path, evaluation_report)
+        update_run_state(layout.run_state, symbolTileTrainingStatus="PASS", symbolTileEvaluationStatus="PASS")
+        onnx_path = export_yolo_onnx(Path(checkpoint_meta["bestCheckpoint"]), tile_config, layout.onnx)
+        onnx_validation = validate_onnx_file(onnx_path)
+        write_json(layout.reports / "symbol-tile-onnx-validation.json", onnx_validation)
+        manifest_path = layout.artifacts / "symbol-tile" / "manifest.json"
+        actual_classes = tile_report.get("classIds") or tile_config.get("classes", [])
+        manifest = write_model_manifest(onnx_path, tile_config, actual_classes, evaluation_path, manifest_path)
+        zip_path = layout.artifacts / f"{tile_config['modelId']}-{tile_config['modelVersion']}-{manifest['status'].lower()}.zip"
+        tile_config_path = layout.artifacts / "symbol-tile" / "config.json"
+        write_json(tile_config_path, tile_config)
+        package_artifact(
+            output_zip=zip_path,
+            manifest_path=manifest_path,
+            evaluation_path=evaluation_path,
+            taxonomy_path=repo_root / "ai-training/taxonomy/classes.json",
+            config_path=tile_config_path,
+            onnx_path=onnx_path,
+        )
+        update_run_state(layout.run_state, symbolTileOnnxStatus="PASS")
+        cleanup_scratch(layout)
+        return {"checkpoint": checkpoint_meta, "evaluation": evaluation_report, "manifest": manifest, "artifact": str(zip_path)}
+    except Exception as error:
+        mark_error(layout.run_state, "symbol-tile-train", error)
+        raise
+
+
 def install_repo_if_needed(repo_url: str, target_dir: Path) -> Path:
     if target_dir.exists() and (target_dir / ".git").exists():
         os.system(f"git -C {target_dir} pull --ff-only")
@@ -647,6 +777,162 @@ def create_symbol_tile_overfit_dataset(source_dir: Path, target_dir: Path, *, la
         raise RuntimeError(f"SYMBOL_TILE_OVERFIT produced bad labels: {report['badLabelCount']}")
     write_json(target_dir / "tile-overfit-dataset-report.json", report)
     return report
+
+
+def create_symbol_tile_dataset(source_dir: Path, target_dir: Path, *, label_overlay_dir: Path, policy: dict[str, Any]) -> dict[str, Any]:
+    shutil.rmtree(target_dir, ignore_errors=True)
+    shutil.rmtree(label_overlay_dir, ignore_errors=True)
+    label_overlay_dir.mkdir(parents=True, exist_ok=True)
+    class_ids = parse_yolo_names(source_dir / "dataset.yaml")
+    crop_size = int(policy["cropSize"])
+    allowed_crop_sizes = set(int(value) for value in policy.get("allowedCropSizes", [512, 768, 1024]))
+    if crop_size not in allowed_crop_sizes:
+        raise RuntimeError(f"Unsupported crop size {crop_size}. Allowed values: {sorted(allowed_crop_sizes)}")
+    overlap = float(policy.get("overlap", 0.25))
+    if overlap < 0.2 or overlap > 0.3:
+        raise RuntimeError("SYMBOL_TILE_TRAIN overlap must be between 0.2 and 0.3")
+    min_box_pixels = float(policy.get("minBoxPixels", 2))
+    keep_empty_crops = bool(policy.get("keepEmptyCrops", False))
+    split_reports: dict[str, dict[str, Any]] = {}
+    totals = {
+        "sourceImageCount": 0,
+        "cropImageCount": 0,
+        "emptyCropCount": 0,
+        "droppedSmallBoxCount": 0,
+        "droppedOutsideBoxCount": 0,
+        "labelCount": 0,
+        "badLabelCount": 0,
+    }
+
+    for split in ["train", "validation", "test"]:
+        report = create_symbol_tiles_for_split(
+            source_dir,
+            target_dir,
+            label_overlay_dir,
+            split=split,
+            class_ids=class_ids,
+            crop_size=crop_size,
+            overlap=overlap,
+            min_box_pixels=min_box_pixels,
+            keep_empty_crops=keep_empty_crops,
+        )
+        split_reports[split] = report
+        for key in totals:
+            totals[key] += int(report.get(key, 0))
+        if report["cropImageCount"] == 0:
+            raise RuntimeError(f"SYMBOL_TILE_TRAIN produced no crops for {split}; cannot train/evaluate without that split.")
+
+    dataset_yaml = target_dir / "dataset.yaml"
+    dataset_yaml.write_text(
+        f'path: "{target_dir.resolve().as_posix()}"\n'
+        "train: train/images\n"
+        "val: validation/images\n"
+        "test: test/images\n"
+        "names:\n"
+        + "\n".join(f"  {index}: {name}" for index, name in enumerate(class_ids))
+        + "\n",
+        encoding="utf-8",
+    )
+    report = {
+        "schemaVersion": 1,
+        "datasetId": policy.get("datasetId", "deepscoresv2-dense-symbol-tile"),
+        "sourceDataset": str(source_dir),
+        "converted": str(target_dir),
+        "cropSize": crop_size,
+        "overlap": overlap,
+        "sourceGroupSplitPreserved": True,
+        "leakagePolicy": "Tiles are generated independently inside each existing source-group split; no crop is copied across train/validation/test.",
+        "splits": split_reports,
+        **totals,
+        "classCount": len(class_ids),
+        "classIds": class_ids,
+        "labelOverlayDir": str(label_overlay_dir),
+        "emptyCropPolicy": "skipped" if not keep_empty_crops else "kept",
+        "bboxPolicy": {
+            "included": "Boxes intersecting a crop are clipped and converted to crop-relative YOLO xywh.",
+            "tooSmall": f"Boxes smaller than {min_box_pixels} px after clipping are dropped.",
+            "outside": "Boxes with no crop intersection are dropped.",
+            "coordinateValidation": "All output YOLO coordinates must stay within 0..1.",
+        },
+    }
+    if report["badLabelCount"] != 0:
+        raise RuntimeError(f"SYMBOL_TILE_TRAIN produced bad labels: {report['badLabelCount']}")
+    write_json(target_dir / "tile-dataset-report.json", report)
+    return report
+
+
+def create_symbol_tiles_for_split(
+    source_dir: Path,
+    target_dir: Path,
+    label_overlay_dir: Path,
+    *,
+    split: str,
+    class_ids: list[str],
+    crop_size: int,
+    overlap: float,
+    min_box_pixels: float,
+    keep_empty_crops: bool,
+) -> dict[str, Any]:
+    from PIL import Image, ImageDraw
+
+    source_image_dir = source_dir / split / "images"
+    source_label_dir = source_dir / split / "labels"
+    target_image_dir = target_dir / split / "images"
+    target_label_dir = target_dir / split / "labels"
+    target_image_dir.mkdir(parents=True, exist_ok=True)
+    target_label_dir.mkdir(parents=True, exist_ok=True)
+    source_images = sorted(path for path in source_image_dir.iterdir() if path.is_file())
+    source_image_count = 0
+    crop_image_count = 0
+    empty_crop_count = 0
+    dropped_small_boxes = 0
+    dropped_outside_boxes = 0
+    source_bad_label_count = 0
+
+    for image_path in source_images:
+        label_path = source_label_dir / f"{image_path.stem}.txt"
+        if not label_path.exists():
+            continue
+        source_image_count += 1
+        with Image.open(image_path) as image:
+            image = image.convert("RGB")
+            width, height = image.size
+            labels = read_yolo_labels(label_path, width, height, len(class_ids))
+            source_bad_label_count += sum(1 for label in labels if label.get("bad"))
+            valid_labels = [label for label in labels if not label.get("bad")]
+            for tile in generate_tiles(width, height, crop_size, overlap):
+                crop_labels = []
+                for label in valid_labels:
+                    converted = label_to_crop(label, tile, crop_size, min_box_pixels)
+                    if converted["status"] == "outside":
+                        dropped_outside_boxes += 1
+                        continue
+                    if converted["status"] == "too_small":
+                        dropped_small_boxes += 1
+                        continue
+                    crop_labels.append(converted["line"])
+                if not crop_labels and not keep_empty_crops:
+                    empty_crop_count += 1
+                    continue
+                crop_name = f"{image_path.stem}-x{tile['x']}-y{tile['y']}.png"
+                crop = image.crop((tile["x"], tile["y"], tile["x"] + crop_size, tile["y"] + crop_size))
+                image_target = target_image_dir / crop_name
+                label_target = target_label_dir / f"{Path(crop_name).stem}.txt"
+                crop.save(image_target)
+                label_target.write_text("\n".join(crop_labels) + ("\n" if crop_labels else ""), encoding="utf-8")
+                save_label_overlay(crop, crop_labels, class_ids, label_overlay_dir / split / crop_name, ImageDraw)
+                crop_image_count += 1
+
+    label_stats = count_yolo_labels(list(target_label_dir.glob("*.txt")), len(class_ids))
+    return {
+        "sourceImageCount": source_image_count,
+        "cropImageCount": crop_image_count,
+        "emptyCropCount": empty_crop_count,
+        "droppedSmallBoxCount": dropped_small_boxes,
+        "droppedOutsideBoxCount": dropped_outside_boxes,
+        "labelCount": label_stats["labelCount"],
+        "badLabelCount": label_stats["badLabelCount"] + source_bad_label_count,
+    }
 
 
 def parse_yolo_names(dataset_yaml: Path) -> list[str]:

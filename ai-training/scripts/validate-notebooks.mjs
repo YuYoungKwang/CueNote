@@ -11,6 +11,7 @@ const requiredPhrases = [
   'CUENOTE_RUN_MODE',
   'SYMBOL_OVERFIT',
   'SYMBOL_TILE_OVERFIT',
+  'SYMBOL_TILE_TRAIN',
   'Runtime',
   'GPU',
   'phase9_colab_entry.py',

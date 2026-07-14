@@ -448,3 +448,21 @@ Status before user-run Colab:
 - PASS required: failing tile/crop overfit report recommends not repeating full `SYMBOL_TRAIN`.
 - PASS required: diagnostic artifacts remain `EXPERIMENTAL` and are not promoted to `CANDIDATE` or `PRODUCT`.
 - PASS required: Phase 10 structure assembly and MusicXML generation remain out of scope.
+
+## Phase 9K Tile-Based Symbol Training Criteria
+
+- PASS required: Colab run modes include `SYMBOL_TILE_TRAIN`.
+- PASS required: `SYMBOL_TILE_TRAIN` creates `deepscoresv2-dense-symbol-tile` from the existing `deepscoresv2-dense-symbol` converted dataset.
+- PASS required: tile generation preserves the source-group train/validation/test split and does not copy crops across splits.
+- PASS required: default crop size is `768`, overlap is `0.25`, and empty crops are skipped.
+- PASS required: crop-relative YOLO labels are recalculated with the same clipping/small-box policy as `SYMBOL_TILE_OVERFIT`.
+- PASS required: tile dataset reports include `droppedSmallBoxCount`, `droppedOutsideBoxCount`, `emptyCropCount`, `cropImageCount`, and `labelCount`.
+- PASS required: generated tile labels are validated within `0..1`.
+- PASS required: YOLO `dataset.yaml` points at the tile dataset path.
+- PASS required: training defaults are batch size `4`, image size `768`, epochs `40`, patience `5`, pretrained weights enabled, and plots disabled.
+- PASS required: evaluation reports state that metrics are tile validation/test metrics.
+- PASS required: ONNX export and artifact packaging reuse the existing symbol artifact flow.
+- PASS required: artifacts remain `EXPERIMENTAL` and are not promoted to `CANDIDATE` or `PRODUCT`.
+- PASS required: full-page `SYMBOL_TRAIN` remains available only as deprecated diagnostic-only baseline.
+- PASS required: Phase 8 runtime tile inference orchestration is not marked complete and Phase 10 readiness remains `NOT READY`.
+- PASS required: Phase 10 structure assembly, pitch/duration inference, and MusicXML generation remain out of scope.

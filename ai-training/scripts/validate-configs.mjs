@@ -9,6 +9,7 @@ await mustRead('configs/colab/phase9_colab.json', (config) => {
   check(config.defaultRunMode === 'SMOKE', 'colab_default_mode', 'Colab default run mode must be SMOKE.');
   check(config.runModes?.includes('SYMBOL_OVERFIT'), 'symbol_overfit_mode', 'Colab run modes must include SYMBOL_OVERFIT.');
   check(config.runModes?.includes('SYMBOL_TILE_OVERFIT'), 'symbol_tile_overfit_mode', 'Colab run modes must include SYMBOL_TILE_OVERFIT.');
+  check(config.runModes?.includes('SYMBOL_TILE_TRAIN'), 'symbol_tile_train_mode', 'Colab run modes must include SYMBOL_TILE_TRAIN.');
   check(config.defaultDriveRoot.includes('/content/drive'), 'drive_root', 'Default Drive root must be under /content/drive.');
   check(config.assumedDriveCapacityGb === 14, 'drive_capacity', 'Colab policy must assume 14GB Google Drive capacity.');
   check(config.minimumFreeDriveGbBeforeTraining >= 3, 'drive_free_space', 'Training must require at least 3GB free Drive space.');
@@ -28,6 +29,15 @@ await mustRead('configs/colab/phase9_colab.json', (config) => {
   check([2, 4].includes(config.tileOverfitPolicy?.batchSize), 'tile_batch', 'SYMBOL_TILE_OVERFIT batch size must be 2 or 4.');
   check(config.tileOverfitPolicy?.epochs >= 100, 'tile_epochs', 'SYMBOL_TILE_OVERFIT must run at least 100 epochs.');
   check(config.tileOverfitPolicy?.earlyStoppingPatience === 0, 'tile_patience', 'SYMBOL_TILE_OVERFIT must disable early stopping with patience 0.');
+  check(config.tileTrainPolicy?.convertedDataset === 'deepscoresv2-dense-symbol-tile', 'tile_train_dataset', 'SYMBOL_TILE_TRAIN must write deepscoresv2-dense-symbol-tile.');
+  check([512, 768, 1024].includes(config.tileTrainPolicy?.cropSize), 'tile_train_crop_size', 'SYMBOL_TILE_TRAIN crop size must be 512, 768, or 1024.');
+  check(config.tileTrainPolicy?.overlap >= 0.2 && config.tileTrainPolicy?.overlap <= 0.3, 'tile_train_overlap', 'SYMBOL_TILE_TRAIN overlap must be between 20% and 30%.');
+  check(config.tileTrainPolicy?.keepEmptyCrops === false, 'tile_train_empty_policy', 'SYMBOL_TILE_TRAIN must skip empty crops by default.');
+  check(config.tileTrainPolicy?.batchSize === 4, 'tile_train_batch', 'SYMBOL_TILE_TRAIN default batch size must be 4.');
+  check(config.tileTrainPolicy?.inputSize === config.tileTrainPolicy?.cropSize, 'tile_train_input_size', 'SYMBOL_TILE_TRAIN input size must match crop size by default.');
+  check(config.tileTrainPolicy?.epochs === 40, 'tile_train_epochs', 'SYMBOL_TILE_TRAIN default epochs must be 40.');
+  check(config.tileTrainPolicy?.earlyStoppingPatience === 5, 'tile_train_patience', 'SYMBOL_TILE_TRAIN default patience must be 5.');
+  check(config.tileTrainPolicy?.pretrained === true, 'tile_train_pretrained', 'SYMBOL_TILE_TRAIN must use pretrained weights by default.');
 });
 
 for (const file of ['configs/layout/yolo_layout_colab.json', 'configs/symbol/yolo_symbol_colab.json']) {

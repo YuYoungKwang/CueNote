@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "runModes": ["SMOKE", "LAYOUT_TRAIN", "SYMBOL_TRAIN", "SYMBOL_OVERFIT", "SYMBOL_TILE_OVERFIT", "FULL_PIPELINE"],
+  "runModes": ["SMOKE", "LAYOUT_TRAIN", "SYMBOL_TRAIN", "SYMBOL_OVERFIT", "SYMBOL_TILE_OVERFIT", "SYMBOL_TILE_TRAIN", "FULL_PIPELINE"],
   "defaultRunMode": "SMOKE",
   "driveRootEnv": "CUENOTE_DRIVE_ROOT",
   "defaultDriveRoot": "/content/drive/MyDrive/CueNote",
@@ -77,6 +77,22 @@
     "maxConfidenceProbeThreshold": 0.00001,
     "minPassingTrainMap50": 0.5,
     "minPassingMaxConfidence": 0.05
+  },
+  "tileTrainPolicy": {
+    "sourceConvertedDataset": "deepscoresv2-dense-symbol",
+    "convertedDataset": "deepscoresv2-dense-symbol-tile",
+    "datasetId": "deepscoresv2-dense-symbol-tile",
+    "cropSize": 768,
+    "allowedCropSizes": [512, 768, 1024],
+    "overlap": 0.25,
+    "minBoxPixels": 2,
+    "keepEmptyCrops": false,
+    "batchSize": 4,
+    "inputSize": 768,
+    "epochs": 40,
+    "earlyStoppingPatience": 5,
+    "pretrained": true,
+    "plots": false
   },
   "statusFile": "run-state.json",
   "artifactZipNamePattern": "cuenote-{modelId}-{version}-{status}.zip"

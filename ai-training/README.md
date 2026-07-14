@@ -223,6 +223,30 @@ It writes:
 
 If the report says `DO_NOT_REPEAT_FULL_SYMBOL_TRAIN_UNTIL_TILE_OVERFIT_PASSES`, do not repeat full `SYMBOL_TRAIN`. The next fix should target crop generation, labels, model IO, or training hyperparameters.
 
+## Phase 9K Tile-Based Symbol Training
+
+`SYMBOL_TILE_TRAIN` is now the recommended experimental symbol detector training path.
+
+The previous full-page `SYMBOL_TRAIN` path remains available only as a deprecated diagnostic baseline. Do not use it as the primary symbol training path unless a later investigation explicitly needs full-page comparison metrics.
+
+`SYMBOL_TILE_TRAIN` uses the existing `deepscoresv2-dense-symbol` converted dataset, preserves the source-group train/validation/test split, and generates `deepscoresv2-dense-symbol-tile` with crop-relative YOLO labels.
+
+Default settings:
+
+- crop size: `768`
+- overlap: `0.25`
+- empty crops: skipped
+- batch size: `4`
+- image size: `768`
+- epochs: `40`
+- early stopping patience: `5`
+- pretrained weights: enabled
+- plots: disabled
+
+The tile report records `droppedSmallBoxCount`, `droppedOutsideBoxCount`, `emptyCropCount`, `cropImageCount`, and `labelCount` for each split and in total. Evaluation reports are tile validation/test metrics, not full-page page-level OMR accuracy.
+
+Artifacts remain `EXPERIMENTAL`. Do not promote tile-trained symbol artifacts to `CANDIDATE` or `PRODUCT`. Phase 8 browser runtime does not yet include complete tile inference orchestration/stitching, so Phase 10 readiness remains `NOT READY`.
+
 ## Colab Artifacts
 
 Expected artifact zip contents:

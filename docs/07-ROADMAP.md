@@ -399,6 +399,7 @@ Phase 9 implementation status:
 - Product layout and symbol candidates are not ready because no licensed real scan/photo corpus, GPU training run, or fixed product-quality test split exists in the current environment.
 - Phase 8 runtime can execute the experimental layout/symbol ONNX files and display detections, but Phase 10 structure assembly remains deferred.
 - Phase 9E-H prepares Google Colab notebooks, DeepScoresV2 dense source registry, class mapping, checkpoint/resume, YOLO training configs, artifact packaging, artifact validation, and model installation scripts.
+- Phase 9K makes `SYMBOL_TILE_TRAIN` the recommended experimental symbol detector path; full-page `SYMBOL_TRAIN` remains deprecated/diagnostic-only and Phase 10 readiness remains `NOT READY` until browser tile inference orchestration and structure assembly are implemented.
 - Actual Colab GPU training, actual checkpoints, actual trained ONNX, ONNX parity, candidate browser inference, and product accuracy remain waiting for user-run Colab execution.
 
 ### Phase 10 — OMR Structure And MusicXML Draft
