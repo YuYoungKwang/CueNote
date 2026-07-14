@@ -17,12 +17,12 @@ test('imports a synthetic score image, reviews layout regions, and restores revi
   await page.waitForURL(/\/imports\/.+\/review/);
   const reviewUrl = page.url();
 
-  await expect(page.getByTestId('import-review-status')).toContainText(/Review layout|Correction|ready/i);
+  await expect(page.getByTestId('import-review-status')).toContainText(/레이아웃|수정|검수/);
   await expect(page.getByTestId('import-region-overlay')).toBeVisible();
   await expect(page.getByTestId('import-region-system').first()).toBeVisible();
   await expect(page.getByTestId('import-region-staff').first()).toBeVisible();
   await expect(page.getByTestId('import-region-measure').first()).toBeVisible();
-  await expect(page.getByTestId('omr-preparation-manifest-summary')).toContainText(/pages/);
+  await expect(page.getByTestId('omr-preparation-manifest-summary')).toContainText(/쪽/);
 
   const initialMeasureCount = await page.getByTestId('import-region-measure').count();
   await page.getByTestId('add-measure-region').click();
@@ -33,7 +33,7 @@ test('imports a synthetic score image, reviews layout regions, and restores revi
   await expect.poll(() => page.getByTestId('import-region-measure').count()).toBeGreaterThan(initialMeasureCount + 1);
 
   await page.getByTestId('merge-regions').click();
-  await expect(page.getByTestId('import-review-status')).toContainText(/Correction|Review/i);
+  await expect(page.getByTestId('import-review-status')).toContainText(/수정|검수/);
 
   await page.getByRole('button', { name: '+' }).click();
   await expect(page.getByTestId('import-zoom')).toHaveText('1.1x');
@@ -41,7 +41,7 @@ test('imports a synthetic score image, reviews layout regions, and restores revi
   await expect(page.getByTestId('import-zoom')).toHaveText('1.1x');
 
   await page.getByTestId('complete-import-review').click();
-  await expect(page.getByTestId('import-review-status')).toContainText(/Review complete|ready for Phase 8/i);
+  await expect(page.getByTestId('import-review-status')).toContainText(/검수가 완료/);
 
   await page.goto('/imports');
   await expect(page.getByTestId('import-project-list')).toContainText('synthetic-staff');
@@ -65,7 +65,7 @@ test('imports a generated PDF through the PDF.js adapter without server APIs', a
 
   await expect(page.getByTestId('import-region-overlay')).toBeVisible();
   await expect(page.getByTestId('import-warning-list')).toBeVisible();
-  await expect(page.getByTestId('omr-preparation-manifest-summary')).toContainText('1 pages');
+  await expect(page.getByTestId('omr-preparation-manifest-summary')).toContainText('1쪽');
   expect(consoleErrors).toEqual([]);
   expect(pageErrors).toEqual([]);
 });

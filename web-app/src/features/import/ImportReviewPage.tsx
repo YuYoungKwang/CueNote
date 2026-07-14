@@ -20,7 +20,7 @@ export function ImportReviewPage() {
   const [selectedRegionId, setSelectedRegionId] = useState<string | null>(null);
   const [mode, setMode] = useState<ImportInteractionMode>('SELECT');
   const [zoom, setZoom] = useState(1);
-  const [status, setStatus] = useState('Loading import project.');
+  const [status, setStatus] = useState('가져오기 프로젝트를 불러오는 중입니다.');
   const overlayRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<{ pointerId: number; startX: number; startY: number; region: ImportRegion } | null>(null);
 
@@ -35,9 +35,9 @@ export function ImportReviewPage() {
     setStatus(
       next
         ? next.project.status === 'REVIEW_COMPLETE'
-          ? 'Review complete. OMR preparation manifest is ready for Phase 8.'
-          : 'Review layout regions and save corrections.'
-        : 'Import project was not found.'
+          ? '검수가 완료되었습니다. OMR 준비 manifest를 사용할 수 있습니다.'
+          : '레이아웃 영역을 검수하고 수정 내용을 저장하세요.'
+        : '가져오기 프로젝트를 찾을 수 없습니다.'
     );
   };
 
@@ -65,7 +65,7 @@ export function ImportReviewPage() {
     };
     await repository.saveCorrection(correction);
     await repository.saveProject({ ...bundle.project, status: 'NEEDS_REVIEW', updatedAt: Date.now() });
-    setStatus('Correction saved locally.');
+    setStatus('수정 내용을 로컬에 저장했습니다.');
     await refresh();
   };
 
@@ -128,7 +128,7 @@ export function ImportReviewPage() {
     }
     await repository.clearCorrections(currentPage.id);
     setSelectedRegionId(null);
-    setStatus('Page corrections reset to the detector snapshot.');
+    setStatus('이 페이지의 수정 내용을 감지 결과 초기 상태로 되돌렸습니다.');
     await refresh();
   };
 
@@ -142,14 +142,14 @@ export function ImportReviewPage() {
       return validateImportRegions(page, applyImportCorrections(snapshot, corrections));
     });
     if (allIssues.some((issue) => issue.blocking)) {
-      setStatus('Review is incomplete. Resolve blocking validation issues first.');
+      setStatus('검수가 완료되지 않았습니다. 먼저 차단 수준의 검증 문제를 해결하세요.');
       return;
     }
 
     const completedAt = Date.now();
     await Promise.all(bundle.pages.map((page) => repository.savePage({ ...page, status: 'REVIEW_COMPLETE', updatedAt: completedAt })));
     await repository.saveProject({ ...bundle.project, status: 'REVIEW_COMPLETE', completedAt, updatedAt: completedAt });
-    setStatus('Review complete. OMR preparation manifest is ready for Phase 8.');
+    setStatus('검수가 완료되었습니다. OMR 준비 manifest를 사용할 수 있습니다.');
     await refresh();
   };
 
@@ -182,10 +182,10 @@ export function ImportReviewPage() {
     return (
       <main className="state-panel">
         <section className="panel">
-          <h2>Import review</h2>
+          <h2>가져오기 검수</h2>
           <p data-testid="import-review-status">{status}</p>
           <Link to="/imports" className="secondary-link">
-            Back to imports
+            가져오기 목록으로
           </Link>
         </section>
       </main>
@@ -197,58 +197,58 @@ export function ImportReviewPage() {
       <section className="panel import-review-main">
         <div className="panel-heading">
           <div>
-            <p className="eyebrow">Layout review</p>
+            <p className="eyebrow">레이아웃 검수</p>
             <h2>{bundle.project.title}</h2>
             <p className="muted" data-testid="import-review-status">
               {status}
             </p>
           </div>
           <Link className="secondary-link" to="/imports">
-            Imports
+            가져오기 목록
           </Link>
           <Link className="primary-link" to={`/imports/${bundle.project.id}/omr`} data-testid="open-omr-runtime">
-            OMR runtime
+            OMR 실행
           </Link>
         </div>
 
         <div className="import-toolbar">
           <label className="field">
-            <span>Mode</span>
+            <span>모드</span>
             <select value={mode} onChange={(event) => setMode(event.target.value as ImportInteractionMode)} data-testid="import-mode">
-              <option value="PAN">Pan</option>
-              <option value="SELECT">Select</option>
-              <option value="ADD_SYSTEM">Add system</option>
-              <option value="ADD_STAFF">Add staff</option>
-              <option value="ADD_MEASURE">Add measure</option>
-              <option value="SPLIT">Split</option>
-              <option value="MERGE">Merge</option>
-              <option value="DELETE">Delete</option>
+              <option value="PAN">이동</option>
+              <option value="SELECT">선택</option>
+              <option value="ADD_SYSTEM">시스템 추가</option>
+              <option value="ADD_STAFF">보표 추가</option>
+              <option value="ADD_MEASURE">마디 추가</option>
+              <option value="SPLIT">나누기</option>
+              <option value="MERGE">합치기</option>
+              <option value="DELETE">삭제</option>
             </select>
           </label>
           <div className="playback-button-row">
             <button type="button" className="control-button" onClick={() => addRegion('SYSTEM')} data-testid="add-system-region">
-              Add system
+              시스템 추가
             </button>
             <button type="button" className="control-button" onClick={() => addRegion('STAFF')} data-testid="add-staff-region">
-              Add staff
+              보표 추가
             </button>
             <button type="button" className="control-button" onClick={() => addRegion('MEASURE')} data-testid="add-measure-region">
-              Add measure
+              마디 추가
             </button>
             <button type="button" className="control-button" onClick={splitSelected} disabled={!selectedRegion} data-testid="split-region">
-              Split
+              나누기
             </button>
             <button type="button" className="control-button" onClick={mergeFirstTwoMeasures} data-testid="merge-regions">
-              Merge
+              합치기
             </button>
             <button type="button" className="control-button" onClick={reorderMeasures} data-testid="reorder-regions">
-              Reorder
+              순서 뒤집기
             </button>
             <button type="button" className="control-button" onClick={deleteSelected} disabled={!selectedRegionId} data-testid="delete-region">
-              Delete
+              삭제
             </button>
             <button type="button" className="control-button" onClick={() => void resetPage()} data-testid="reset-regions">
-              Reset
+              초기화
             </button>
           </div>
           <div className="playback-button-row">
@@ -276,13 +276,13 @@ export function ImportReviewPage() {
               +
             </button>
             <button type="button" className="primary-link" onClick={() => void completeReview()} data-testid="complete-import-review">
-              Mark review complete
+              검수 완료
             </button>
           </div>
         </div>
 
         <div className="import-page-stage" style={{ transform: `scale(${zoom})`, transformOrigin: 'top left' }} data-testid="import-review-stage">
-          {currentPage.thumbnailDataUrl ? <img src={currentPage.thumbnailDataUrl} alt="" className="import-page-image" /> : <div className="import-page-placeholder">No thumbnail</div>}
+          {currentPage.thumbnailDataUrl ? <img src={currentPage.thumbnailDataUrl} alt="" className="import-page-image" /> : <div className="import-page-placeholder">미리보기가 없습니다</div>}
           <div
             className="import-region-overlay"
             ref={overlayRef}
@@ -349,7 +349,7 @@ export function ImportReviewPage() {
                   dragRef.current = { pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, region };
                 }}
               >
-                {region.type} {region.orderIndex + 1}
+                {regionTypeLabel(region.type)} {region.orderIndex + 1}
               </button>
             ))}
           </div>
@@ -358,7 +358,7 @@ export function ImportReviewPage() {
 
       <aside className="panel import-review-sidebar">
         <div>
-          <p className="eyebrow">Pages</p>
+          <p className="eyebrow">페이지</p>
           <div className="import-thumbnail-list">
             {bundle.pages.map((page) => (
               <button
@@ -371,20 +371,20 @@ export function ImportReviewPage() {
                 }}
               >
                 {page.thumbnailDataUrl ? <img src={page.thumbnailDataUrl} alt="" /> : null}
-                <span>Page {page.pageIndex + 1}</span>
+                <span>{page.pageIndex + 1}쪽</span>
               </button>
             ))}
           </div>
         </div>
 
         <div>
-          <p className="eyebrow">Regions</p>
+          <p className="eyebrow">영역</p>
           <ul className="measure-list" data-testid="import-region-list">
             {effectiveRegions.map((region) => (
               <li key={region.id}>
                 <button type="button" className={`measure-item ${region.id === selectedRegionId ? 'is-active' : ''}`} onClick={() => setSelectedRegionId(region.id)}>
                   <span className="measure-item__number">
-                    {region.type} {region.orderIndex + 1}
+                    {regionTypeLabel(region.type)} {region.orderIndex + 1}
                   </span>
                   <span className="measure-item__meta">{region.rect.x.toFixed(2)}, {region.rect.y.toFixed(2)}</span>
                 </button>
@@ -394,10 +394,10 @@ export function ImportReviewPage() {
         </div>
 
         <div>
-          <p className="eyebrow">Warnings</p>
+          <p className="eyebrow">경고</p>
           {validationIssues.length === 0 ? (
             <p className="muted" data-testid="import-warning-list">
-              No blocking layout issues.
+              차단 수준의 레이아웃 문제가 없습니다.
             </p>
           ) : (
             <ul className="warning-list" data-testid="import-warning-list">
@@ -412,9 +412,9 @@ export function ImportReviewPage() {
         </div>
 
         <div>
-          <p className="eyebrow">Manifest</p>
+          <p className="eyebrow">준비 manifest</p>
           <p className="muted" data-testid="omr-preparation-manifest-summary">
-            {manifestPreview ? `${manifestPreview.pages.length} pages, ${manifestPreview.pages.reduce((sum, page) => sum + page.effectiveRegions.length, 0)} regions` : 'Not ready'}
+            {manifestPreview ? `${manifestPreview.pages.length}쪽, 영역 ${manifestPreview.pages.reduce((sum, page) => sum + page.effectiveRegions.length, 0)}개` : '아직 준비되지 않음'}
           </p>
         </div>
       </aside>
@@ -430,4 +430,17 @@ function regionStyle(region: ImportRegion): CSSProperties {
     width: `${pixel.width}%`,
     height: `${pixel.height}%`
   };
+}
+
+function regionTypeLabel(type: ImportRegion['type']): string {
+  if (type === 'SYSTEM') {
+    return '시스템';
+  }
+  if (type === 'STAFF') {
+    return '보표';
+  }
+  if (type === 'MEASURE') {
+    return '마디';
+  }
+  return type;
 }

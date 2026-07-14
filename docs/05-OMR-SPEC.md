@@ -501,43 +501,43 @@ OMR runtime/review/evaluation 화면은 제품용 자동 변환 화면이 아니
 - 수동 평가 리포트는 fixture/run별 검출 수, 기호별 수, 평균 신뢰도, 삭제/수정/추가 수, 검수 메모, 알려진 실패 유형을 기록한다.
 - 이 화면은 pitch/duration 추론, 구조 조립, MusicXML 생성, ScoreVersion publish를 수행하지 않는다.
 
-### Phase 9P Page/System Crop Review
+### Phase 9P 페이지/시스템 영역 검수
 
-Phase 9P는 전체 페이지에서 symbol tile model 입력으로 사용할 system crop을 검토하는 흐름이다.
+Phase 9P는 전체 페이지에서 기호 타일 모델 입력으로 사용할 시스템 영역을 검수하는 흐름이다.
 
-- 전체 페이지 위에 system crop 후보를 표시한다.
-- 사용자는 crop box를 추가, 삭제, 이동, 리사이즈할 수 있다.
-- crop box는 fixture/page별로 IndexedDB에 저장하고 다시 복원한다.
-- crop box export/import JSON은 `CUENOTE_OMR_SYSTEM_CROP_REVIEW` kind를 사용한다.
-- 선택 영역 분석은 현재 선택한 crop 하나만 실행한다.
-- 전체 영역 분석은 저장된 모든 crop에 대해 기존 symbol tile inference를 순차 실행한다.
-- crop별 검출 수, 기호별 수, 평균 confidence를 화면에 표시한다.
-- crop box overlay와 symbol detection overlay는 따로 켜고 끌 수 있다.
+- 전체 페이지 위에 시스템 영역 후보를 표시한다.
+- 사용자는 영역 박스를 추가, 삭제, 이동, 크기 조절할 수 있다.
+- 영역 박스는 샘플/페이지별로 IndexedDB에 저장하고 다시 복원한다.
+- 영역 박스 내보내기/가져오기 JSON은 `CUENOTE_OMR_SYSTEM_CROP_REVIEW` kind를 사용한다.
+- 선택 영역 분석은 현재 선택한 영역 하나만 실행한다.
+- 전체 영역 분석은 저장된 모든 영역에 대해 기존 기호 타일 추론을 순차 실행한다.
+- 영역별 검출 수, 기호별 수, 평균 신뢰도를 화면에 표시한다.
+- 영역 박스 overlay와 기호 검출 overlay는 따로 켜고 끌 수 있다.
 - 이 단계에서도 pitch/duration 추론, voice assembly, MusicXML 생성, ScoreVersion publish, 모델 승격은 수행하지 않는다.
 
-### Phase 9Q Training Sample Export
+### Phase 9Q 학습 샘플 내보내기
 
-Phase 9Q는 OMR Review UI에서 사용자가 검수한 system crop과 detection correction layer를 학습 데이터 후보로 재사용하기 위한 export workflow이다.
+Phase 9Q는 OMR 검수 화면에서 사용자가 검수한 시스템 영역과 검출 수정 레이어를 학습 데이터 후보로 재사용하기 위한 내보내기 흐름이다.
 
 - export kind는 `CUENOTE_OMR_TRAINING_SAMPLE_EXPORT`를 사용한다.
-- export에는 source image metadata, fixture id/title, crop box, corrected detection, page coordinate bbox, 가능한 경우 crop coordinate bbox를 포함한다.
-- 삭제 또는 reject된 model detection은 제외한다.
-- class 수정은 corrected detection class로 반영하고, 사용자가 수동 추가한 detection은 포함한다.
-- manual evaluation report의 reviewer note와 known failure tags를 training sample export에 연결한다.
-- YOLO tile fine-tuning용으로 crop metadata와 label text를 포함한다.
-- 브라우저 export는 우선 JSON과 절차 안내만 제공한다. 실제 crop image 파일은 사용자가 라이선스가 확인된 원본 이미지에서 별도로 생성한다.
-- 서버 업로드, 실제 재학습, MusicXML 생성, pitch/duration inference, `CANDIDATE` 또는 `PRODUCT` 승격은 포함하지 않는다.
+- export에는 원본 이미지 메타데이터, 샘플 id/title, 영역 박스, 수정 반영 검출 결과, 페이지 좌표 bbox, 가능한 경우 영역 좌표 bbox를 포함한다.
+- 삭제 또는 reject된 모델 검출 결과는 제외한다.
+- class 수정은 수정 반영 검출 결과의 class로 반영하고, 사용자가 수동 추가한 검출 결과는 포함한다.
+- 수동 평가 리포트의 검수 메모와 알려진 실패 유형을 학습 샘플 export에 연결한다.
+- YOLO 타일 추가 학습용으로 영역 메타데이터와 label text를 포함한다.
+- 브라우저 export는 우선 JSON과 절차 안내만 제공한다. 실제 영역 이미지 파일은 사용자가 라이선스가 확인된 원본 이미지에서 별도로 생성한다.
+- 서버 업로드, 실제 재학습, MusicXML 생성, 음높이/길이 추론, `CANDIDATE` 또는 `PRODUCT` 승격은 포함하지 않는다.
 
-실제 한국어 가사/코드 악보 fine-tuning 절차:
+실제 한국어 가사/코드 악보 추가 학습 절차:
 
 1. 라이선스 또는 사용 허가가 확인된 한국어 가사/코드 악보 10-30장을 준비한다.
-2. 각 페이지를 OMR runtime의 fixture/local image 흐름으로 열고 system crop을 수동 검수한다.
-3. symbol tile inference를 실행한 뒤 누락, 오검출, class 오류를 correction layer로 수정한다.
+2. 각 페이지를 OMR 실행 화면의 샘플/로컬 이미지 흐름으로 열고 시스템 영역을 수동 검수한다.
+3. 기호 타일 추론을 실행한 뒤 누락, 오검출, class 오류를 수정 레이어로 고친다.
 4. reviewer note와 known failure tags를 저장한다.
-5. training sample JSON을 export한다.
-6. JSON의 `cropBoxes`로 원본 이미지를 crop하고, `yoloTileFineTuning.labelsByCrop[].labelText`를 같은 이름의 YOLO label file로 저장한다.
-7. Colab fine-tuning은 tile symbol path에서만 수행한다. full-page `SYMBOL_TRAIN`은 diagnostic-only baseline으로 유지한다.
-8. fixed split metric, per-class report, browser WebGPU/WASM smoke, offline cache 검증 전까지 모델 상태는 `EXPERIMENTAL`로 유지한다.
+5. 학습 샘플 JSON을 export한다.
+6. JSON의 `cropBoxes`로 원본 이미지를 자르고, `yoloTileFineTuning.labelsByCrop[].labelText`를 같은 이름의 YOLO label file로 저장한다.
+7. Colab 추가 학습은 타일 기호 경로에서만 수행한다. 전체 페이지 `SYMBOL_TRAIN`은 진단용 baseline으로 유지한다.
+8. 고정 분할 성능 지표, class별 리포트, 브라우저 WebGPU/WASM smoke, 오프라인 캐시 검증 전까지 모델 상태는 `EXPERIMENTAL`로 유지한다.
 
 ## Phase 9E-H Colab Model Pipeline
 

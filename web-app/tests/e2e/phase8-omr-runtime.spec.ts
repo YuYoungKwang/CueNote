@@ -6,12 +6,13 @@ test('runs the Phase 8 TEST_RUNTIME_MODEL through the OMR worker and stores runt
   await createReviewedImportProject(page);
   await page.getByTestId('open-omr-runtime').click();
   await expect(page.getByTestId('omr-runtime-page')).toBeVisible();
+  await page.getByTestId('omr-model-select').selectOption('TEST_RUNTIME_MODEL');
   await expect(page.getByTestId('omr-model-kind')).toHaveText('TEST_RUNTIME_MODEL');
-  await expect(page.getByTestId('omr-product-state')).toHaveText('PRODUCT_MODEL_NOT_INSTALLED');
+  await expect(page.getByTestId('omr-product-state')).toContainText('PRODUCT_MODEL_NOT_INSTALLED');
 
   await page.getByTestId('omr-load-model').click();
   await expect.poll(async () => page.getByTestId('omr-provider').textContent(), { timeout: 30000 }).toMatch(/WEBGPU|WASM/);
-  await expect(page.getByTestId('omr-product-state')).toHaveText('PRODUCT_MODEL_NOT_INSTALLED');
+  await expect(page.getByTestId('omr-product-state')).toContainText('PRODUCT_MODEL_NOT_INSTALLED');
 
   await page.context().setOffline(true);
   await page.getByTestId('omr-load-model').click();
@@ -25,10 +26,10 @@ test('runs the Phase 8 TEST_RUNTIME_MODEL through the OMR worker and stores runt
 
   await page.reload();
   await expect(page.getByTestId('omr-result-list')).toContainText('cuenote-test-runtime');
-  await expect(page.getByTestId('omr-product-state')).toHaveText('PRODUCT_MODEL_NOT_INSTALLED');
+  await expect(page.getByTestId('omr-product-state')).toContainText('PRODUCT_MODEL_NOT_INSTALLED');
 
   await page.getByTestId('omr-draft-link').click();
-  await expect(page.getByTestId('omr-draft-deferred')).toContainText('Phase 10');
+  await expect(page.getByTestId('omr-draft-deferred')).toContainText('10단계');
   expect(consoleErrors).toEqual([]);
   expect(pageErrors).toEqual([]);
 });
@@ -44,7 +45,7 @@ async function createReviewedImportProject(page: Page) {
   await page.waitForURL(/\/imports\/.+\/review/);
   await expect(page.getByTestId('import-region-system').first()).toBeVisible();
   await page.getByTestId('complete-import-review').click();
-  await expect(page.getByTestId('import-review-status')).toContainText(/Review complete|ready for Phase 8/i);
+  await expect(page.getByTestId('import-review-status')).toContainText(/검수가 완료/);
 }
 
 function createSyntheticStaffBmp(): Buffer {

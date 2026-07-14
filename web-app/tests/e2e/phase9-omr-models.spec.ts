@@ -8,8 +8,8 @@ test('runs Phase 9 experimental layout and symbol ONNX models in the browser run
   await expect(page.getByTestId('omr-runtime-page')).toBeVisible();
 
   await runModel(page, 'LAYOUT_SMOKE_MODEL', /cuenote-layout-smoke/, /measure\.region|system\.region/);
-  await expect(page.getByTestId('omr-product-state')).toHaveText('PRODUCT_MODEL_NOT_INSTALLED');
-  await expect(page.getByTestId('omr-model-status')).toHaveText('EXPERIMENTAL');
+  await expect(page.getByTestId('omr-product-state')).toContainText('PRODUCT_MODEL_NOT_INSTALLED');
+  await expect(page.getByTestId('omr-model-status')).toContainText('EXPERIMENTAL');
 
   await page.context().setOffline(true);
   await page.getByTestId('omr-load-model').click();
@@ -17,11 +17,11 @@ test('runs Phase 9 experimental layout and symbol ONNX models in the browser run
   await page.context().setOffline(false);
 
   await runModel(page, 'SYMBOL_SMOKE_MODEL', /cuenote-symbol-smoke/, /notehead\.filled|clef\.treble/);
-  await expect(page.getByTestId('omr-product-state')).toHaveText('PRODUCT_MODEL_NOT_INSTALLED');
+  await expect(page.getByTestId('omr-product-state')).toContainText('PRODUCT_MODEL_NOT_INSTALLED');
   await expect(page.getByTestId('omr-detection-box').first()).toBeVisible();
 
   await page.getByTestId('omr-draft-link').click();
-  await expect(page.getByTestId('omr-draft-deferred')).toContainText('Phase 10');
+  await expect(page.getByTestId('omr-draft-deferred')).toContainText('10단계');
   expect(consoleErrors).toEqual([]);
   expect(pageErrors).toEqual([]);
 });
@@ -56,7 +56,7 @@ test('runs installed Colab experimental layout and symbol artifacts without prom
   await page.context().setOffline(false);
 
   await page.getByTestId('omr-draft-link').click();
-  await expect(page.getByTestId('omr-draft-deferred')).toContainText('Phase 10');
+  await expect(page.getByTestId('omr-draft-deferred')).toContainText('10단계');
   expect(consoleErrors).toEqual([]);
   expect(pageErrors).toEqual([]);
 });
@@ -141,7 +141,7 @@ async function exerciseOmrReviewUi(page: Page) {
   await expect(page.getByTestId('omr-training-sample-json')).toContainText('labelText');
   await expect(page.getByTestId('omr-training-sample-json')).toContainText('missed-notehead');
   await page.getByTestId('omr-import-training-sample').click();
-  await expect(page.getByTestId('omr-runtime-status')).toContainText('detection');
+  await expect(page.getByTestId('omr-runtime-status')).toContainText('검출 결과');
 
   await page.reload();
   await expect(page.getByTestId('omr-runtime-page')).toBeVisible();
@@ -193,8 +193,8 @@ async function runInstalledExperimentalModel(page: Page, catalogId: string, resu
   await expect(page.getByTestId('omr-model-kind')).toHaveText(catalogId);
   await page.getByTestId('omr-load-model').click();
   await expect.poll(async () => page.getByTestId('omr-provider').textContent(), { timeout: 30000 }).toMatch(/WEBGPU|WASM/);
-  await expect(page.getByTestId('omr-model-status')).toHaveText('EXPERIMENTAL');
-  await expect(page.getByTestId('omr-product-state')).toHaveText('PRODUCT_MODEL_NOT_INSTALLED');
+  await expect(page.getByTestId('omr-model-status')).toContainText('EXPERIMENTAL');
+  await expect(page.getByTestId('omr-product-state')).toContainText('PRODUCT_MODEL_NOT_INSTALLED');
   await page.getByTestId('omr-run-system').click();
   await expect(page.getByTestId('omr-runtime-result')).toContainText(/검출: \d+/, { timeout: 60000 });
   await expect(page.getByTestId('omr-result-list')).toContainText(resultModelId);
@@ -215,7 +215,7 @@ async function createReviewedImportProject(page: Page) {
   await page.waitForURL(/\/imports\/.+\/review/);
   await expect(page.getByTestId('import-region-system').first()).toBeVisible();
   await page.getByTestId('complete-import-review').click();
-  await expect(page.getByTestId('import-review-status')).toContainText(/Review complete|ready for Phase 8/i);
+  await expect(page.getByTestId('import-review-status')).toContainText(/검수가 완료/);
 }
 
 function createSyntheticStaffBmp(): Buffer {

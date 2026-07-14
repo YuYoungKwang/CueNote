@@ -31,12 +31,13 @@ import {
 } from '../../core/storage/omrRepository';
 
 const BUILT_IN_MODEL_OPTIONS = [
-  { id: 'TEST_RUNTIME_MODEL', label: 'TEST_RUNTIME_MODEL', url: '/models/omr/test-runtime-manifest.json' },
-  { id: 'LAYOUT_SMOKE_MODEL', label: 'LAYOUT_SMOKE_MODEL', url: '/models/omr/layout-smoke-manifest.json' },
-  { id: 'SYMBOL_SMOKE_MODEL', label: 'SYMBOL_SMOKE_MODEL', url: '/models/omr/symbol-smoke-manifest.json' }
+  { id: 'TEST_RUNTIME_MODEL', label: '테스트 런타임 모델 (TEST_RUNTIME_MODEL)', url: '/models/omr/test-runtime-manifest.json' },
+  { id: 'LAYOUT_SMOKE_MODEL', label: '레이아웃 시험 모델 (LAYOUT_SMOKE_MODEL)', url: '/models/omr/layout-smoke-manifest.json' },
+  { id: 'SYMBOL_SMOKE_MODEL', label: '기호 시험 모델 (SYMBOL_SMOKE_MODEL)', url: '/models/omr/symbol-smoke-manifest.json' }
 ] as const;
 
 type ModelOption = { id: string; label: string; url: string };
+type ModelCatalogState = 'loading' | 'ready' | 'fallback';
 
 type ModelState =
   | { kind: 'idle' }
@@ -45,6 +46,8 @@ type ModelState =
   | { kind: 'error'; message: string };
 
 type RunState = { kind: 'idle' } | { kind: 'running'; progress: number } | { kind: 'ready'; result: OmrDetectionResult; outputNames: string[] } | { kind: 'error'; message: string };
+
+const RECOMMENDED_SYMBOL_TILE_MODEL_ID = 'cuenote-symbol-deepscores-exp-0.1.0-colab-tile';
 
 const KNOWN_FAILURE_TAGS: Array<{ id: OmrKnownFailureTag; label: string }> = [
   { id: 'missed-notehead', label: '음표머리 누락' },
@@ -105,6 +108,7 @@ export function OmrRuntimePage({ mode = 'runtime' }: { mode?: 'runtime' | 'revie
   const workerClient = useMemo(() => createOmrWorkerClient(), []);
   const latestJobRef = useRef<string | null>(null);
   const reviewScopeIdRef = useRef(projectId);
+  const modelSelectionTouchedRef = useRef(false);
   const pendingRunJobsRef = useRef(new Map<string, { resolve: (result: OmrDetectionResult) => void; reject: (error: Error) => void }>());
   const [bundle, setBundle] = useState<ImportProjectBundle | null>(null);
   const [modelState, setModelState] = useState<ModelState>({ kind: 'idle' });
@@ -112,6 +116,7 @@ export function OmrRuntimePage({ mode = 'runtime' }: { mode?: 'runtime' | 'revie
   const [storedResults, setStoredResults] = useState<OmrDetectionResult[]>([]);
   const [corrections, setCorrections] = useState<OmrCorrection[]>([]);
   const [modelOptions, setModelOptions] = useState<ModelOption[]>([...BUILT_IN_MODEL_OPTIONS]);
+  const [modelCatalogState, setModelCatalogState] = useState<ModelCatalogState>('loading');
   const [selectedModelId, setSelectedModelId] = useState('TEST_RUNTIME_MODEL');
   const [selectedDetectionId, setSelectedDetectionId] = useState<string | null>(null);
   const [confidenceThreshold, setConfidenceThreshold] = useState(0);
@@ -160,7 +165,16 @@ export function OmrRuntimePage({ mode = 'runtime' }: { mode?: 'runtime' | 'revie
 
   useEffect(() => {
     void importRepository.loadProject(projectId).then(setBundle);
-    void loadModelCatalog().then(setModelOptions);
+    void loadModelCatalog().then(({ options, source }) => {
+      setModelOptions(options);
+      setSelectedModelId((current) => {
+        if (current === 'TEST_RUNTIME_MODEL' && !modelSelectionTouchedRef.current) {
+          return preferredModelId(options);
+        }
+        return options.some((option) => option.id === current) ? current : preferredModelId(options);
+      });
+      setModelCatalogState(source);
+    });
   }, [importRepository, omrRepository, projectId]);
 
   useEffect(() => {
@@ -207,7 +221,7 @@ export function OmrRuntimePage({ mode = 'runtime' }: { mode?: 'runtime' | 'revie
     if (message.type === 'MODEL_LOADING') {
       setModelState({ kind: 'loading', progress: message.progress });
     } else if (message.type === 'PROVIDER_FALLBACK') {
-      setStatus(`WebGPU를 사용할 수 없어 WASM으로 전환했습니다: ${message.reason}`);
+      setStatus(`WebGPU를 사용할 수 없어 WASM으로 전환했습니다. ${modelFallbackReasonLabel(message.reason)}`);
     } else if (message.type === 'MODEL_READY') {
       await omrRepository.saveManifest(message.manifest);
       await omrRepository.saveModelMetadata(message.metadata);
@@ -221,11 +235,13 @@ export function OmrRuntimePage({ mode = 'runtime' }: { mode?: 'runtime' | 'revie
       });
       setStatus(
         message.manifest.status === 'PRODUCT'
-          ? `${message.manifest.modelId} 모델을 불러왔습니다.`
-          : `${message.manifest.modelId} 모델을 ${message.manifest.status ?? 'RUNTIME_SMOKE'} 상태로 불러왔습니다. 제품용 OMR 모델은 아직 설치되지 않았습니다.`
+          ? `${message.manifest.modelId} 모델을 불러왔습니다. 실행 방식: ${message.provider}.`
+          : `${message.manifest.modelId} 모델을 ${modelStatusLabel(message.manifest.status ?? 'RUNTIME_SMOKE')} 상태로 불러왔습니다. 실행 방식: ${message.provider}. 제품용 OMR 모델은 아직 설치되지 않았습니다.`
       );
     } else if (message.type === 'MODEL_FAILED') {
-      setModelState({ kind: 'error', message: message.error });
+      const translated = modelErrorMessage(message.error);
+      setModelState({ kind: 'error', message: translated });
+      setStatus(translated);
     } else if (message.type === 'JOB_STARTED' || message.type === 'JOB_PROGRESS') {
       setRunState({ kind: 'running', progress: message.progress });
     } else if (message.type === 'JOB_COMPLETED') {
@@ -233,7 +249,7 @@ export function OmrRuntimePage({ mode = 'runtime' }: { mode?: 'runtime' | 'revie
       const nextResults = await omrRepository.loadResults(reviewScopeIdRef.current);
       setStoredResults(mergeResults(nextResults, message.result));
       setRunState({ kind: 'ready', result: message.result, outputNames: message.runtimeOutputNames });
-      setStatus(`ONNX 추론이 완료되었습니다. 검출 ${message.result.detections.length}개가 생성되었고, MusicXML 초안 생성은 Phase 10으로 남겨둡니다.`);
+      setStatus(`ONNX 추론이 완료되었습니다. 검출 ${message.result.detections.length}개가 생성되었고, MusicXML 초안 생성은 10단계로 남겨둡니다.`);
       pendingRunJobsRef.current.get(message.jobId)?.resolve(message.result);
       pendingRunJobsRef.current.delete(message.jobId);
     } else if (message.type === 'JOB_CANCELLED') {
@@ -280,8 +296,14 @@ export function OmrRuntimePage({ mode = 'runtime' }: { mode?: 'runtime' | 'revie
   }, [firstPage?.page.id, omrRepository, reviewScopeId]);
 
   const loadModel = () => {
+    if (modelCatalogState === 'loading') {
+      setStatus('모델 목록을 불러오는 중입니다. 잠시 후 다시 시도하세요.');
+      return;
+    }
     const jobId = createJobId('load');
     latestJobRef.current = jobId;
+    setModelState({ kind: 'loading', progress: 0 });
+    setStatus(`${displayModelOption(selectedModel)}을 불러오는 중입니다.`);
     workerClient.post({ type: 'LOAD_MODEL', jobId, manifestUrl: selectedModel.url });
   };
 
@@ -693,14 +715,14 @@ export function OmrRuntimePage({ mode = 'runtime' }: { mode?: 'runtime' | 'revie
       setStatus('학습 샘플 JSON 구조가 올바르지 않습니다.');
       return;
     }
-    setStatus(`학습 샘플 JSON을 확인했습니다. crop ${parsed.cropBoxes.length}개, detection ${parsed.correctedDetections.length}개가 포함되어 있습니다.`);
+      setStatus(`학습 샘플 JSON을 확인했습니다. 영역 ${parsed.cropBoxes.length}개, 검출 결과 ${parsed.correctedDetections.length}개가 포함되어 있습니다.`);
   };
 
   if (mode === 'draft') {
     return (
       <main className="panel state-panel" data-testid="omr-draft-deferred">
-        <h2>OMR MusicXML 초안은 Phase 10 기능입니다</h2>
-        <p>현재 화면은 OMR 실행 환경과 검수 흐름만 확인합니다. 구조 조립, MusicXML 초안 생성, Phase 6 편집기 전달은 Phase 10으로 남겨둡니다.</p>
+        <h2>OMR MusicXML 초안은 10단계 기능입니다</h2>
+        <p>현재 화면은 OMR 실행 환경과 검수 흐름만 확인합니다. 구조 조립, MusicXML 초안 생성, 6단계 편집기 전달은 10단계로 남겨둡니다.</p>
         <Link className="secondary-link" to={`/imports/${projectId}/omr`}>
           OMR 실행 화면으로 돌아가기
         </Link>
@@ -713,8 +735,8 @@ export function OmrRuntimePage({ mode = 'runtime' }: { mode?: 'runtime' | 'revie
       <section className="panel import-review-main">
         <div className="panel-heading">
           <div>
-            <p className="eyebrow">Phase 8</p>
-            <h2>브라우저 OMR 실행 및 검수</h2>
+            <p className="eyebrow">8-9단계</p>
+            <h2>브라우저 악보 인식 실행 및 검수</h2>
             <p className="muted" data-testid="omr-runtime-status">
               {status}
             </p>
@@ -724,7 +746,7 @@ export function OmrRuntimePage({ mode = 'runtime' }: { mode?: 'runtime' | 'revie
               레이아웃 검토
             </Link>
             <Link className="secondary-link" to={`/imports/${projectId}/omr/draft`} data-testid="omr-draft-link">
-              초안 생성 상태
+              초안 생성 준비 상태
             </Link>
           </div>
         </div>
@@ -736,11 +758,11 @@ export function OmrRuntimePage({ mode = 'runtime' }: { mode?: 'runtime' | 'revie
           </div>
           <div>
             <span className="summary-label">모델 상태</span>
-            <strong data-testid="omr-model-status">{modelState.kind === 'ready' ? modelState.manifest.status ?? 'RUNTIME_SMOKE' : '불러오지 않음'}</strong>
+            <strong data-testid="omr-model-status">{modelState.kind === 'ready' ? modelStatusLabel(modelState.manifest.status ?? 'RUNTIME_SMOKE') : '불러오지 않음'}</strong>
           </div>
           <div>
             <span className="summary-label">제품용 모델</span>
-            <strong data-testid="omr-product-state">{modelState.kind === 'ready' ? modelState.productState : 'PRODUCT_MODEL_NOT_INSTALLED'}</strong>
+            <strong data-testid="omr-product-state">{modelState.kind === 'ready' ? productStateLabel(modelState.productState) : productStateLabel('PRODUCT_MODEL_NOT_INSTALLED')}</strong>
           </div>
           <div>
             <span className="summary-label">실행 방식</span>
@@ -803,19 +825,21 @@ export function OmrRuntimePage({ mode = 'runtime' }: { mode?: 'runtime' | 'revie
             className="select-input"
             value={selectedModelId}
             onChange={(event) => {
+              modelSelectionTouchedRef.current = true;
               setSelectedModelId(event.target.value);
               setModelState({ kind: 'idle' });
               setRunState({ kind: 'idle' });
+              setStatus('선택한 모델을 불러오려면 “모델 불러오기”를 누르세요.');
             }}
             data-testid="omr-model-select"
           >
             {modelOptions.map((option) => (
               <option key={option.id} value={option.id}>
-                {option.label}
+                {displayModelOption(option)}
               </option>
             ))}
           </select>
-          <button type="button" className="primary-link" onClick={loadModel} data-testid="omr-load-model">
+          <button type="button" className="primary-link" onClick={loadModel} disabled={modelCatalogState === 'loading' || modelState.kind === 'loading'} data-testid="omr-load-model">
             모델 불러오기
           </button>
           <button type="button" className="primary-link" onClick={() => void runSystem()} disabled={modelState.kind !== 'ready' || !selectedCrop} data-testid="omr-run-system">
@@ -829,9 +853,11 @@ export function OmrRuntimePage({ mode = 'runtime' }: { mode?: 'runtime' | 'revie
           </button>
         </div>
 
+        {modelCatalogState === 'loading' ? <p data-testid="omr-model-catalog-loading">모델 목록을 불러오는 중입니다.</p> : null}
+        {modelCatalogState === 'fallback' ? <p data-testid="omr-model-catalog-fallback">설치된 모델 목록을 읽지 못해 기본 테스트 모델만 표시합니다.</p> : null}
         {modelState.kind === 'loading' ? <p data-testid="omr-model-loading">모델 불러오는 중 {Math.round(modelState.progress * 100)}%</p> : null}
         {modelState.kind === 'error' ? <p data-testid="omr-model-error">{modelState.message}</p> : null}
-        {modelState.kind === 'ready' && modelState.fallbackReason ? <p data-testid="omr-fallback-reason">대체 실행 사유: {modelState.fallbackReason}</p> : null}
+        {modelState.kind === 'ready' && modelState.fallbackReason ? <p data-testid="omr-fallback-reason">WASM으로 전환한 이유: {modelFallbackReasonLabel(modelState.fallbackReason)}</p> : null}
         {runState.kind === 'running' ? <p data-testid="omr-job-progress">추론 실행 중 {Math.round(runState.progress * 100)}%</p> : null}
         {runState.kind === 'error' ? <p data-testid="omr-job-error">{runState.message}</p> : null}
         {runState.kind === 'ready' ? (
@@ -872,7 +898,7 @@ export function OmrRuntimePage({ mode = 'runtime' }: { mode?: 'runtime' | 'revie
         <div className="omr-crop-review-panel" data-testid="omr-crop-review-panel">
           <div className="panel-heading">
             <div>
-              <p className="eyebrow">Page/System Crop Review</p>
+              <p className="eyebrow">페이지/시스템 영역 검수</p>
               <h3>페이지 시스템 영역 검토</h3>
               <p className="muted">전체 페이지 위에서 기호 인식에 사용할 시스템 영역을 직접 조정합니다.</p>
             </div>
@@ -1075,7 +1101,7 @@ export function OmrRuntimePage({ mode = 'runtime' }: { mode?: 'runtime' | 'revie
         <div className="omr-training-export-panel" data-testid="omr-training-sample-panel">
           <p className="eyebrow">학습 샘플 내보내기</p>
           <p className="muted">
-            검수한 system crop과 correction layer를 합쳐 fine-tuning용 JSON을 만듭니다. 실제 이미지 파일은 JSON의 안내에 따라 별도로 모아야 합니다.
+            검수한 시스템 영역과 수정 레이어를 합쳐 추가 학습용 JSON을 만듭니다. 실제 이미지 파일은 JSON의 안내에 따라 별도로 모아야 합니다.
           </p>
           <div className="playback-button-row">
             <button type="button" className="control-button" onClick={exportTrainingSampleJson} data-testid="omr-export-training-sample">
@@ -1085,7 +1111,7 @@ export function OmrRuntimePage({ mode = 'runtime' }: { mode?: 'runtime' | 'revie
               학습 JSON 확인
             </button>
           </div>
-          <p className="muted">kind, model id, class id, schema 값은 학습 파이프라인 호환성을 위해 영어 내부값을 유지합니다.</p>
+          <p className="muted">kind, model id, class id, schema 값은 학습 파이프라인 호환성을 위해 내부 영어 값을 유지합니다.</p>
           <textarea
             className="omr-review-json"
             value={trainingSampleJson}
@@ -1163,7 +1189,7 @@ export function OmrRuntimePage({ mode = 'runtime' }: { mode?: 'runtime' | 'revie
           />
           <p data-testid="omr-correction-count">저장된 수정 {correctionsForResults(corrections, currentResults).length}개</p>
         </div>
-        <p className="eyebrow">Phase 10</p>
+        <p className="eyebrow">10단계</p>
         <p>구조 조립과 MusicXML 초안 전달은 아직 구현하지 않았습니다.</p>
       </aside>
     </main>
@@ -1327,7 +1353,7 @@ function createTrainingSampleExport(input: TrainingSampleExportInput) {
     return {
       cropId: crop.id,
       orderIndex: crop.orderIndex,
-      imageInstruction: 'Use cropBoxes[].boundsInPage to crop the source page image before writing this label file.',
+      imageInstruction: '이 label file을 만들기 전에 cropBoxes[].boundsInPage 값을 사용해 원본 페이지 이미지를 잘라내세요.',
       labelText: labels.map((label) => `${label.classIndex} ${label.yolo}`).join('\n'),
       labels
     };
@@ -1406,11 +1432,11 @@ function createTrainingSampleExport(input: TrainingSampleExportInput) {
       classIds,
       labelsByCrop,
       instructions: [
-        'Collect licensed source page images outside the browser export flow.',
-        'Crop each page image using cropBoxes[].boundsInPage and save the crop image with a stable crop id.',
-        'Write labelsByCrop[].labelText to a matching YOLO .txt file for that crop image.',
-        'Review 10-30 real Korean lyric/chord score pages before fine-tuning the experimental tile symbol model.',
-        'Keep the model status EXPERIMENTAL until fixed split metrics and browser runtime checks are revalidated.'
+        '브라우저 export 흐름 밖에서 라이선스가 확인된 원본 페이지 이미지를 모으세요.',
+        'cropBoxes[].boundsInPage 값을 사용해 각 페이지 이미지를 자르고, 안정적인 영역 id로 crop 이미지를 저장하세요.',
+        'labelsByCrop[].labelText 값을 해당 crop 이미지와 같은 이름의 YOLO .txt 파일로 저장하세요.',
+        '실험용 tile 기호 모델을 추가 학습하기 전에 실제 한국어 가사/코드 악보 10-30장을 검수하세요.',
+        '고정 split metric과 브라우저 런타임 검증을 다시 통과하기 전까지 모델 상태는 EXPERIMENTAL로 유지하세요.'
       ]
     },
     boundaries: {
@@ -1665,6 +1691,90 @@ function displayClassLabel(classId: string): string {
   return label === classId ? classId : `${label} (${classId})`;
 }
 
+function displayModelOption(option: ModelOption): string {
+  if (option.id === RECOMMENDED_SYMBOL_TILE_MODEL_ID) {
+    return `권장 기호 타일 모델 - 실험용 (${option.id})`;
+  }
+  if (option.id === 'cuenote-symbol-deepscores-exp') {
+    return `이전 전체 페이지 기호 모델 - 진단용 (${option.id})`;
+  }
+  if (option.id === 'cuenote-layout-deepscores-exp') {
+    return `레이아웃 실험 모델 (${option.id})`;
+  }
+  if (option.id === 'TEST_RUNTIME_MODEL') {
+    return '테스트 런타임 모델 (TEST_RUNTIME_MODEL)';
+  }
+  if (option.id === 'LAYOUT_SMOKE_MODEL') {
+    return '레이아웃 시험 모델 (LAYOUT_SMOKE_MODEL)';
+  }
+  if (option.id === 'SYMBOL_SMOKE_MODEL') {
+    return '기호 시험 모델 (SYMBOL_SMOKE_MODEL)';
+  }
+  return option.label;
+}
+
+function preferredModelId(options: ModelOption[]): string {
+  return options.find((option) => option.id === RECOMMENDED_SYMBOL_TILE_MODEL_ID)?.id ?? options[0]?.id ?? 'TEST_RUNTIME_MODEL';
+}
+
+function modelStatusLabel(value: string): string {
+  if (value === 'PRODUCT') {
+    return '제품용 (PRODUCT)';
+  }
+  if (value === 'CANDIDATE') {
+    return '후보 (CANDIDATE)';
+  }
+  if (value === 'EXPERIMENTAL') {
+    return '실험용 (EXPERIMENTAL)';
+  }
+  if (value === 'RUNTIME_SMOKE') {
+    return '런타임 확인용 (RUNTIME_SMOKE)';
+  }
+  return value;
+}
+
+function productStateLabel(value: string): string {
+  if (value === 'PRODUCT_MODEL_READY') {
+    return '제품용 모델 준비됨 (PRODUCT_MODEL_READY)';
+  }
+  if (value === 'PRODUCT_MODEL_NOT_INSTALLED') {
+    return '제품용 모델 아님 (PRODUCT_MODEL_NOT_INSTALLED)';
+  }
+  return value;
+}
+
+function modelFallbackReasonLabel(reason: string): string {
+  if (reason.includes('WEBGPU_UNAVAILABLE_CROSS_ORIGIN_ISOLATION')) {
+    return '브라우저 보안 격리 조건이 맞지 않아 WebGPU를 사용할 수 없습니다.';
+  }
+  if (reason.includes('WEBGPU_UNAVAILABLE')) {
+    return '이 브라우저 또는 장치에서 WebGPU를 사용할 수 없습니다.';
+  }
+  if (reason.includes('webgpu')) {
+    return `WebGPU 세션 생성에 실패했습니다. 원문: ${reason}`;
+  }
+  return reason;
+}
+
+function modelErrorMessage(error: string): string {
+  if (error.includes('MODEL_DOWNLOAD_FAILED')) {
+    return `모델 파일을 내려받지 못했습니다. 개발 서버가 실행 중인지, 모델 파일 경로가 올바른지 확인하세요. 원문: ${error}`;
+  }
+  if (error.includes('MODEL_HASH_MISMATCH')) {
+    return '모델 파일 검증에 실패했습니다. 파일이 손상되었거나 manifest checksum과 일치하지 않습니다.';
+  }
+  if (error.includes('WASM_INITIALIZATION_FAILED')) {
+    return `WASM 실행 환경 초기화에 실패했습니다. 브라우저 새로고침 후 다시 시도하거나 캐시를 비워 보세요. 원문: ${error}`;
+  }
+  if (error.includes('MODEL_SESSION_FAILED')) {
+    return `모델 세션을 만들지 못했습니다. 선택한 모델과 브라우저 실행 환경을 확인하세요. 원문: ${error}`;
+  }
+  if (error.includes('MODEL_MANIFEST_INVALID')) {
+    return '모델 manifest 형식이 올바르지 않습니다.';
+  }
+  return `모델을 불러오지 못했습니다. 원문: ${error}`;
+}
+
 function detectionSourceLabel(value: string): string {
   if (value === 'MODEL') {
     return '모델';
@@ -1688,16 +1798,16 @@ function reviewDecisionLabel(value: string | undefined): string {
   return value ?? '검토 전';
 }
 
-async function loadModelCatalog(): Promise<ModelOption[]> {
+async function loadModelCatalog(): Promise<{ options: ModelOption[]; source: ModelCatalogState }> {
   try {
     const response = await fetch('/models/omr/model-catalog.json', { cache: 'no-cache' });
     if (!response.ok) {
-      return [...BUILT_IN_MODEL_OPTIONS];
+      return { options: [...BUILT_IN_MODEL_OPTIONS], source: 'fallback' };
     }
     const value = (await response.json()) as { models?: ModelOption[] };
     const models = value.models?.filter((model) => model.id && model.label && model.url) ?? [];
-    return models.length ? models : [...BUILT_IN_MODEL_OPTIONS];
+    return { options: models.length ? models : [...BUILT_IN_MODEL_OPTIONS], source: models.length ? 'ready' : 'fallback' };
   } catch {
-    return [...BUILT_IN_MODEL_OPTIONS];
+    return { options: [...BUILT_IN_MODEL_OPTIONS], source: 'fallback' };
   }
 }
