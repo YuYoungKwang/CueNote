@@ -43,6 +43,7 @@ test('runs installed Colab experimental layout and symbol artifacts without prom
 
   await runInstalledExperimentalModel(page, 'cuenote-symbol-deepscores-exp', 'cuenote-symbol-deepscores-exp');
   await runInstalledExperimentalModel(page, 'cuenote-symbol-deepscores-exp-0.1.0-colab-tile', 'cuenote-symbol-deepscores-exp', true);
+  await exerciseCropReviewUi(page);
   await expect(page.getByTestId('omr-summary-detection-count')).not.toHaveText('0');
   await expect(page.getByTestId('omr-summary-class-counts')).not.toHaveText('기호별 집계 없음');
   await exerciseOmrReviewUi(page);
@@ -107,7 +108,7 @@ async function exerciseOmrReviewUi(page: Page) {
   await expect(page.getByTestId('omr-correction-count')).toContainText(/저장된 수정 [23]개/);
 
   await page.getByTestId('omr-add-detection-mode').click();
-  await page.locator('.import-region--system').click();
+  await page.getByTestId('omr-overlay-hit-area').click({ position: { x: 180, y: 120 } });
   await expect(page.getByTestId('omr-correction-count')).toContainText(/저장된 수정 [34]개/);
 
   await page.getByTestId('omr-export-review-json').click();
@@ -138,6 +139,40 @@ async function exerciseOmrReviewUi(page: Page) {
   await expect(page.getByTestId('omr-known-failure-missed-notehead')).toBeChecked();
   await expect(page.getByTestId('omr-correction-count')).toContainText(/저장된 수정/);
   await expect(page.getByTestId('omr-review-json')).toBeVisible();
+}
+
+async function exerciseCropReviewUi(page: Page) {
+  await expect(page.getByTestId('omr-crop-review-panel')).toBeVisible();
+  const initialCropCount = await page.getByTestId('omr-system-crop-box').count();
+  expect(initialCropCount).toBeGreaterThan(0);
+
+  await page.getByTestId('omr-add-system-crop').click();
+  await expect.poll(async () => page.getByTestId('omr-system-crop-box').count()).toBeGreaterThan(initialCropCount);
+  await page.getByTestId('omr-crop-move-down').click();
+  await page.getByTestId('omr-crop-wider').click();
+  await page.getByTestId('omr-export-crop-json').click();
+  await expect(page.getByTestId('omr-crop-json')).toContainText('CUENOTE_OMR_SYSTEM_CROP_REVIEW');
+  await page.getByTestId('omr-import-crop-json').click();
+  await expect(page.getByTestId('omr-runtime-status')).toContainText('JSON');
+
+  await page.getByTestId('omr-toggle-crop-boxes').uncheck();
+  await expect(page.getByTestId('omr-system-crop-box')).toHaveCount(0);
+  await page.getByTestId('omr-toggle-crop-boxes').check();
+  await expect.poll(async () => page.getByTestId('omr-system-crop-box').count()).toBeGreaterThan(initialCropCount);
+
+  await page.getByTestId('omr-run-all-crops').click();
+  await expect(page.getByTestId('omr-runtime-result')).toContainText(/\d+/, { timeout: 60000 });
+  await expect(page.getByTestId('omr-crop-summary-item').first()).toBeVisible();
+
+  await page.reload();
+  await expect(page.getByTestId('omr-runtime-page')).toBeVisible();
+  await page.getByTestId('omr-fixture-synthetic-basic-staff').click();
+  await expect.poll(async () => page.getByTestId('omr-system-crop-box').count()).toBeGreaterThan(initialCropCount);
+  await page.getByTestId('omr-model-select').selectOption('cuenote-symbol-deepscores-exp-0.1.0-colab-tile');
+  await page.getByTestId('omr-load-model').click();
+  await expect.poll(async () => page.getByTestId('omr-provider').textContent(), { timeout: 30000 }).toMatch(/WEBGPU|WASM/);
+  await page.getByTestId('omr-run-all-crops').click();
+  await expect(page.getByTestId('omr-detection-box').first()).toBeVisible({ timeout: 60000 });
 }
 
 async function runInstalledExperimentalModel(page: Page, catalogId: string, resultModelId = catalogId, requireOverlay = false) {

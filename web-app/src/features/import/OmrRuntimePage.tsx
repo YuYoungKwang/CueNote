@@ -8,6 +8,7 @@ import {
   DEFAULT_PAGE_TRANSFORM,
   normalizeRect,
   type ImportRegion,
+  type NormalizedRect,
   type OmrCorrection,
   type OmrDetection,
   type OmrDetectionResult,
@@ -19,7 +20,13 @@ import { createOmrWorkerClient, isLatestOmrJob } from '../../core/omr/omrWorkerC
 import type { OmrWorkerResponse } from '../../core/omr/workerProtocol';
 import { OMR_SAMPLE_FIXTURES, type OmrSampleFixture } from '../../core/omr/sampleFixtures';
 import { createImportProjectRepository, type ImportProjectBundle } from '../../core/storage/importProjectRepository';
-import { createOmrRepository, type OmrAnalysisJobRecord, type OmrKnownFailureTag, type OmrManualEvaluationReport } from '../../core/storage/omrRepository';
+import {
+  createOmrRepository,
+  type OmrAnalysisJobRecord,
+  type OmrKnownFailureTag,
+  type OmrManualEvaluationReport,
+  type OmrSystemCropRecord
+} from '../../core/storage/omrRepository';
 
 const BUILT_IN_MODEL_OPTIONS = [
   { id: 'TEST_RUNTIME_MODEL', label: 'TEST_RUNTIME_MODEL', url: '/models/omr/test-runtime-manifest.json' },
@@ -96,6 +103,7 @@ export function OmrRuntimePage({ mode = 'runtime' }: { mode?: 'runtime' | 'revie
   const workerClient = useMemo(() => createOmrWorkerClient(), []);
   const latestJobRef = useRef<string | null>(null);
   const reviewScopeIdRef = useRef(projectId);
+  const pendingRunJobsRef = useRef(new Map<string, { resolve: (result: OmrDetectionResult) => void; reject: (error: Error) => void }>());
   const [bundle, setBundle] = useState<ImportProjectBundle | null>(null);
   const [modelState, setModelState] = useState<ModelState>({ kind: 'idle' });
   const [runState, setRunState] = useState<RunState>({ kind: 'idle' });
@@ -115,6 +123,11 @@ export function OmrRuntimePage({ mode = 'runtime' }: { mode?: 'runtime' | 'revie
   const [evaluationReportJson, setEvaluationReportJson] = useState('');
   const [selectedFixtureId, setSelectedFixtureId] = useState<string | null>(null);
   const [localFixtureDataUrl, setLocalFixtureDataUrl] = useState<string | null>(null);
+  const [systemCrops, setSystemCrops] = useState<OmrSystemCropRecord[]>([]);
+  const [selectedCropId, setSelectedCropId] = useState<string | null>(null);
+  const [cropReviewJson, setCropReviewJson] = useState('');
+  const [showCropBoxes, setShowCropBoxes] = useState(true);
+  const [showDetectionOverlay, setShowDetectionOverlay] = useState(true);
   const [status, setStatus] = useState('모델을 불러와 브라우저 OMR 실행 환경을 확인하세요.');
 
   const selectedModel = modelOptions.find((option) => option.id === selectedModelId) ?? modelOptions[0] ?? BUILT_IN_MODEL_OPTIONS[0];
@@ -124,10 +137,11 @@ export function OmrRuntimePage({ mode = 'runtime' }: { mode?: 'runtime' | 'revie
   const samplePage = fixtureDataUrl && selectedFixture ? createFixturePage(selectedFixture, fixtureDataUrl) : null;
   const activeResult = runState.kind === 'ready' ? runState.result : storedResults.at(-1) ?? null;
   const displayedResults = activeResult ? mergeResults(storedResults, activeResult) : storedResults;
+  const currentResults = displayedResults.filter((result) => result.projectId === reviewScopeId);
   const modelClasses = modelState.kind === 'ready' ? modelState.manifest.classes : [];
   const correctedDetections = useMemo(
-    () => (activeResult ? applyOmrCorrections(activeResult.detections, correctionsForResult(corrections, activeResult)) : []),
-    [activeResult, corrections]
+    () => currentResults.flatMap((result) => applyOmrCorrections(result.detections, correctionsForResult(corrections, result))),
+    [currentResults, corrections]
   );
   const visibleDetections = correctedDetections.filter((detection) => {
     if (detection.reviewDecision === 'REJECTED') {
@@ -139,7 +153,7 @@ export function OmrRuntimePage({ mode = 'runtime' }: { mode?: 'runtime' | 'revie
     return classVisibility[detection.classId] !== false;
   });
   const selectedDetection = correctedDetections.find((detection) => detection.id === selectedDetectionId) ?? null;
-  const runSummary = useMemo(() => createRunSummary(correctedDetections, correctionsForResult(corrections, activeResult)), [activeResult, correctedDetections, corrections]);
+  const runSummary = useMemo(() => createRunSummary(correctedDetections, correctionsForResults(corrections, currentResults)), [currentResults, correctedDetections, corrections]);
 
   useEffect(() => {
     void importRepository.loadProject(projectId).then(setBundle);
@@ -174,7 +188,7 @@ export function OmrRuntimePage({ mode = 'runtime' }: { mode?: 'runtime' | 'revie
 
   useEffect(() => {
     const unsubscribe = workerClient.subscribe((message) => {
-      if (!isLatestOmrJob(message.jobId, latestJobRef.current)) {
+      if (!pendingRunJobsRef.current.has(message.jobId) && !isLatestOmrJob(message.jobId, latestJobRef.current)) {
         return;
       }
       void handleWorkerMessage(message);
@@ -216,11 +230,17 @@ export function OmrRuntimePage({ mode = 'runtime' }: { mode?: 'runtime' | 'revie
       setStoredResults(mergeResults(nextResults, message.result));
       setRunState({ kind: 'ready', result: message.result, outputNames: message.runtimeOutputNames });
       setStatus(`ONNX 추론이 완료되었습니다. 검출 ${message.result.detections.length}개가 생성되었고, MusicXML 초안 생성은 Phase 10으로 남겨둡니다.`);
+      pendingRunJobsRef.current.get(message.jobId)?.resolve(message.result);
+      pendingRunJobsRef.current.delete(message.jobId);
     } else if (message.type === 'JOB_CANCELLED') {
       setRunState({ kind: 'idle' });
       setStatus('OMR 실행 작업을 취소했습니다.');
+      pendingRunJobsRef.current.get(message.jobId)?.reject(new Error('JOB_CANCELLED'));
+      pendingRunJobsRef.current.delete(message.jobId);
     } else if (message.type === 'JOB_FAILED') {
       setRunState({ kind: 'error', message: message.error });
+      pendingRunJobsRef.current.get(message.jobId)?.reject(new Error(message.error));
+      pendingRunJobsRef.current.delete(message.jobId);
     } else if (message.type === 'MODEL_CACHE_CLEARED') {
       setStatus('모델 캐시를 비웠습니다.');
     }
@@ -238,6 +258,22 @@ export function OmrRuntimePage({ mode = 'runtime' }: { mode?: 'runtime' | 'revie
 
   const firstPage = samplePage ?? manifest?.pages[0] ?? null;
   const systemRegion = firstPage?.effectiveRegions.find((region) => region.type === 'SYSTEM') ?? null;
+  const fallbackCrop = firstPage && systemRegion ? systemCropFromRegion(reviewScopeId, systemRegion, 0, 'DETECTED') : null;
+  const effectiveSystemCrops = systemCrops.length > 0 ? systemCrops : fallbackCrop ? [fallbackCrop] : [];
+  const selectedCrop = effectiveSystemCrops.find((crop) => crop.id === selectedCropId) ?? effectiveSystemCrops[0] ?? null;
+  const cropSummaries = useMemo(() => createCropSummaries(effectiveSystemCrops, currentResults), [effectiveSystemCrops, currentResults]);
+
+  useEffect(() => {
+    if (!firstPage) {
+      setSystemCrops([]);
+      setSelectedCropId(null);
+      return;
+    }
+    void omrRepository.loadSystemCrops(reviewScopeId, firstPage.page.id).then((crops) => {
+      setSystemCrops(crops);
+      setSelectedCropId((current) => current ?? crops[0]?.id ?? null);
+    });
+  }, [firstPage?.page.id, omrRepository, reviewScopeId]);
 
   const loadModel = () => {
     const jobId = createJobId('load');
@@ -246,17 +282,48 @@ export function OmrRuntimePage({ mode = 'runtime' }: { mode?: 'runtime' | 'revie
   };
 
   const runSystem = async () => {
-    if ((!bundle && !selectedFixture) || !firstPage || !systemRegion || modelState.kind !== 'ready') {
-      setStatus('검토 완료된 시스템 영역과 불러온 모델이 필요합니다.');
+    if (!selectedCrop) {
+      setStatus('먼저 분석할 시스템 영역을 선택하거나 추가하세요.');
       return;
     }
+    try {
+      await runCrop(selectedCrop);
+    } catch (error) {
+      setStatus(error instanceof Error ? `선택 영역 분석 실패: ${error.message}` : '선택 영역 분석에 실패했습니다.');
+    }
+  };
 
-    const imageData = await imageDataForSystem(firstPage.page.thumbnailDataUrl, systemRegion);
+  const runAllCrops = async () => {
+    if (effectiveSystemCrops.length === 0) {
+      setStatus('분석할 시스템 영역이 없습니다. 영역을 먼저 추가하세요.');
+      return;
+    }
+    const results: OmrDetectionResult[] = [];
+    try {
+      for (const crop of effectiveSystemCrops) {
+        setSelectedCropId(crop.id);
+        results.push(await runCrop(crop));
+      }
+    } catch (error) {
+      setStatus(error instanceof Error ? `전체 영역 분석 실패: ${error.message}` : '전체 영역 분석에 실패했습니다.');
+      return;
+    }
+    const detectionCount = results.reduce((sum, result) => sum + result.detections.length, 0);
+    setStatus(`전체 시스템 영역 ${results.length}개 분석을 완료했습니다. 검출 ${detectionCount}개가 생성되었습니다.`);
+  };
+
+  const runCrop = async (crop: OmrSystemCropRecord): Promise<OmrDetectionResult> => {
+    if ((!bundle && !selectedFixture) || !firstPage || modelState.kind !== 'ready') {
+      setStatus('검토 완료된 페이지와 불러온 모델이 필요합니다.');
+      throw new Error('OMR_INPUT_NOT_READY');
+    }
+
+    const imageData = await imageDataForSystem(firstPage.page.thumbnailDataUrl, cropToRegion(crop));
     const inputManifest: OmrModelInputManifest = {
       schemaVersion: 1,
       projectId: reviewScopeId,
       pageId: firstPage.page.id,
-      systemId: systemRegion.id,
+      systemId: crop.id,
       image: {
         reference: firstPage.page.rasterStorageKey ?? firstPage.page.id,
         sourceChecksum: bundle?.source?.sha256 ?? selectedFixture?.id ?? 'unknown',
@@ -265,7 +332,7 @@ export function OmrRuntimePage({ mode = 'runtime' }: { mode?: 'runtime' | 'revie
         channels: modelState.manifest.input.channels,
         colorSpace: modelState.manifest.input.channels === 1 ? 'GRAYSCALE' : 'RGB'
       },
-      crop: { pageBounds: systemRegion.rect, paddingRatio: 0.02 },
+      crop: { pageBounds: crop.rect, paddingRatio: 0.02 },
       preprocessing: {
         rotationDegrees: firstPage.page.transform.rotation,
         deskewDegrees: firstPage.page.transform.deskewDegrees,
@@ -296,7 +363,10 @@ export function OmrRuntimePage({ mode = 'runtime' }: { mode?: 'runtime' | 'revie
       confidenceFilter: 'ALL',
       updatedAt: Date.now()
     });
-    workerClient.post({ type: 'ANALYZE_SYSTEM', jobId, input: inputManifest, imageData });
+    return new Promise<OmrDetectionResult>((resolve, reject) => {
+      pendingRunJobsRef.current.set(jobId, { resolve, reject });
+      workerClient.post({ type: 'ANALYZE_SYSTEM', jobId, input: inputManifest, imageData });
+    });
   };
 
   const cancelJob = () => {
@@ -320,6 +390,104 @@ export function OmrRuntimePage({ mode = 'runtime' }: { mode?: 'runtime' | 'revie
     setSelectedFixtureId('korean-lyrics-chords-local');
     setLocalFixtureDataUrl(dataUrl);
     setStatus('한국어 가사/코드 악보 로컬 파일을 불러왔습니다. 파일은 브라우저 안에서만 평가합니다.');
+  };
+
+  const persistSystemCrops = async (nextCrops: OmrSystemCropRecord[], message = '시스템 영역을 저장했습니다.') => {
+    if (!firstPage) {
+      return;
+    }
+    const ordered = nextCrops.map((crop, index) => ({ ...crop, orderIndex: index, updatedAt: Date.now() }));
+    setSystemCrops(ordered);
+    setSelectedCropId((current) => (current && ordered.some((crop) => crop.id === current) ? current : ordered[0]?.id ?? null));
+    await omrRepository.saveSystemCrops(reviewScopeId, firstPage.page.id, ordered);
+    setStatus(message);
+  };
+
+  const addSystemCrop = async () => {
+    if (!firstPage) {
+      setStatus('시스템 영역을 추가할 페이지가 없습니다.');
+      return;
+    }
+    const baseCrops = systemCrops.length > 0 ? systemCrops : fallbackCrop ? [makeUserCropFromCrop(reviewScopeId, fallbackCrop)] : [];
+    const offset = Math.min(0.16, baseCrops.length * 0.04);
+    const now = Date.now();
+    const crop: OmrSystemCropRecord = {
+      id: `${reviewScopeId}:system-crop:${now}`,
+      projectId: reviewScopeId,
+      pageId: firstPage.page.id,
+      rect: normalizeRect({ x: 0.08 + offset, y: 0.16 + offset, width: 0.84, height: 0.42 }),
+      orderIndex: baseCrops.length,
+      source: 'USER',
+      createdAt: now,
+      updatedAt: now
+    };
+    await persistSystemCrops([...baseCrops, crop], '새 시스템 영역을 추가하고 저장했습니다.');
+    setSelectedCropId(crop.id);
+  };
+
+  const deleteSelectedCrop = async () => {
+    if (!selectedCrop || systemCrops.length === 0) {
+      setStatus('삭제할 사용자 시스템 영역이 없습니다.');
+      return;
+    }
+    await persistSystemCrops(systemCrops.filter((crop) => crop.id !== selectedCrop.id), '선택한 시스템 영역을 삭제했습니다.');
+  };
+
+  const updateSelectedCropRect = async (patch: Partial<NormalizedRect>, message = '시스템 영역을 수정했습니다.') => {
+    if (!selectedCrop) {
+      setStatus('수정할 시스템 영역을 선택하세요.');
+      return;
+    }
+    const baseCrops = systemCrops.length > 0 ? systemCrops : [makeUserCropFromCrop(reviewScopeId, selectedCrop)];
+    const next = baseCrops.map((crop) =>
+      crop.id === selectedCrop.id
+        ? {
+            ...crop,
+            rect: normalizeRect({ ...crop.rect, ...patch }),
+            source: 'USER' as const,
+            updatedAt: Date.now()
+          }
+        : crop
+    );
+    await persistSystemCrops(next, message);
+  };
+
+  const nudgeSelectedCrop = async (delta: { x?: number; y?: number; width?: number; height?: number }) => {
+    if (!selectedCrop) {
+      setStatus('이동하거나 조절할 시스템 영역을 선택하세요.');
+      return;
+    }
+    await updateSelectedCropRect({
+      x: selectedCrop.rect.x + (delta.x ?? 0),
+      y: selectedCrop.rect.y + (delta.y ?? 0),
+      width: selectedCrop.rect.width + (delta.width ?? 0),
+      height: selectedCrop.rect.height + (delta.height ?? 0)
+    });
+  };
+
+  const exportCropReviewJson = () => {
+    if (!firstPage) {
+      setStatus('내보낼 시스템 영역이 없습니다.');
+      return;
+    }
+    setCropReviewJson(JSON.stringify(createCropReviewExport(reviewScopeId, firstPage.page.id, systemCrops), null, 2));
+  };
+
+  const importCropReviewJson = async () => {
+    if (!firstPage) {
+      setStatus('가져올 페이지가 없습니다.');
+      return;
+    }
+    const parsed = JSON.parse(cropReviewJson) as { crops?: OmrSystemCropRecord[] };
+    const crops = (parsed.crops ?? []).map((crop, index) => ({
+      ...crop,
+      projectId: reviewScopeId,
+      pageId: firstPage.page.id,
+      rect: normalizeRect(crop.rect),
+      orderIndex: index,
+      updatedAt: Date.now()
+    }));
+    await persistSystemCrops(crops, '시스템 영역 JSON을 가져왔습니다.');
   };
 
   const saveReviewCorrection = async (correction: OmrCorrection) => {
@@ -359,19 +527,20 @@ export function OmrRuntimePage({ mode = 'runtime' }: { mode?: 'runtime' | 'revie
   };
 
   const handleOverlayClick = async (event: MouseEvent<HTMLDivElement>) => {
-    if (!addMode || !activeResult || !systemRegion || !selectedClassId) {
+    if (!addMode || !activeResult || !selectedCrop || !selectedClassId) {
       return;
     }
     const rect = event.currentTarget.getBoundingClientRect();
     const pageX = (event.clientX - rect.left) / rect.width;
     const pageY = (event.clientY - rect.top) / rect.height;
-    const system = systemRegion.rect;
-    if (pageX < system.x || pageY < system.y || pageX > system.x + system.width || pageY > system.y + system.height) {
-      return;
-    }
+    const targetCrop =
+      effectiveSystemCrops.find((crop) => pageX >= crop.rect.x && pageY >= crop.rect.y && pageX <= crop.rect.x + crop.rect.width && pageY <= crop.rect.y + crop.rect.height) ?? selectedCrop;
+    const system = targetCrop.rect;
+    const localX = Math.min(1, Math.max(0, (pageX - system.x) / system.width));
+    const localY = Math.min(1, Math.max(0, (pageY - system.y) / system.height));
     const boundsInSystem = normalizeRect({
-      x: (pageX - system.x) / system.width - 0.015,
-      y: (pageY - system.y) / system.height - 0.015,
+      x: localX - 0.015,
+      y: localY - 0.015,
       width: 0.03,
       height: 0.03
     });
@@ -380,10 +549,10 @@ export function OmrRuntimePage({ mode = 'runtime' }: { mode?: 'runtime' | 'revie
       classId: selectedClassId,
       className: selectedClassId,
       confidence: 1,
-      systemId: activeResult.systemId,
+      systemId: targetCrop.id,
       pageId: activeResult.pageId,
       boundsInSystem,
-      boundsInPage: systemRectToPageRect(boundsInSystem, systemRegion.rect),
+      boundsInPage: systemRectToPageRect(boundsInSystem, targetCrop.rect),
       source: 'USER',
       reviewDecision: 'CORRECTED',
       modelVersion: activeResult.modelVersion,
@@ -608,8 +777,11 @@ export function OmrRuntimePage({ mode = 'runtime' }: { mode?: 'runtime' | 'revie
           <button type="button" className="primary-link" onClick={loadModel} data-testid="omr-load-model">
             모델 불러오기
           </button>
-          <button type="button" className="primary-link" onClick={() => void runSystem()} disabled={modelState.kind !== 'ready' || !systemRegion} data-testid="omr-run-system">
-            시스템 영역 추론
+          <button type="button" className="primary-link" onClick={() => void runSystem()} disabled={modelState.kind !== 'ready' || !selectedCrop} data-testid="omr-run-system">
+            선택 영역 분석
+          </button>
+          <button type="button" className="primary-link" onClick={() => void runAllCrops()} disabled={modelState.kind !== 'ready' || effectiveSystemCrops.length === 0} data-testid="omr-run-all-crops">
+            전체 영역 분석
           </button>
           <button type="button" className="control-button" onClick={cancelJob} data-testid="omr-cancel-job">
             취소
@@ -656,11 +828,92 @@ export function OmrRuntimePage({ mode = 'runtime' }: { mode?: 'runtime' | 'revie
           </div>
         </div>
 
+        <div className="omr-crop-review-panel" data-testid="omr-crop-review-panel">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Page/System Crop Review</p>
+              <h3>페이지 시스템 영역 검토</h3>
+              <p className="muted">전체 페이지 위에서 기호 인식에 사용할 시스템 영역을 직접 조정합니다.</p>
+            </div>
+          </div>
+          <div className="playback-button-row">
+            <button type="button" className="control-button" onClick={() => void addSystemCrop()} data-testid="omr-add-system-crop">
+              영역 추가
+            </button>
+            <button type="button" className="control-button" onClick={() => void deleteSelectedCrop()} disabled={!selectedCrop} data-testid="omr-delete-system-crop">
+              선택 영역 삭제
+            </button>
+            <button type="button" className="secondary-link" onClick={exportCropReviewJson} data-testid="omr-export-crop-json">
+              영역 JSON 내보내기
+            </button>
+            <button type="button" className="secondary-link" onClick={() => void importCropReviewJson()} data-testid="omr-import-crop-json">
+              영역 JSON 가져오기
+            </button>
+          </div>
+          <div className="playback-button-row">
+            <label className="checkbox-label">
+              <input type="checkbox" checked={showCropBoxes} onChange={(event) => setShowCropBoxes(event.target.checked)} data-testid="omr-toggle-crop-boxes" />
+              영역 박스 표시
+            </label>
+            <label className="checkbox-label">
+              <input type="checkbox" checked={showDetectionOverlay} onChange={(event) => setShowDetectionOverlay(event.target.checked)} data-testid="omr-toggle-detections" />
+              기호 검출 표시
+            </label>
+          </div>
+          <div className="playback-button-row">
+            <button type="button" className="control-button" onClick={() => void nudgeSelectedCrop({ y: -0.02 })} disabled={!selectedCrop} data-testid="omr-crop-move-up">
+              위로
+            </button>
+            <button type="button" className="control-button" onClick={() => void nudgeSelectedCrop({ y: 0.02 })} disabled={!selectedCrop} data-testid="omr-crop-move-down">
+              아래로
+            </button>
+            <button type="button" className="control-button" onClick={() => void nudgeSelectedCrop({ x: -0.02 })} disabled={!selectedCrop} data-testid="omr-crop-move-left">
+              왼쪽
+            </button>
+            <button type="button" className="control-button" onClick={() => void nudgeSelectedCrop({ x: 0.02 })} disabled={!selectedCrop} data-testid="omr-crop-move-right">
+              오른쪽
+            </button>
+            <button type="button" className="control-button" onClick={() => void nudgeSelectedCrop({ width: 0.03 })} disabled={!selectedCrop} data-testid="omr-crop-wider">
+              넓게
+            </button>
+            <button type="button" className="control-button" onClick={() => void nudgeSelectedCrop({ width: -0.03 })} disabled={!selectedCrop} data-testid="omr-crop-narrower">
+              좁게
+            </button>
+            <button type="button" className="control-button" onClick={() => void nudgeSelectedCrop({ height: 0.03 })} disabled={!selectedCrop} data-testid="omr-crop-taller">
+              높게
+            </button>
+            <button type="button" className="control-button" onClick={() => void nudgeSelectedCrop({ height: -0.03 })} disabled={!selectedCrop} data-testid="omr-crop-shorter">
+              낮게
+            </button>
+          </div>
+          <p data-testid="omr-selected-crop-id">선택 영역: {selectedCrop?.id ?? '없음'}</p>
+          <textarea className="omr-review-json" value={cropReviewJson} onChange={(event) => setCropReviewJson(event.target.value)} data-testid="omr-crop-json" />
+        </div>
+
         <div className="import-page-stage" data-testid="omr-detection-overlay">
           {firstPage?.page.thumbnailDataUrl ? <img src={firstPage.page.thumbnailDataUrl} alt="" className="import-page-image" /> : <div className="import-page-placeholder">검토된 페이지가 없습니다</div>}
           <div className={`import-region-overlay ${addMode ? 'is-adding' : ''}`} onClick={(event) => void handleOverlayClick(event)} data-testid="omr-overlay-hit-area">
-            {systemRegion ? <div className="import-region import-region--system is-selected" style={regionStyle(systemRegion)}>시스템 영역</div> : null}
-            {visibleDetections.map((detection) => (
+            {showCropBoxes
+              ? effectiveSystemCrops.map((crop) => (
+                  <button
+                    key={crop.id}
+                    type="button"
+                    className={`import-region import-region--system ${selectedCrop?.id === crop.id ? 'is-selected' : ''}`}
+                    style={rectStyle(crop.rect)}
+                    onClick={(event) => {
+                      if (addMode) {
+                        return;
+                      }
+                      event.stopPropagation();
+                      setSelectedCropId(crop.id);
+                    }}
+                    data-testid="omr-system-crop-box"
+                  >
+                    영역 {crop.orderIndex + 1}
+                  </button>
+                ))
+              : null}
+            {showDetectionOverlay ? visibleDetections.map((detection) => (
               <button
                 key={detection.id}
                 type="button"
@@ -669,13 +922,16 @@ export function OmrRuntimePage({ mode = 'runtime' }: { mode?: 'runtime' | 'revie
                 data-testid="omr-detection-box"
                 title={`${detection.classId} ${Math.round(detection.confidence * 100)}%`}
                 onClick={(event) => {
+                  if (addMode) {
+                    return;
+                  }
                   event.stopPropagation();
                   setSelectedDetectionId(detection.id);
                 }}
               >
                 {displayClassLabel(detection.classId)}
               </button>
-            ))}
+            )) : null}
           </div>
         </div>
       </section>
@@ -699,6 +955,27 @@ export function OmrRuntimePage({ mode = 'runtime' }: { mode?: 'runtime' | 'revie
           <p data-testid="omr-summary-correction-counts">
             삭제 {runSummary.deletedCount} / 수정 {runSummary.modifiedCount} / 추가 {runSummary.addedCount}
           </p>
+        </div>
+        <div className="omr-crop-summary-panel" data-testid="omr-crop-summary">
+          <p className="eyebrow">영역별 분석 요약</p>
+          <ul className="measure-list">
+            {cropSummaries.length === 0 ? <li>분석할 시스템 영역이 없습니다.</li> : null}
+            {cropSummaries.map((summary) => (
+              <li key={summary.cropId} data-testid="omr-crop-summary-item">
+                <button
+                  type="button"
+                  className={`measure-item ${selectedCrop?.id === summary.cropId ? 'is-active' : ''}`}
+                  onClick={() => setSelectedCropId(summary.cropId)}
+                >
+                  <span className="measure-item__number">영역 {summary.orderIndex + 1}</span>
+                  <span className="measure-item__meta">
+                    검출 {summary.detectionCount}개 / 평균 신뢰도 {summary.averageConfidence.toFixed(2)}
+                  </span>
+                </button>
+                <p className="muted">{summary.classCountsText || '기호별 집계 없음'}</p>
+              </li>
+            ))}
+          </ul>
         </div>
         <div className="omr-evaluation-report-panel" data-testid="omr-evaluation-report-panel">
           <p className="eyebrow">수동 평가 리포트</p>
@@ -822,7 +1099,7 @@ export function OmrRuntimePage({ mode = 'runtime' }: { mode?: 'runtime' | 'revie
             onChange={(event) => setReviewJson(event.target.value)}
             data-testid="omr-review-json"
           />
-          <p data-testid="omr-correction-count">저장된 수정 {correctionsForResult(corrections, activeResult).length}개</p>
+          <p data-testid="omr-correction-count">저장된 수정 {correctionsForResults(corrections, currentResults).length}개</p>
         </div>
         <p className="eyebrow">Phase 10</p>
         <p>구조 조립과 MusicXML 초안 전달은 아직 구현하지 않았습니다.</p>
@@ -901,6 +1178,11 @@ function correctionsForResult(corrections: OmrCorrection[], result: OmrDetection
   });
 }
 
+function correctionsForResults(corrections: OmrCorrection[], results: OmrDetectionResult[]): OmrCorrection[] {
+  const byId = new Map(results.map((result) => [result.id, result]));
+  return [...new Map(results.flatMap((result) => correctionsForResult(corrections, byId.get(result.id) ?? null)).map((correction) => [correction.id, correction])).values()];
+}
+
 function createReviewExport(projectId: string, result: OmrDetectionResult | null, corrections: OmrCorrection[], fixture: OmrSampleFixture | null = null) {
   return {
     schemaVersion: 1,
@@ -932,6 +1214,17 @@ function createReviewExport(projectId: string, result: OmrDetectionResult | null
   };
 }
 
+function createCropReviewExport(projectId: string, pageId: string, crops: OmrSystemCropRecord[]) {
+  return {
+    schemaVersion: 1,
+    kind: 'CUENOTE_OMR_SYSTEM_CROP_REVIEW',
+    projectId,
+    pageId,
+    crops,
+    exportedAt: new Date().toISOString()
+  };
+}
+
 function createEvaluationReportExport(report: OmrManualEvaluationReport) {
   return {
     schemaVersion: 1,
@@ -939,6 +1232,27 @@ function createEvaluationReportExport(report: OmrManualEvaluationReport) {
     report,
     exportedAt: new Date().toISOString()
   };
+}
+
+function createCropSummaries(crops: OmrSystemCropRecord[], results: OmrDetectionResult[]) {
+  return crops.map((crop) => {
+    const detections = results.filter((result) => result.systemId === crop.id).flatMap((result) => result.detections);
+    const classCounts = new Map<string, number>();
+    for (const detection of detections) {
+      if (detection.reviewDecision === 'REJECTED') {
+        continue;
+      }
+      classCounts.set(detection.classId, (classCounts.get(detection.classId) ?? 0) + 1);
+    }
+    const visible = detections.filter((detection) => detection.reviewDecision !== 'REJECTED');
+    return {
+      cropId: crop.id,
+      orderIndex: crop.orderIndex,
+      detectionCount: visible.length,
+      averageConfidence: visible.length ? visible.reduce((sum, detection) => sum + detection.confidence, 0) / visible.length : 0,
+      classCountsText: [...classCounts.entries()].map(([classId, count]) => `${displayClassLabel(classId)}: ${count}`).join(', ')
+    };
+  });
 }
 
 function createRunSummary(detections: OmrDetection[], corrections: OmrCorrection[]) {
@@ -959,6 +1273,45 @@ function createRunSummary(detections: OmrDetection[], corrections: OmrCorrection
     deletedCount: corrections.filter((correction) => correction.operation.type === 'REJECT').length,
     modifiedCount: corrections.filter((correction) => correction.operation.type === 'CHANGE_CLASS' || correction.operation.type === 'MOVE_RESIZE').length,
     addedCount: corrections.filter((correction) => correction.operation.type === 'ADD').length
+  };
+}
+
+function systemCropFromRegion(projectId: string, region: ImportRegion, orderIndex: number, source: 'DETECTED' | 'USER'): OmrSystemCropRecord {
+  const now = Date.now();
+  return {
+    id: region.id,
+    projectId,
+    pageId: region.pageId,
+    rect: region.rect,
+    orderIndex,
+    source,
+    createdAt: now,
+    updatedAt: now
+  };
+}
+
+function makeUserCropFromCrop(projectId: string, crop: OmrSystemCropRecord): OmrSystemCropRecord {
+  const now = Date.now();
+  return {
+    ...crop,
+    id: crop.id,
+    projectId,
+    source: 'USER',
+    createdAt: crop.createdAt || now,
+    updatedAt: now
+  };
+}
+
+function cropToRegion(crop: OmrSystemCropRecord): ImportRegion {
+  return {
+    id: crop.id,
+    type: 'SYSTEM',
+    pageId: crop.pageId,
+    parentId: null,
+    rect: crop.rect,
+    orderIndex: crop.orderIndex,
+    confidence: 1,
+    source: crop.source
   };
 }
 

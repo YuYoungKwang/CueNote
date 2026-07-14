@@ -501,6 +501,20 @@ OMR runtime/review/evaluation 화면은 제품용 자동 변환 화면이 아니
 - 수동 평가 리포트는 fixture/run별 검출 수, 기호별 수, 평균 신뢰도, 삭제/수정/추가 수, 검수 메모, 알려진 실패 유형을 기록한다.
 - 이 화면은 pitch/duration 추론, 구조 조립, MusicXML 생성, ScoreVersion publish를 수행하지 않는다.
 
+### Phase 9P Page/System Crop Review
+
+Phase 9P는 전체 페이지에서 symbol tile model 입력으로 사용할 system crop을 검토하는 흐름이다.
+
+- 전체 페이지 위에 system crop 후보를 표시한다.
+- 사용자는 crop box를 추가, 삭제, 이동, 리사이즈할 수 있다.
+- crop box는 fixture/page별로 IndexedDB에 저장하고 다시 복원한다.
+- crop box export/import JSON은 `CUENOTE_OMR_SYSTEM_CROP_REVIEW` kind를 사용한다.
+- 선택 영역 분석은 현재 선택한 crop 하나만 실행한다.
+- 전체 영역 분석은 저장된 모든 crop에 대해 기존 symbol tile inference를 순차 실행한다.
+- crop별 검출 수, 기호별 수, 평균 confidence를 화면에 표시한다.
+- crop box overlay와 symbol detection overlay는 따로 켜고 끌 수 있다.
+- 이 단계에서도 pitch/duration 추론, voice assembly, MusicXML 생성, ScoreVersion publish, 모델 승격은 수행하지 않는다.
+
 ## Phase 9E-H Colab Model Pipeline
 
 Phase 9E-H prepares real training outside the browser and outside the local RX 580 GPU.

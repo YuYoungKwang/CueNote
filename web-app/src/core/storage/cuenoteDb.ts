@@ -1,7 +1,7 @@
 import { createIndexedDbAdapter, type IndexedDbAdapter } from './indexedDbAdapter';
 
 export const CUENOTE_DB_NAME = 'cuenote';
-export const CUENOTE_DB_VERSION = 8;
+export const CUENOTE_DB_VERSION = 9;
 
 export const RECENT_SCORES_STORE = 'recent_scores';
 export const ANNOTATIONS_STORE = 'annotations';
@@ -23,6 +23,7 @@ export const OMR_ANALYSIS_JOBS_STORE = 'omr_analysis_jobs';
 export const OMR_DETECTION_RESULTS_STORE = 'omr_detection_results';
 export const OMR_DETECTION_CORRECTIONS_STORE = 'omr_detection_corrections';
 export const OMR_EVALUATION_REPORTS_STORE = 'omr_evaluation_reports';
+export const OMR_SYSTEM_CROPS_STORE = 'omr_system_crops';
 export const OMR_PREFERENCES_STORE = 'omr_preferences';
 
 export function createCueNoteDbAdapter(): IndexedDbAdapter {
@@ -112,6 +113,10 @@ function upgradeCueNoteDb(database: IDBDatabase) {
 
   if (!database.objectStoreNames.contains(OMR_EVALUATION_REPORTS_STORE)) {
     database.createObjectStore(OMR_EVALUATION_REPORTS_STORE);
+  }
+
+  if (!database.objectStoreNames.contains(OMR_SYSTEM_CROPS_STORE)) {
+    database.createObjectStore(OMR_SYSTEM_CROPS_STORE);
   }
 
   if (!database.objectStoreNames.contains(OMR_PREFERENCES_STORE)) {

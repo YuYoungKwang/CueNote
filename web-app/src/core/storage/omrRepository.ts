@@ -1,4 +1,4 @@
-import type { OmrCorrection, OmrDetectionResult, OmrModelManifest } from '@cuenote/score-domain';
+import type { NormalizedRect, OmrCorrection, OmrDetectionResult, OmrModelManifest } from '@cuenote/score-domain';
 import type { OmrModelCacheMetadata } from '../omr/modelRepository';
 import {
   createCueNoteDbAdapter,
@@ -8,7 +8,8 @@ import {
   OMR_EVALUATION_REPORTS_STORE,
   OMR_MODEL_CACHE_METADATA_STORE,
   OMR_MODEL_MANIFESTS_STORE,
-  OMR_PREFERENCES_STORE
+  OMR_PREFERENCES_STORE,
+  OMR_SYSTEM_CROPS_STORE
 } from './cuenoteDb';
 import type { IndexedDbAdapter } from './indexedDbAdapter';
 
@@ -64,6 +65,17 @@ export interface OmrManualEvaluationReport {
   updatedAt: number;
 }
 
+export interface OmrSystemCropRecord {
+  id: string;
+  projectId: string;
+  pageId: string;
+  rect: NormalizedRect;
+  orderIndex: number;
+  source: 'DETECTED' | 'USER';
+  createdAt: number;
+  updatedAt: number;
+}
+
 export interface OmrRepository {
   saveManifest(manifest: OmrModelManifest): Promise<void>;
   loadManifest(modelId: string, version: string): Promise<OmrModelManifest | undefined>;
@@ -77,6 +89,8 @@ export interface OmrRepository {
   loadCorrections(projectId: string): Promise<OmrCorrection[]>;
   saveEvaluationReport(report: OmrManualEvaluationReport): Promise<void>;
   loadEvaluationReports(projectId: string): Promise<OmrManualEvaluationReport[]>;
+  saveSystemCrops(projectId: string, pageId: string, crops: OmrSystemCropRecord[]): Promise<void>;
+  loadSystemCrops(projectId: string, pageId: string): Promise<OmrSystemCropRecord[]>;
   savePreferences(preferences: OmrPreferenceRecord): Promise<void>;
   loadPreferences(projectId: string): Promise<OmrPreferenceRecord | undefined>;
 }
@@ -120,6 +134,16 @@ export function createOmrRepository(adapter: IndexedDbAdapter = createCueNoteDbA
       return (await adapter.getAll<OmrManualEvaluationReport>(OMR_EVALUATION_REPORTS_STORE))
         .filter((report) => report.projectId === projectId)
         .sort((left, right) => left.createdAt - right.createdAt);
+    },
+    async saveSystemCrops(projectId, pageId, crops) {
+      const existing = (await adapter.getAll<OmrSystemCropRecord>(OMR_SYSTEM_CROPS_STORE)).filter((crop) => crop.projectId === projectId && crop.pageId === pageId);
+      await Promise.all(existing.map((crop) => adapter.delete(OMR_SYSTEM_CROPS_STORE, crop.id)));
+      await Promise.all(crops.map((crop) => adapter.set(OMR_SYSTEM_CROPS_STORE, crop.id, crop)));
+    },
+    async loadSystemCrops(projectId, pageId) {
+      return (await adapter.getAll<OmrSystemCropRecord>(OMR_SYSTEM_CROPS_STORE))
+        .filter((crop) => crop.projectId === projectId && crop.pageId === pageId)
+        .sort((left, right) => left.orderIndex - right.orderIndex);
     },
     savePreferences(preferences) {
       return adapter.set(OMR_PREFERENCES_STORE, preferences.projectId, preferences);
