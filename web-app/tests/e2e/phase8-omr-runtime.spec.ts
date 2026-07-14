@@ -15,19 +15,19 @@ test('runs the Phase 8 TEST_RUNTIME_MODEL through the OMR worker and stores runt
 
   await page.context().setOffline(true);
   await page.getByTestId('omr-load-model').click();
-  await expect.poll(async () => page.getByTestId('omr-cache-state').textContent(), { timeout: 30000 }).toBe('hit');
+  await expect.poll(async () => page.getByTestId('omr-cache-state').textContent(), { timeout: 30000 }).toBe('캐시됨');
   await page.context().setOffline(false);
 
   await page.getByTestId('omr-run-system').click();
-  await expect(page.getByTestId('omr-runtime-result')).toContainText('detections: 0', { timeout: 30000 });
+  await expect(page.getByTestId('omr-runtime-result')).toContainText('검출: 0', { timeout: 30000 });
   await expect(page.getByTestId('omr-result-list')).toContainText('cuenote-test-runtime');
-  await expect(page.getByTestId('omr-review-foundation')).toContainText('Phase 9 models');
+  await expect(page.getByTestId('omr-review-foundation')).toContainText('검출 오버레이');
 
   await page.reload();
   await expect(page.getByTestId('omr-result-list')).toContainText('cuenote-test-runtime');
   await expect(page.getByTestId('omr-product-state')).toHaveText('PRODUCT_MODEL_NOT_INSTALLED');
 
-  await page.getByRole('link', { name: 'Draft status' }).click();
+  await page.getByTestId('omr-draft-link').click();
   await expect(page.getByTestId('omr-draft-deferred')).toContainText('Phase 10');
   expect(consoleErrors).toEqual([]);
   expect(pageErrors).toEqual([]);

@@ -13,14 +13,14 @@ test('runs Phase 9 experimental layout and symbol ONNX models in the browser run
 
   await page.context().setOffline(true);
   await page.getByTestId('omr-load-model').click();
-  await expect.poll(async () => page.getByTestId('omr-cache-state').textContent(), { timeout: 30000 }).toBe('hit');
+  await expect.poll(async () => page.getByTestId('omr-cache-state').textContent(), { timeout: 30000 }).toBe('캐시됨');
   await page.context().setOffline(false);
 
   await runModel(page, 'SYMBOL_SMOKE_MODEL', /cuenote-symbol-smoke/, /notehead\.filled|clef\.treble/);
   await expect(page.getByTestId('omr-product-state')).toHaveText('PRODUCT_MODEL_NOT_INSTALLED');
   await expect(page.getByTestId('omr-detection-box').first()).toBeVisible();
 
-  await page.getByRole('link', { name: 'Draft status' }).click();
+  await page.getByTestId('omr-draft-link').click();
   await expect(page.getByTestId('omr-draft-deferred')).toContainText('Phase 10');
   expect(consoleErrors).toEqual([]);
   expect(pageErrors).toEqual([]);
@@ -33,28 +33,28 @@ test('runs installed Colab experimental layout and symbol artifacts without prom
   await page.getByTestId('open-omr-runtime').click();
   await expect(page.getByTestId('omr-runtime-page')).toBeVisible();
   await page.getByTestId('omr-fixture-synthetic-basic-staff').click();
-  await expect(page.getByTestId('omr-fixture-metadata')).toContainText('Synthetic staff and symbols');
+  await expect(page.getByTestId('omr-fixture-metadata')).toContainText('합성 보표와 기호 샘플');
 
   await runInstalledExperimentalModel(page, 'cuenote-layout-deepscores-exp');
   await page.context().setOffline(true);
   await page.getByTestId('omr-load-model').click();
-  await expect.poll(async () => page.getByTestId('omr-cache-state').textContent(), { timeout: 30000 }).toBe('hit');
+  await expect.poll(async () => page.getByTestId('omr-cache-state').textContent(), { timeout: 30000 }).toBe('캐시됨');
   await page.context().setOffline(false);
 
   await runInstalledExperimentalModel(page, 'cuenote-symbol-deepscores-exp', 'cuenote-symbol-deepscores-exp');
   await runInstalledExperimentalModel(page, 'cuenote-symbol-deepscores-exp-0.1.0-colab-tile', 'cuenote-symbol-deepscores-exp', true);
   await expect(page.getByTestId('omr-summary-detection-count')).not.toHaveText('0');
-  await expect(page.getByTestId('omr-summary-class-counts')).not.toHaveText('No class counts');
+  await expect(page.getByTestId('omr-summary-class-counts')).not.toHaveText('기호별 집계 없음');
   await exerciseOmrReviewUi(page);
   await page.getByTestId('omr-model-select').selectOption('cuenote-symbol-deepscores-exp-0.1.0-colab-tile');
   await page.getByTestId('omr-load-model').click();
   await expect.poll(async () => page.getByTestId('omr-provider').textContent(), { timeout: 30000 }).toMatch(/WEBGPU|WASM/);
   await page.context().setOffline(true);
   await page.getByTestId('omr-load-model').click();
-  await expect.poll(async () => page.getByTestId('omr-cache-state').textContent(), { timeout: 30000 }).toBe('hit');
+  await expect.poll(async () => page.getByTestId('omr-cache-state').textContent(), { timeout: 30000 }).toBe('캐시됨');
   await page.context().setOffline(false);
 
-  await page.getByRole('link', { name: 'Draft status' }).click();
+  await page.getByTestId('omr-draft-link').click();
   await expect(page.getByTestId('omr-draft-deferred')).toContainText('Phase 10');
   expect(consoleErrors).toEqual([]);
   expect(pageErrors).toEqual([]);
@@ -66,7 +66,7 @@ async function runModel(page: Page, modelId: string, resultPattern: RegExp, dete
   await page.getByTestId('omr-load-model').click();
   await expect.poll(async () => page.getByTestId('omr-provider').textContent(), { timeout: 30000 }).toMatch(/WEBGPU|WASM/);
   await page.getByTestId('omr-run-system').click();
-  await expect(page.getByTestId('omr-runtime-result')).toContainText(/detections: [1-9]/, { timeout: 30000 });
+  await expect(page.getByTestId('omr-runtime-result')).toContainText(/검출: [1-9]/, { timeout: 30000 });
   await expect(page.getByTestId('omr-result-list')).toContainText(resultPattern);
   await expect(page.getByTestId('omr-detection-list')).toContainText(detectionPattern);
 }
@@ -83,7 +83,7 @@ async function exerciseOmrReviewUi(page: Page) {
     element.dispatchEvent(new Event('input', { bubbles: true }));
     element.dispatchEvent(new Event('change', { bubbles: true }));
   });
-  await expect(page.getByTestId('omr-detection-list')).toContainText('No visible detections');
+  await expect(page.getByTestId('omr-detection-list')).toContainText('표시할 검출 결과가 없습니다.');
   await page.getByTestId('omr-confidence-threshold').evaluate((input) => {
     const element = input as HTMLInputElement;
     const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
@@ -93,50 +93,50 @@ async function exerciseOmrReviewUi(page: Page) {
   });
   await expect(detectionBoxes.first()).toBeVisible();
 
-  const firstClass = ((await page.getByTestId('omr-detection-list-item').first().locator('.measure-item__number').textContent()) ?? '').trim();
+  const firstClass = (await page.getByTestId('omr-detection-list-item').first().getAttribute('data-class-id')) ?? '';
   await page.getByTestId(`omr-class-toggle-${firstClass.replace(/[^a-zA-Z0-9_-]+/g, '-')}`).click();
   await expect.poll(async () => page.getByTestId('omr-detection-box').count()).toBeLessThan(initialBoxCount);
   await page.getByTestId(`omr-class-toggle-${firstClass.replace(/[^a-zA-Z0-9_-]+/g, '-')}`).click();
 
   await page.getByTestId('omr-detection-list-item').first().click();
-  await expect(page.getByTestId('omr-selected-detection')).not.toHaveText('No detection selected');
+  await expect(page.getByTestId('omr-selected-detection')).not.toHaveText('선택한 검출 결과가 없습니다');
   await page.getByTestId('omr-symbol-class-select').selectOption({ index: 0 });
   await page.getByTestId('omr-change-class').click();
-  await expect(page.getByTestId('omr-correction-count')).toContainText(/1 corrections saved|2 corrections saved/);
+  await expect(page.getByTestId('omr-correction-count')).toContainText(/저장된 수정 [12]개/);
   await page.getByTestId('omr-delete-detection').click();
-  await expect(page.getByTestId('omr-correction-count')).toContainText(/2 corrections saved|3 corrections saved/);
+  await expect(page.getByTestId('omr-correction-count')).toContainText(/저장된 수정 [23]개/);
 
   await page.getByTestId('omr-add-detection-mode').click();
   await page.locator('.import-region--system').click();
-  await expect(page.getByTestId('omr-correction-count')).toContainText(/3 corrections saved|4 corrections saved/);
+  await expect(page.getByTestId('omr-correction-count')).toContainText(/저장된 수정 [34]개/);
 
   await page.getByTestId('omr-export-review-json').click();
   await expect(page.getByTestId('omr-review-json')).toContainText('CUENOTE_OMR_REVIEW');
   await expect(page.getByTestId('omr-review-json')).toContainText('corrections');
   await page.getByTestId('omr-import-review-json').click();
-  await expect(page.getByTestId('omr-runtime-status')).toContainText('Review JSON imported');
+  await expect(page.getByTestId('omr-runtime-status')).toContainText('검수 JSON');
 
-  await page.getByTestId('omr-evaluation-reviewer-note').fill('Manual fixture review: detection overlay needs notehead follow-up.');
+  await page.getByTestId('omr-evaluation-reviewer-note').fill('수동 샘플 검수: 음표머리 검출 후속 확인 필요.');
   await page.getByTestId('omr-known-failure-missed-notehead').check();
   await page.getByTestId('omr-known-failure-crop-stitch-duplicate').check();
   await page.getByTestId('omr-save-evaluation-report').click();
-  await expect(page.getByTestId('omr-runtime-status')).toContainText('Manual evaluation report saved');
+  await expect(page.getByTestId('omr-runtime-status')).toContainText('수동 평가 리포트');
   await expect(page.getByTestId('omr-evaluation-report-count')).toHaveText('1');
   await page.getByTestId('omr-export-evaluation-report').click();
   await expect(page.getByTestId('omr-evaluation-report-json')).toContainText('CUENOTE_OMR_MANUAL_EVALUATION');
   await expect(page.getByTestId('omr-evaluation-report-json')).toContainText('missed-notehead');
   await expect(page.getByTestId('omr-evaluation-report-json')).toContainText('detectionCount');
   await page.getByTestId('omr-import-evaluation-report').click();
-  await expect(page.getByTestId('omr-runtime-status')).toContainText('Manual evaluation report JSON imported');
+  await expect(page.getByTestId('omr-runtime-status')).toContainText('수동 평가 리포트 JSON');
   await expect(page.getByTestId('omr-evaluation-report-count')).toHaveText('1');
 
   await page.reload();
   await expect(page.getByTestId('omr-runtime-page')).toBeVisible();
   await page.getByTestId('omr-fixture-synthetic-basic-staff').click();
   await expect(page.getByTestId('omr-evaluation-report-count')).toHaveText('1');
-  await expect(page.getByTestId('omr-evaluation-reviewer-note')).toHaveValue(/Manual fixture review/);
+  await expect(page.getByTestId('omr-evaluation-reviewer-note')).toHaveValue(/수동 샘플 검수/);
   await expect(page.getByTestId('omr-known-failure-missed-notehead')).toBeChecked();
-  await expect(page.getByTestId('omr-correction-count')).toContainText(/corrections saved/);
+  await expect(page.getByTestId('omr-correction-count')).toContainText(/저장된 수정/);
   await expect(page.getByTestId('omr-review-json')).toBeVisible();
 }
 
@@ -149,7 +149,7 @@ async function runInstalledExperimentalModel(page: Page, catalogId: string, resu
   await expect(page.getByTestId('omr-model-status')).toHaveText('EXPERIMENTAL');
   await expect(page.getByTestId('omr-product-state')).toHaveText('PRODUCT_MODEL_NOT_INSTALLED');
   await page.getByTestId('omr-run-system').click();
-  await expect(page.getByTestId('omr-runtime-result')).toContainText(/detections: \d+/, { timeout: 60000 });
+  await expect(page.getByTestId('omr-runtime-result')).toContainText(/검출: \d+/, { timeout: 60000 });
   await expect(page.getByTestId('omr-result-list')).toContainText(resultModelId);
   if (requireOverlay) {
     await expect(page.getByTestId('omr-detection-box').first()).toBeVisible();

@@ -46,7 +46,7 @@ export const OMR_SAMPLE_FIXTURES: OmrSampleFixture[] = [
           <line x1="666" y1="200" x2="666" y2="110"/>
           <path d="M226 98 C285 80 360 78 421 82" fill="none"/>
         </g>
-        <text x="100" y="294" font-family="Arial, sans-serif" font-size="28" fill="#111827">Synthetic OMR evaluation fixture</text>
+        <text x="100" y="294" font-family="Arial, sans-serif" font-size="28" fill="#111827">합성 OMR 평가 샘플</text>
       </svg>
     `)
   },

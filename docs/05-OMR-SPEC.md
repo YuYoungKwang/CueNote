@@ -489,6 +489,18 @@ Phase 9 adds dataset and model-development infrastructure without claiming produ
 
 Phase 9 still does not implement pitch inference, duration inference, notehead/stem structure assembly, `EditableScoreDocument`, MusicXML draft generation, or Phase 6 editor handoff.
 
+### Phase 9M-O 브라우저 검수 화면 사용법
+
+OMR runtime/review/evaluation 화면은 제품용 자동 변환 화면이 아니라 실험 모델 결과를 검수하고 평가 기록을 남기는 화면이다.
+
+- 사용자는 평가 샘플 또는 가져온 이미지를 선택한다.
+- 모델 ID, 모델 버전, 모델 status는 내부 식별자이므로 원문을 유지한다.
+- 화면의 안내 문구, 버튼, 검출 목록, 수정 레이어, 수동 평가 리포트는 한국어로 표시한다.
+- 기호 class id는 저장값과 JSON에서는 영어 내부값을 유지하고, 화면에는 한국어 표시명을 함께 제공한다.
+- 검수 JSON과 수동 평가 리포트 JSON의 `kind`, schema key, model id, class id는 변경하지 않는다.
+- 수동 평가 리포트는 fixture/run별 검출 수, 기호별 수, 평균 신뢰도, 삭제/수정/추가 수, 검수 메모, 알려진 실패 유형을 기록한다.
+- 이 화면은 pitch/duration 추론, 구조 조립, MusicXML 생성, ScoreVersion publish를 수행하지 않는다.
+
 ## Phase 9E-H Colab Model Pipeline
 
 Phase 9E-H prepares real training outside the browser and outside the local RX 580 GPU.

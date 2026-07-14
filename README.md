@@ -152,3 +152,17 @@ Phase 8 verifies browser-local OMR runtime infrastructure, not product OMR accur
 - Test model output is not converted into notes, rests, pitch, duration, MusicXML, or Phase 6 editor drafts.
 
 Phase 9 covers dataset and model development. Phase 10 covers structure assembly, MusicXML draft generation, and Phase 6 editor handoff.
+
+### OMR 실행/검수 화면 사용 흐름
+
+현재 OMR 화면은 일반 악보 변환 완료 화면이 아니라, 실험 모델의 검출 결과를 사람이 확인하고 평가 기록을 남기는 검수 화면이다.
+
+1. 가져온 이미지의 레이아웃 검토를 완료한 뒤 OMR 실행 화면으로 이동한다.
+2. 평가 샘플 또는 가져온 이미지를 선택한다.
+3. 모델을 선택하고 `모델 불러오기`를 누른다. 모델 ID와 버전 값은 내부 식별자이므로 영어로 표시된다.
+4. `시스템 영역 추론`을 실행해 검출 오버레이와 기호 목록을 확인한다.
+5. 신뢰도 기준값, 기호 표시 토글, 수정 레이어를 사용해 검출 결과를 검수한다.
+6. 수동 평가 리포트에 검수 메모와 알려진 실패 유형을 기록하고 저장한다.
+7. 검수 JSON과 리포트 JSON은 호환성을 위해 영어 schema/key/model id/class id를 유지한다.
+
+Phase 10의 구조 조립, pitch/duration 추론, MusicXML 초안 생성은 아직 구현하지 않는다.
