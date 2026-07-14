@@ -131,6 +131,18 @@ async function exerciseOmrReviewUi(page: Page) {
   await expect(page.getByTestId('omr-runtime-status')).toContainText('수동 평가 리포트 JSON');
   await expect(page.getByTestId('omr-evaluation-report-count')).toHaveText('1');
 
+  await page.getByTestId('omr-export-training-sample').click();
+  await expect(page.getByTestId('omr-training-sample-json')).toContainText('CUENOTE_OMR_TRAINING_SAMPLE_EXPORT');
+  await expect(page.getByTestId('omr-training-sample-json')).toContainText('cropBoxes');
+  await expect(page.getByTestId('omr-training-sample-json')).toContainText('correctedDetections');
+  await expect(page.getByTestId('omr-training-sample-json')).toContainText('boundsInPage');
+  await expect(page.getByTestId('omr-training-sample-json')).toContainText('boundsInCrop');
+  await expect(page.getByTestId('omr-training-sample-json')).toContainText('yoloTileFineTuning');
+  await expect(page.getByTestId('omr-training-sample-json')).toContainText('labelText');
+  await expect(page.getByTestId('omr-training-sample-json')).toContainText('missed-notehead');
+  await page.getByTestId('omr-import-training-sample').click();
+  await expect(page.getByTestId('omr-runtime-status')).toContainText('detection');
+
   await page.reload();
   await expect(page.getByTestId('omr-runtime-page')).toBeVisible();
   await page.getByTestId('omr-fixture-synthetic-basic-staff').click();

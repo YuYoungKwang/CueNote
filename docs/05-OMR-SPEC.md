@@ -515,6 +515,30 @@ Phase 9P는 전체 페이지에서 symbol tile model 입력으로 사용할 syst
 - crop box overlay와 symbol detection overlay는 따로 켜고 끌 수 있다.
 - 이 단계에서도 pitch/duration 추론, voice assembly, MusicXML 생성, ScoreVersion publish, 모델 승격은 수행하지 않는다.
 
+### Phase 9Q Training Sample Export
+
+Phase 9Q는 OMR Review UI에서 사용자가 검수한 system crop과 detection correction layer를 학습 데이터 후보로 재사용하기 위한 export workflow이다.
+
+- export kind는 `CUENOTE_OMR_TRAINING_SAMPLE_EXPORT`를 사용한다.
+- export에는 source image metadata, fixture id/title, crop box, corrected detection, page coordinate bbox, 가능한 경우 crop coordinate bbox를 포함한다.
+- 삭제 또는 reject된 model detection은 제외한다.
+- class 수정은 corrected detection class로 반영하고, 사용자가 수동 추가한 detection은 포함한다.
+- manual evaluation report의 reviewer note와 known failure tags를 training sample export에 연결한다.
+- YOLO tile fine-tuning용으로 crop metadata와 label text를 포함한다.
+- 브라우저 export는 우선 JSON과 절차 안내만 제공한다. 실제 crop image 파일은 사용자가 라이선스가 확인된 원본 이미지에서 별도로 생성한다.
+- 서버 업로드, 실제 재학습, MusicXML 생성, pitch/duration inference, `CANDIDATE` 또는 `PRODUCT` 승격은 포함하지 않는다.
+
+실제 한국어 가사/코드 악보 fine-tuning 절차:
+
+1. 라이선스 또는 사용 허가가 확인된 한국어 가사/코드 악보 10-30장을 준비한다.
+2. 각 페이지를 OMR runtime의 fixture/local image 흐름으로 열고 system crop을 수동 검수한다.
+3. symbol tile inference를 실행한 뒤 누락, 오검출, class 오류를 correction layer로 수정한다.
+4. reviewer note와 known failure tags를 저장한다.
+5. training sample JSON을 export한다.
+6. JSON의 `cropBoxes`로 원본 이미지를 crop하고, `yoloTileFineTuning.labelsByCrop[].labelText`를 같은 이름의 YOLO label file로 저장한다.
+7. Colab fine-tuning은 tile symbol path에서만 수행한다. full-page `SYMBOL_TRAIN`은 diagnostic-only baseline으로 유지한다.
+8. fixed split metric, per-class report, browser WebGPU/WASM smoke, offline cache 검증 전까지 모델 상태는 `EXPERIMENTAL`로 유지한다.
+
 ## Phase 9E-H Colab Model Pipeline
 
 Phase 9E-H prepares real training outside the browser and outside the local RX 580 GPU.

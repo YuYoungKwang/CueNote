@@ -7,7 +7,9 @@ import {
   createOmrPreparationManifest,
   DEFAULT_PAGE_TRANSFORM,
   normalizeRect,
+  type ImportPage,
   type ImportRegion,
+  type ImportSource,
   type NormalizedRect,
   type OmrCorrection,
   type OmrDetection,
@@ -121,6 +123,7 @@ export function OmrRuntimePage({ mode = 'runtime' }: { mode?: 'runtime' | 'revie
   const [reviewerNote, setReviewerNote] = useState('');
   const [knownFailureTags, setKnownFailureTags] = useState<OmrKnownFailureTag[]>([]);
   const [evaluationReportJson, setEvaluationReportJson] = useState('');
+  const [trainingSampleJson, setTrainingSampleJson] = useState('');
   const [selectedFixtureId, setSelectedFixtureId] = useState<string | null>(null);
   const [localFixtureDataUrl, setLocalFixtureDataUrl] = useState<string | null>(null);
   const [systemCrops, setSystemCrops] = useState<OmrSystemCropRecord[]>([]);
@@ -174,6 +177,7 @@ export function OmrRuntimePage({ mode = 'runtime' }: { mode?: 'runtime' | 'revie
     setRunState({ kind: 'idle' });
     setSelectedDetectionId(null);
     setEvaluationReportJson('');
+    setTrainingSampleJson('');
   }, [omrRepository, reviewScopeId]);
 
   useEffect(() => {
@@ -349,7 +353,7 @@ export function OmrRuntimePage({ mode = 'runtime' }: { mode?: 'runtime' | 'revie
       id: jobId,
       projectId: reviewScopeId,
       pageId: firstPage.page.id,
-      systemId: systemRegion.id,
+      systemId: crop.id,
       status: 'RUNNING',
       progress: 0,
       createdAt: Date.now(),
@@ -653,6 +657,43 @@ export function OmrRuntimePage({ mode = 'runtime' }: { mode?: 'runtime' | 'revie
     setReviewerNote(latest?.reviewerNote ?? reviewerNote);
     setKnownFailureTags(latest?.knownFailureTags ?? knownFailureTags);
     setStatus('수동 평가 리포트 JSON을 가져왔습니다.');
+  };
+
+  const exportTrainingSampleJson = () => {
+    if (!firstPage) {
+      setStatus('학습 샘플로 내보낼 페이지가 없습니다.');
+      return;
+    }
+    const exportValue = createTrainingSampleExport({
+      projectId: reviewScopeId,
+      page: firstPage.page,
+      source: bundle?.source ?? null,
+      fixture: selectedFixture,
+      crops: effectiveSystemCrops,
+      results: currentResults,
+      corrections,
+      evaluationReport: evaluationReports.at(-1) ?? createCurrentEvaluationReport()
+    });
+    setTrainingSampleJson(JSON.stringify(exportValue, null, 2));
+    setStatus('학습 샘플 JSON을 생성했습니다. 실제 이미지는 별도 안내에 따라 수동으로 모아야 합니다.');
+  };
+
+  const importTrainingSampleJson = () => {
+    const parsed = JSON.parse(trainingSampleJson) as {
+      kind?: string;
+      correctedDetections?: unknown;
+      cropBoxes?: unknown;
+      yoloTileFineTuning?: { labelsByCrop?: unknown };
+    };
+    if (parsed.kind !== 'CUENOTE_OMR_TRAINING_SAMPLE_EXPORT') {
+      setStatus('학습 샘플 JSON kind가 올바르지 않습니다.');
+      return;
+    }
+    if (!Array.isArray(parsed.cropBoxes) || !Array.isArray(parsed.correctedDetections) || !Array.isArray(parsed.yoloTileFineTuning?.labelsByCrop)) {
+      setStatus('학습 샘플 JSON 구조가 올바르지 않습니다.');
+      return;
+    }
+    setStatus(`학습 샘플 JSON을 확인했습니다. crop ${parsed.cropBoxes.length}개, detection ${parsed.correctedDetections.length}개가 포함되어 있습니다.`);
   };
 
   if (mode === 'draft') {
@@ -1031,6 +1072,27 @@ export function OmrRuntimePage({ mode = 'runtime' }: { mode?: 'runtime' | 'revie
             data-testid="omr-evaluation-report-json"
           />
         </div>
+        <div className="omr-training-export-panel" data-testid="omr-training-sample-panel">
+          <p className="eyebrow">학습 샘플 내보내기</p>
+          <p className="muted">
+            검수한 system crop과 correction layer를 합쳐 fine-tuning용 JSON을 만듭니다. 실제 이미지 파일은 JSON의 안내에 따라 별도로 모아야 합니다.
+          </p>
+          <div className="playback-button-row">
+            <button type="button" className="control-button" onClick={exportTrainingSampleJson} data-testid="omr-export-training-sample">
+              학습 JSON 생성
+            </button>
+            <button type="button" className="secondary-link" onClick={importTrainingSampleJson} data-testid="omr-import-training-sample">
+              학습 JSON 확인
+            </button>
+          </div>
+          <p className="muted">kind, model id, class id, schema 값은 학습 파이프라인 호환성을 위해 영어 내부값을 유지합니다.</p>
+          <textarea
+            className="omr-review-json"
+            value={trainingSampleJson}
+            onChange={(event) => setTrainingSampleJson(event.target.value)}
+            data-testid="omr-training-sample-json"
+          />
+        </div>
         <p className="eyebrow">저장된 실행 결과</p>
         <ul className="measure-list" data-testid="omr-result-list">
           {displayedResults.length === 0 ? <li>저장된 실행 결과가 없습니다.</li> : null}
@@ -1232,6 +1294,201 @@ function createEvaluationReportExport(report: OmrManualEvaluationReport) {
     report,
     exportedAt: new Date().toISOString()
   };
+}
+
+type TrainingSampleExportInput = {
+  projectId: string;
+  page: ImportPage;
+  source: ImportSource | null;
+  fixture: OmrSampleFixture | null;
+  crops: OmrSystemCropRecord[];
+  results: OmrDetectionResult[];
+  corrections: OmrCorrection[];
+  evaluationReport: OmrManualEvaluationReport | null;
+};
+
+function createTrainingSampleExport(input: TrainingSampleExportInput) {
+  const correctedDetections = uniqueDetections(
+    input.results.flatMap((result) => applyOmrCorrections(result.detections, correctionsForResult(input.corrections, result)))
+  ).filter((detection) => detection.reviewDecision !== 'REJECTED');
+  const exportDetections = correctedDetections.map((detection) => createTrainingDetectionExport(detection, input.crops));
+  const classIds = [...new Set(exportDetections.map((detection) => detection.classId))].sort();
+  const classIndex = new Map(classIds.map((classId, index) => [classId, index]));
+  const labelsByCrop = input.crops.map((crop) => {
+    const labels = exportDetections
+      .filter((detection) => detection.cropId === crop.id && detection.boundsInCrop)
+      .map((detection) => ({
+        detectionId: detection.id,
+        classId: detection.classId,
+        classIndex: classIndex.get(detection.classId) ?? -1,
+        yolo: rectToYolo(detection.boundsInCrop as NormalizedRect)
+      }))
+      .filter((label) => label.classIndex >= 0 && label.yolo !== null);
+    return {
+      cropId: crop.id,
+      orderIndex: crop.orderIndex,
+      imageInstruction: 'Use cropBoxes[].boundsInPage to crop the source page image before writing this label file.',
+      labelText: labels.map((label) => `${label.classIndex} ${label.yolo}`).join('\n'),
+      labels
+    };
+  });
+
+  return {
+    schemaVersion: 1,
+    kind: 'CUENOTE_OMR_TRAINING_SAMPLE_EXPORT',
+    projectId: input.projectId,
+    exportedAt: new Date().toISOString(),
+    sourceImage: {
+      pageId: input.page.id,
+      pageIndex: input.page.pageIndex,
+      imageReference: input.page.rasterStorageKey ?? input.page.id,
+      originalDimensions: input.page.originalDimensions,
+      rasterDimensions: input.page.rasterDimensions,
+      sourceId: input.source?.id ?? null,
+      sourceType: input.source?.type ?? (input.fixture ? 'FIXTURE' : 'UNKNOWN'),
+      fileName: input.source?.fileName ?? input.fixture?.title ?? null,
+      mimeType: input.source?.mimeType ?? null,
+      sha256: input.source?.sha256 ?? null,
+      fixtureLocalFileRequired: input.fixture?.id === 'korean-lyrics-chords-local'
+    },
+    fixture: input.fixture
+      ? {
+          id: input.fixture.id,
+          title: input.fixture.title,
+          source: input.fixture.source,
+          expectedNotationType: input.fixture.expectedNotationType,
+          hasLyrics: input.fixture.hasLyrics,
+          hasChordSymbols: input.fixture.hasChordSymbols,
+          captureType: input.fixture.captureType,
+          licenseUsageNote: input.fixture.licenseUsageNote
+        }
+      : null,
+    modelRuns: input.results.map((result) => ({
+      resultId: result.id,
+      modelId: result.modelId,
+      modelVersion: result.modelVersion,
+      executionProvider: result.executionProvider,
+      systemId: result.systemId,
+      detectionCount: result.detections.length,
+      createdAt: result.createdAt
+    })),
+    cropBoxes: input.crops.map((crop) => ({
+      id: crop.id,
+      pageId: crop.pageId,
+      orderIndex: crop.orderIndex,
+      source: crop.source,
+      boundsInPage: crop.rect,
+      createdAt: crop.createdAt,
+      updatedAt: crop.updatedAt
+    })),
+    correctedDetections: exportDetections,
+    review: input.evaluationReport
+      ? {
+          reportId: input.evaluationReport.id,
+          reviewerNote: input.evaluationReport.reviewerNote,
+          knownFailureTags: input.evaluationReport.knownFailureTags,
+          correctionCount: input.evaluationReport.correctionCount,
+          deletedCount: input.evaluationReport.deletedCount,
+          modifiedCount: input.evaluationReport.modifiedCount,
+          addedCount: input.evaluationReport.addedCount
+        }
+      : {
+          reportId: null,
+          reviewerNote: '',
+          knownFailureTags: [],
+          correctionCount: 0,
+          deletedCount: 0,
+          modifiedCount: 0,
+          addedCount: 0
+        },
+    yoloTileFineTuning: {
+      status: 'JSON_INSTRUCTIONS_ONLY',
+      classIds,
+      labelsByCrop,
+      instructions: [
+        'Collect licensed source page images outside the browser export flow.',
+        'Crop each page image using cropBoxes[].boundsInPage and save the crop image with a stable crop id.',
+        'Write labelsByCrop[].labelText to a matching YOLO .txt file for that crop image.',
+        'Review 10-30 real Korean lyric/chord score pages before fine-tuning the experimental tile symbol model.',
+        'Keep the model status EXPERIMENTAL until fixed split metrics and browser runtime checks are revalidated.'
+      ]
+    },
+    boundaries: {
+      modelStatus: 'EXPERIMENTAL',
+      phase10Readiness: 'NOT_READY',
+      serverUploadIncluded: false,
+      musicXmlGenerationIncluded: false,
+      candidatePromotionIncluded: false
+    }
+  };
+}
+
+function uniqueDetections(detections: OmrDetection[]): OmrDetection[] {
+  const byId = new Map<string, OmrDetection>();
+  for (const detection of detections) {
+    byId.set(detection.id, detection);
+  }
+  return [...byId.values()];
+}
+
+function createTrainingDetectionExport(detection: OmrDetection, crops: OmrSystemCropRecord[]) {
+  const crop = crops.find((candidate) => candidate.id === detection.systemId) ?? findCropForDetection(crops, detection);
+  const boundsInCrop =
+    crop && crop.id === detection.systemId ? clipNormalizedRect(detection.boundsInSystem) : crop ? rectInCropCoordinates(detection.boundsInPage, crop.rect) : null;
+  return {
+    id: detection.id,
+    classId: detection.classId,
+    className: detection.className,
+    confidence: detection.confidence,
+    source: detection.source,
+    reviewDecision: detection.reviewDecision,
+    pageId: detection.pageId,
+    cropId: crop?.id ?? detection.systemId,
+    systemId: detection.systemId,
+    boundsInPage: clipNormalizedRect(detection.boundsInPage) ?? detection.boundsInPage,
+    boundsInCrop,
+    modelVersion: detection.modelVersion ?? null,
+    attributes: detection.attributes ?? {}
+  };
+}
+
+function findCropForDetection(crops: OmrSystemCropRecord[], detection: OmrDetection): OmrSystemCropRecord | null {
+  const centerX = detection.boundsInPage.x + detection.boundsInPage.width / 2;
+  const centerY = detection.boundsInPage.y + detection.boundsInPage.height / 2;
+  return crops.find((crop) => centerX >= crop.rect.x && centerY >= crop.rect.y && centerX <= crop.rect.x + crop.rect.width && centerY <= crop.rect.y + crop.rect.height) ?? null;
+}
+
+function rectInCropCoordinates(pageRect: NormalizedRect, cropRect: NormalizedRect): NormalizedRect | null {
+  if (cropRect.width <= 0 || cropRect.height <= 0) {
+    return null;
+  }
+  return clipNormalizedRect({
+    x: (pageRect.x - cropRect.x) / cropRect.width,
+    y: (pageRect.y - cropRect.y) / cropRect.height,
+    width: pageRect.width / cropRect.width,
+    height: pageRect.height / cropRect.height
+  });
+}
+
+function clipNormalizedRect(rect: NormalizedRect): NormalizedRect | null {
+  const x1 = Math.max(0, Math.min(1, rect.x));
+  const y1 = Math.max(0, Math.min(1, rect.y));
+  const x2 = Math.max(0, Math.min(1, rect.x + rect.width));
+  const y2 = Math.max(0, Math.min(1, rect.y + rect.height));
+  if (x2 <= x1 || y2 <= y1) {
+    return null;
+  }
+  return { x: x1, y: y1, width: x2 - x1, height: y2 - y1 };
+}
+
+function rectToYolo(rect: NormalizedRect): string | null {
+  const clipped = clipNormalizedRect(rect);
+  if (!clipped) {
+    return null;
+  }
+  const centerX = clipped.x + clipped.width / 2;
+  const centerY = clipped.y + clipped.height / 2;
+  return [centerX, centerY, clipped.width, clipped.height].map((value) => value.toFixed(6)).join(' ');
 }
 
 function createCropSummaries(crops: OmrSystemCropRecord[], results: OmrDetectionResult[]) {

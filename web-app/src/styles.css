@@ -703,6 +703,7 @@ button.score-card.is-active {
 .omr-crop-review-panel,
 .omr-crop-summary-panel,
 .omr-evaluation-report-panel,
+.omr-training-export-panel,
 .omr-summary-panel {
   display: grid;
   gap: 12px;
