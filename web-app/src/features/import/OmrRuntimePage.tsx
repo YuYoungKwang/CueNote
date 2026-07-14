@@ -105,9 +105,9 @@ export function OmrRuntimePage({ mode = 'runtime' }: { mode?: 'runtime' | 'revie
   const { projectId = '' } = useParams();
   const importRepository = useMemo(() => createImportProjectRepository(), []);
   const omrRepository = useMemo(() => createOmrRepository(), []);
-  const workerClient = useMemo(() => createOmrWorkerClient(), []);
   const latestJobRef = useRef<string | null>(null);
   const reviewScopeIdRef = useRef(projectId);
+  const workerClientRef = useRef<ReturnType<typeof createOmrWorkerClient> | null>(null);
   const modelSelectionTouchedRef = useRef(false);
   const pendingRunJobsRef = useRef(new Map<string, { resolve: (result: OmrDetectionResult) => void; reject: (error: Error) => void }>());
   const [bundle, setBundle] = useState<ImportProjectBundle | null>(null);
@@ -205,7 +205,9 @@ export function OmrRuntimePage({ mode = 'runtime' }: { mode?: 'runtime' | 'revie
   }, [modelClasses, selectedClassId]);
 
   useEffect(() => {
-    const unsubscribe = workerClient.subscribe((message) => {
+    const client = createOmrWorkerClient();
+    workerClientRef.current = client;
+    const unsubscribe = client.subscribe((message) => {
       if (!pendingRunJobsRef.current.has(message.jobId) && !isLatestOmrJob(message.jobId, latestJobRef.current)) {
         return;
       }
@@ -213,9 +215,12 @@ export function OmrRuntimePage({ mode = 'runtime' }: { mode?: 'runtime' | 'revie
     });
     return () => {
       unsubscribe();
-      workerClient.terminate();
+      client.terminate();
+      if (workerClientRef.current === client) {
+        workerClientRef.current = null;
+      }
     };
-  }, [workerClient]);
+  }, []);
 
   const handleWorkerMessage = async (message: OmrWorkerResponse) => {
     if (message.type === 'MODEL_LOADING') {
@@ -296,6 +301,11 @@ export function OmrRuntimePage({ mode = 'runtime' }: { mode?: 'runtime' | 'revie
   }, [firstPage?.page.id, omrRepository, reviewScopeId]);
 
   const loadModel = () => {
+    const client = workerClientRef.current;
+    if (!client) {
+      setStatus('OMR worker를 준비하는 중입니다. 잠시 후 다시 시도하세요.');
+      return;
+    }
     if (modelCatalogState === 'loading') {
       setStatus('모델 목록을 불러오는 중입니다. 잠시 후 다시 시도하세요.');
       return;
@@ -304,7 +314,7 @@ export function OmrRuntimePage({ mode = 'runtime' }: { mode?: 'runtime' | 'revie
     latestJobRef.current = jobId;
     setModelState({ kind: 'loading', progress: 0 });
     setStatus(`${displayModelOption(selectedModel)}을 불러오는 중입니다.`);
-    workerClient.post({ type: 'LOAD_MODEL', jobId, manifestUrl: selectedModel.url });
+    client.post({ type: 'LOAD_MODEL', jobId, manifestUrl: selectedModel.url });
   };
 
   const runSystem = async () => {
@@ -390,14 +400,19 @@ export function OmrRuntimePage({ mode = 'runtime' }: { mode?: 'runtime' | 'revie
       updatedAt: Date.now()
     });
     return new Promise<OmrDetectionResult>((resolve, reject) => {
+      const client = workerClientRef.current;
+      if (!client) {
+        reject(new Error('OMR_WORKER_NOT_READY'));
+        return;
+      }
       pendingRunJobsRef.current.set(jobId, { resolve, reject });
-      workerClient.post({ type: 'ANALYZE_SYSTEM', jobId, input: inputManifest, imageData });
+      client.post({ type: 'ANALYZE_SYSTEM', jobId, input: inputManifest, imageData });
     });
   };
 
   const cancelJob = () => {
     if (latestJobRef.current) {
-      workerClient.post({ type: 'CANCEL_JOB', jobId: latestJobRef.current });
+      workerClientRef.current?.post({ type: 'CANCEL_JOB', jobId: latestJobRef.current });
     }
   };
 
