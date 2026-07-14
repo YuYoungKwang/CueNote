@@ -479,3 +479,16 @@ Status before user-run Colab:
 - PASS required: review corrections are restored per fixture.
 - PASS required: Phase 10 remains `NOT READY` until sample fixture review is possible, minimum class coverage is documented, a tile model artifact is installed, and the correction layer persists.
 - PASS required: pitch inference, duration inference, voice assembly, MusicXML generation, automatic ScoreVersion publish, and model promotion remain out of scope.
+
+## Phase 9O Manual Evaluation Report Criteria
+
+Phase 10 entry requires reviewed OMR fixture evidence, not only browser runtime execution.
+
+- PASS required: the OMR runtime page can save a manual evaluation report for the current fixture and run.
+- PASS required: each report records fixture id/title, model id/version, detection count, per-class counts, average confidence, correction count, deleted/modified/added counts, reviewer note, and known failure tags.
+- PASS required: known failure tags include missed notehead, false symbol, wrong class, lyric interference, chord symbol interference, low contrast, crop/stitch duplicate, and missing staff context.
+- PASS required: reports are stored and restored from IndexedDB per fixture.
+- PASS required: report export/import uses a distinct manual evaluation JSON kind separate from the review correction JSON.
+- PASS required: tile model output and user correction data remain separate from manual evaluation reports.
+- PASS required: Phase 10 remains `NOT READY` until representative fixtures have manual reports, class coverage gaps are known, correction persistence is verified, and model status remains `EXPERIMENTAL`.
+- PASS required: pitch inference, duration inference, voice assembly, MusicXML generation, automatic ScoreVersion publish, and model promotion remain out of scope.

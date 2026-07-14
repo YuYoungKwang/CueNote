@@ -5,6 +5,7 @@ import {
   OMR_ANALYSIS_JOBS_STORE,
   OMR_DETECTION_CORRECTIONS_STORE,
   OMR_DETECTION_RESULTS_STORE,
+  OMR_EVALUATION_REPORTS_STORE,
   OMR_MODEL_CACHE_METADATA_STORE,
   OMR_MODEL_MANIFESTS_STORE,
   OMR_PREFERENCES_STORE
@@ -31,6 +32,38 @@ export interface OmrPreferenceRecord {
   updatedAt: number;
 }
 
+export type OmrKnownFailureTag =
+  | 'missed-notehead'
+  | 'false-symbol'
+  | 'wrong-class'
+  | 'lyric-interference'
+  | 'chord-symbol-interference'
+  | 'low-contrast'
+  | 'crop-stitch-duplicate'
+  | 'missing-staff-context';
+
+export interface OmrManualEvaluationReport {
+  id: string;
+  projectId: string;
+  fixture: {
+    id: string;
+    title: string;
+  } | null;
+  modelId: string;
+  modelVersion: string;
+  detectionCount: number;
+  classCounts: Record<string, number>;
+  averageConfidence: number;
+  correctionCount: number;
+  deletedCount: number;
+  modifiedCount: number;
+  addedCount: number;
+  reviewerNote: string;
+  knownFailureTags: OmrKnownFailureTag[];
+  createdAt: number;
+  updatedAt: number;
+}
+
 export interface OmrRepository {
   saveManifest(manifest: OmrModelManifest): Promise<void>;
   loadManifest(modelId: string, version: string): Promise<OmrModelManifest | undefined>;
@@ -42,6 +75,8 @@ export interface OmrRepository {
   loadResults(projectId: string): Promise<OmrDetectionResult[]>;
   saveCorrection(correction: OmrCorrection): Promise<void>;
   loadCorrections(projectId: string): Promise<OmrCorrection[]>;
+  saveEvaluationReport(report: OmrManualEvaluationReport): Promise<void>;
+  loadEvaluationReports(projectId: string): Promise<OmrManualEvaluationReport[]>;
   savePreferences(preferences: OmrPreferenceRecord): Promise<void>;
   loadPreferences(projectId: string): Promise<OmrPreferenceRecord | undefined>;
 }
@@ -77,6 +112,14 @@ export function createOmrRepository(adapter: IndexedDbAdapter = createCueNoteDbA
     },
     async loadCorrections(projectId) {
       return (await adapter.getAll<OmrCorrection>(OMR_DETECTION_CORRECTIONS_STORE)).filter((correction) => correction.projectId === projectId);
+    },
+    saveEvaluationReport(report) {
+      return adapter.set(OMR_EVALUATION_REPORTS_STORE, report.id, report);
+    },
+    async loadEvaluationReports(projectId) {
+      return (await adapter.getAll<OmrManualEvaluationReport>(OMR_EVALUATION_REPORTS_STORE))
+        .filter((report) => report.projectId === projectId)
+        .sort((left, right) => left.createdAt - right.createdAt);
     },
     savePreferences(preferences) {
       return adapter.set(OMR_PREFERENCES_STORE, preferences.projectId, preferences);

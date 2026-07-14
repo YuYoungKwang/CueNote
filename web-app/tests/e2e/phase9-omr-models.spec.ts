@@ -116,8 +116,26 @@ async function exerciseOmrReviewUi(page: Page) {
   await page.getByTestId('omr-import-review-json').click();
   await expect(page.getByTestId('omr-runtime-status')).toContainText('Review JSON imported');
 
+  await page.getByTestId('omr-evaluation-reviewer-note').fill('Manual fixture review: detection overlay needs notehead follow-up.');
+  await page.getByTestId('omr-known-failure-missed-notehead').check();
+  await page.getByTestId('omr-known-failure-crop-stitch-duplicate').check();
+  await page.getByTestId('omr-save-evaluation-report').click();
+  await expect(page.getByTestId('omr-runtime-status')).toContainText('Manual evaluation report saved');
+  await expect(page.getByTestId('omr-evaluation-report-count')).toHaveText('1');
+  await page.getByTestId('omr-export-evaluation-report').click();
+  await expect(page.getByTestId('omr-evaluation-report-json')).toContainText('CUENOTE_OMR_MANUAL_EVALUATION');
+  await expect(page.getByTestId('omr-evaluation-report-json')).toContainText('missed-notehead');
+  await expect(page.getByTestId('omr-evaluation-report-json')).toContainText('detectionCount');
+  await page.getByTestId('omr-import-evaluation-report').click();
+  await expect(page.getByTestId('omr-runtime-status')).toContainText('Manual evaluation report JSON imported');
+  await expect(page.getByTestId('omr-evaluation-report-count')).toHaveText('1');
+
   await page.reload();
   await expect(page.getByTestId('omr-runtime-page')).toBeVisible();
+  await page.getByTestId('omr-fixture-synthetic-basic-staff').click();
+  await expect(page.getByTestId('omr-evaluation-report-count')).toHaveText('1');
+  await expect(page.getByTestId('omr-evaluation-reviewer-note')).toHaveValue(/Manual fixture review/);
+  await expect(page.getByTestId('omr-known-failure-missed-notehead')).toBeChecked();
   await expect(page.getByTestId('omr-correction-count')).toContainText(/corrections saved/);
   await expect(page.getByTestId('omr-review-json')).toBeVisible();
 }

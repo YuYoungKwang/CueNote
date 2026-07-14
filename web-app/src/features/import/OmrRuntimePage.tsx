@@ -19,7 +19,7 @@ import { createOmrWorkerClient, isLatestOmrJob } from '../../core/omr/omrWorkerC
 import type { OmrWorkerResponse } from '../../core/omr/workerProtocol';
 import { OMR_SAMPLE_FIXTURES, type OmrSampleFixture } from '../../core/omr/sampleFixtures';
 import { createImportProjectRepository, type ImportProjectBundle } from '../../core/storage/importProjectRepository';
-import { createOmrRepository, type OmrAnalysisJobRecord } from '../../core/storage/omrRepository';
+import { createOmrRepository, type OmrAnalysisJobRecord, type OmrKnownFailureTag, type OmrManualEvaluationReport } from '../../core/storage/omrRepository';
 
 const BUILT_IN_MODEL_OPTIONS = [
   { id: 'TEST_RUNTIME_MODEL', label: 'TEST_RUNTIME_MODEL', url: '/models/omr/test-runtime-manifest.json' },
@@ -36,6 +36,17 @@ type ModelState =
   | { kind: 'error'; message: string };
 
 type RunState = { kind: 'idle' } | { kind: 'running'; progress: number } | { kind: 'ready'; result: OmrDetectionResult; outputNames: string[] } | { kind: 'error'; message: string };
+
+const KNOWN_FAILURE_TAGS: Array<{ id: OmrKnownFailureTag; label: string }> = [
+  { id: 'missed-notehead', label: 'missed notehead' },
+  { id: 'false-symbol', label: 'false symbol' },
+  { id: 'wrong-class', label: 'wrong class' },
+  { id: 'lyric-interference', label: 'lyric interference' },
+  { id: 'chord-symbol-interference', label: 'chord symbol interference' },
+  { id: 'low-contrast', label: 'low contrast' },
+  { id: 'crop-stitch-duplicate', label: 'crop/stitch duplicate' },
+  { id: 'missing-staff-context', label: 'missing staff context' }
+];
 
 export function OmrRuntimePage({ mode = 'runtime' }: { mode?: 'runtime' | 'review' | 'draft' }) {
   const { projectId = '' } = useParams();
@@ -57,6 +68,10 @@ export function OmrRuntimePage({ mode = 'runtime' }: { mode?: 'runtime' | 'revie
   const [selectedClassId, setSelectedClassId] = useState('');
   const [addMode, setAddMode] = useState(false);
   const [reviewJson, setReviewJson] = useState('');
+  const [evaluationReports, setEvaluationReports] = useState<OmrManualEvaluationReport[]>([]);
+  const [reviewerNote, setReviewerNote] = useState('');
+  const [knownFailureTags, setKnownFailureTags] = useState<OmrKnownFailureTag[]>([]);
+  const [evaluationReportJson, setEvaluationReportJson] = useState('');
   const [selectedFixtureId, setSelectedFixtureId] = useState<string | null>(null);
   const [localFixtureDataUrl, setLocalFixtureDataUrl] = useState<string | null>(null);
   const [status, setStatus] = useState('Load a model to verify browser OMR infrastructure.');
@@ -95,8 +110,15 @@ export function OmrRuntimePage({ mode = 'runtime' }: { mode?: 'runtime' | 'revie
       setStoredResults((current) => (results.length === 0 && current.length > 0 ? current : results));
     });
     void omrRepository.loadCorrections(reviewScopeId).then(setCorrections);
+    void omrRepository.loadEvaluationReports(reviewScopeId).then((reports) => {
+      setEvaluationReports(reports);
+      const latest = reports.at(-1);
+      setReviewerNote(latest?.reviewerNote ?? '');
+      setKnownFailureTags(latest?.knownFailureTags ?? []);
+    });
     setRunState({ kind: 'idle' });
     setSelectedDetectionId(null);
+    setEvaluationReportJson('');
   }, [omrRepository, reviewScopeId]);
 
   useEffect(() => {
@@ -353,6 +375,76 @@ export function OmrRuntimePage({ mode = 'runtime' }: { mode?: 'runtime' | 'revie
     setStatus('Review JSON imported into the correction layer.');
   };
 
+  const toggleKnownFailureTag = (tag: OmrKnownFailureTag, checked: boolean) => {
+    setKnownFailureTags((current) => (checked ? [...new Set([...current, tag])] : current.filter((candidate) => candidate !== tag)));
+  };
+
+  const createCurrentEvaluationReport = (): OmrManualEvaluationReport | null => {
+    if (!activeResult) {
+      return null;
+    }
+    const timestamp = Date.now();
+    return {
+      id: `${reviewScopeId}:manual-evaluation:${timestamp}`,
+      projectId: reviewScopeId,
+      fixture: selectedFixture
+        ? {
+            id: selectedFixture.id,
+            title: selectedFixture.title
+          }
+        : null,
+      modelId: activeResult.modelId,
+      modelVersion: activeResult.modelVersion,
+      detectionCount: runSummary.detectionCount,
+      classCounts: runSummary.classCounts,
+      averageConfidence: runSummary.averageConfidence,
+      correctionCount: runSummary.deletedCount + runSummary.modifiedCount + runSummary.addedCount,
+      deletedCount: runSummary.deletedCount,
+      modifiedCount: runSummary.modifiedCount,
+      addedCount: runSummary.addedCount,
+      reviewerNote,
+      knownFailureTags,
+      createdAt: timestamp,
+      updatedAt: timestamp
+    };
+  };
+
+  const saveEvaluationReport = async () => {
+    const report = createCurrentEvaluationReport();
+    if (!report) {
+      setStatus('Run OMR before saving a manual evaluation report.');
+      return;
+    }
+    await omrRepository.saveEvaluationReport(report);
+    const reports = await omrRepository.loadEvaluationReports(reviewScopeId);
+    setEvaluationReports(reports);
+    setEvaluationReportJson(JSON.stringify(createEvaluationReportExport(report), null, 2));
+    setStatus('Manual evaluation report saved for this fixture.');
+  };
+
+  const exportEvaluationReportJson = () => {
+    const report = evaluationReports.at(-1) ?? createCurrentEvaluationReport();
+    if (!report) {
+      setStatus('Run OMR before exporting a manual evaluation report.');
+      return;
+    }
+    setEvaluationReportJson(JSON.stringify(createEvaluationReportExport(report), null, 2));
+  };
+
+  const importEvaluationReportJson = async () => {
+    const parsed = JSON.parse(evaluationReportJson) as { kind?: string; report?: OmrManualEvaluationReport; reports?: OmrManualEvaluationReport[] };
+    const reports = parsed.report ? [parsed.report] : parsed.reports ?? [];
+    for (const report of reports) {
+      await omrRepository.saveEvaluationReport({ ...report, projectId: reviewScopeId, updatedAt: Date.now() });
+    }
+    const next = await omrRepository.loadEvaluationReports(reviewScopeId);
+    setEvaluationReports(next);
+    const latest = next.at(-1);
+    setReviewerNote(latest?.reviewerNote ?? reviewerNote);
+    setKnownFailureTags(latest?.knownFailureTags ?? knownFailureTags);
+    setStatus('Manual evaluation report JSON imported.');
+  };
+
   if (mode === 'draft') {
     return (
       <main className="panel state-panel" data-testid="omr-draft-deferred">
@@ -564,6 +656,58 @@ export function OmrRuntimePage({ mode = 'runtime' }: { mode?: 'runtime' | 'revie
             deleted {runSummary.deletedCount} / modified {runSummary.modifiedCount} / added {runSummary.addedCount}
           </p>
         </div>
+        <div className="omr-evaluation-report-panel" data-testid="omr-evaluation-report-panel">
+          <p className="eyebrow">Manual evaluation report</p>
+          <div className="viewer-summary">
+            <div>
+              <span className="summary-label">Reports</span>
+              <strong data-testid="omr-evaluation-report-count">{evaluationReports.length}</strong>
+            </div>
+            <div>
+              <span className="summary-label">Latest model</span>
+              <strong data-testid="omr-latest-evaluation-report">{evaluationReports.at(-1)?.modelVersion ?? 'none'}</strong>
+            </div>
+          </div>
+          <label className="field">
+            <span>Reviewer note</span>
+            <textarea
+              className="omr-review-json"
+              value={reviewerNote}
+              onChange={(event) => setReviewerNote(event.target.value)}
+              data-testid="omr-evaluation-reviewer-note"
+            />
+          </label>
+          <div className="omr-class-toggles" data-testid="omr-known-failure-tags">
+            {KNOWN_FAILURE_TAGS.map((tag) => (
+              <label key={tag.id}>
+                <input
+                  type="checkbox"
+                  checked={knownFailureTags.includes(tag.id)}
+                  onChange={(event) => toggleKnownFailureTag(tag.id, event.target.checked)}
+                  data-testid={`omr-known-failure-${testIdPart(tag.id)}`}
+                />
+                <span>{tag.label}</span>
+              </label>
+            ))}
+          </div>
+          <div className="playback-button-row">
+            <button type="button" className="control-button" onClick={() => void saveEvaluationReport()} data-testid="omr-save-evaluation-report">
+              Save report
+            </button>
+            <button type="button" className="secondary-link" onClick={exportEvaluationReportJson} data-testid="omr-export-evaluation-report">
+              Export report
+            </button>
+            <button type="button" className="secondary-link" onClick={() => void importEvaluationReportJson()} data-testid="omr-import-evaluation-report">
+              Import report
+            </button>
+          </div>
+          <textarea
+            className="omr-review-json"
+            value={evaluationReportJson}
+            onChange={(event) => setEvaluationReportJson(event.target.value)}
+            data-testid="omr-evaluation-report-json"
+          />
+        </div>
         <p className="eyebrow">Stored runtime results</p>
         <ul className="measure-list" data-testid="omr-result-list">
           {displayedResults.length === 0 ? <li>No runtime result stored.</li> : null}
@@ -740,6 +884,15 @@ function createReviewExport(projectId: string, result: OmrDetectionResult | null
   };
 }
 
+function createEvaluationReportExport(report: OmrManualEvaluationReport) {
+  return {
+    schemaVersion: 1,
+    kind: 'CUENOTE_OMR_MANUAL_EVALUATION',
+    report,
+    exportedAt: new Date().toISOString()
+  };
+}
+
 function createRunSummary(detections: OmrDetection[], corrections: OmrCorrection[]) {
   const classCounts = new Map<string, number>();
   for (const detection of detections) {
@@ -753,6 +906,7 @@ function createRunSummary(detections: OmrDetection[], corrections: OmrCorrection
   return {
     detectionCount: visible.length,
     averageConfidence,
+    classCounts: Object.fromEntries(classCounts.entries()),
     classCountsText: [...classCounts.entries()].map(([classId, count]) => `${classId}: ${count}`).join(', '),
     deletedCount: corrections.filter((correction) => correction.operation.type === 'REJECT').length,
     modifiedCount: corrections.filter((correction) => correction.operation.type === 'CHANGE_CLASS' || correction.operation.type === 'MOVE_RESIZE').length,

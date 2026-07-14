@@ -700,6 +700,7 @@ button.score-card.is-active {
 .omr-review-editor,
 .omr-fixture-gallery,
 .omr-fixture-metadata,
+.omr-evaluation-report-panel,
 .omr-summary-panel {
   display: grid;
   gap: 12px;
