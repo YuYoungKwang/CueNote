@@ -5,6 +5,7 @@ import {
   applyImportCorrections,
   createOmrCorrectionId,
   createOmrPreparationManifest,
+  DEFAULT_PAGE_TRANSFORM,
   normalizeRect,
   type ImportRegion,
   type OmrCorrection,
@@ -16,6 +17,7 @@ import {
 import { systemRectToPageRect } from '../../core/omr/coordinateMapper';
 import { createOmrWorkerClient, isLatestOmrJob } from '../../core/omr/omrWorkerClient';
 import type { OmrWorkerResponse } from '../../core/omr/workerProtocol';
+import { OMR_SAMPLE_FIXTURES, type OmrSampleFixture } from '../../core/omr/sampleFixtures';
 import { createImportProjectRepository, type ImportProjectBundle } from '../../core/storage/importProjectRepository';
 import { createOmrRepository, type OmrAnalysisJobRecord } from '../../core/storage/omrRepository';
 
@@ -41,6 +43,7 @@ export function OmrRuntimePage({ mode = 'runtime' }: { mode?: 'runtime' | 'revie
   const omrRepository = useMemo(() => createOmrRepository(), []);
   const workerClient = useMemo(() => createOmrWorkerClient(), []);
   const latestJobRef = useRef<string | null>(null);
+  const reviewScopeIdRef = useRef(projectId);
   const [bundle, setBundle] = useState<ImportProjectBundle | null>(null);
   const [modelState, setModelState] = useState<ModelState>({ kind: 'idle' });
   const [runState, setRunState] = useState<RunState>({ kind: 'idle' });
@@ -54,10 +57,17 @@ export function OmrRuntimePage({ mode = 'runtime' }: { mode?: 'runtime' | 'revie
   const [selectedClassId, setSelectedClassId] = useState('');
   const [addMode, setAddMode] = useState(false);
   const [reviewJson, setReviewJson] = useState('');
+  const [selectedFixtureId, setSelectedFixtureId] = useState<string | null>(null);
+  const [localFixtureDataUrl, setLocalFixtureDataUrl] = useState<string | null>(null);
   const [status, setStatus] = useState('Load a model to verify browser OMR infrastructure.');
 
   const selectedModel = modelOptions.find((option) => option.id === selectedModelId) ?? modelOptions[0] ?? BUILT_IN_MODEL_OPTIONS[0];
+  const selectedFixture = OMR_SAMPLE_FIXTURES.find((fixture) => fixture.id === selectedFixtureId) ?? null;
+  const fixtureDataUrl = selectedFixture?.imageDataUrl ?? (selectedFixture?.id === 'korean-lyrics-chords-local' ? localFixtureDataUrl : null);
+  const reviewScopeId = selectedFixture ? `${projectId}:fixture:${selectedFixture.id}` : projectId;
+  const samplePage = fixtureDataUrl && selectedFixture ? createFixturePage(selectedFixture, fixtureDataUrl) : null;
   const activeResult = runState.kind === 'ready' ? runState.result : storedResults.at(-1) ?? null;
+  const displayedResults = activeResult ? mergeResults(storedResults, activeResult) : storedResults;
   const modelClasses = modelState.kind === 'ready' ? modelState.manifest.classes : [];
   const correctedDetections = useMemo(
     () => (activeResult ? applyOmrCorrections(activeResult.detections, correctionsForResult(corrections, activeResult)) : []),
@@ -73,13 +83,25 @@ export function OmrRuntimePage({ mode = 'runtime' }: { mode?: 'runtime' | 'revie
     return classVisibility[detection.classId] !== false;
   });
   const selectedDetection = correctedDetections.find((detection) => detection.id === selectedDetectionId) ?? null;
+  const runSummary = useMemo(() => createRunSummary(correctedDetections, correctionsForResult(corrections, activeResult)), [activeResult, correctedDetections, corrections]);
 
   useEffect(() => {
     void importRepository.loadProject(projectId).then(setBundle);
-    void omrRepository.loadResults(projectId).then(setStoredResults);
-    void omrRepository.loadCorrections(projectId).then(setCorrections);
     void loadModelCatalog().then(setModelOptions);
   }, [importRepository, omrRepository, projectId]);
+
+  useEffect(() => {
+    void omrRepository.loadResults(reviewScopeId).then((results) => {
+      setStoredResults((current) => (results.length === 0 && current.length > 0 ? current : results));
+    });
+    void omrRepository.loadCorrections(reviewScopeId).then(setCorrections);
+    setRunState({ kind: 'idle' });
+    setSelectedDetectionId(null);
+  }, [omrRepository, reviewScopeId]);
+
+  useEffect(() => {
+    reviewScopeIdRef.current = reviewScopeId;
+  }, [reviewScopeId]);
 
   useEffect(() => {
     if (modelClasses.length && !selectedClassId) {
@@ -127,8 +149,8 @@ export function OmrRuntimePage({ mode = 'runtime' }: { mode?: 'runtime' | 'revie
       setRunState({ kind: 'running', progress: message.progress });
     } else if (message.type === 'JOB_COMPLETED') {
       await omrRepository.saveResult(message.result);
-      const nextResults = await omrRepository.loadResults(projectId);
-      setStoredResults(nextResults);
+      const nextResults = await omrRepository.loadResults(reviewScopeIdRef.current);
+      setStoredResults(mergeResults(nextResults, message.result));
       setRunState({ kind: 'ready', result: message.result, outputNames: message.runtimeOutputNames });
       setStatus(`ONNX inference completed with ${message.result.detections.length} detections. Phase 10 MusicXML draft remains deferred.`);
     } else if (message.type === 'JOB_CANCELLED') {
@@ -151,7 +173,7 @@ export function OmrRuntimePage({ mode = 'runtime' }: { mode?: 'runtime' | 'revie
       })
     : null;
 
-  const firstPage = manifest?.pages[0] ?? null;
+  const firstPage = samplePage ?? manifest?.pages[0] ?? null;
   const systemRegion = firstPage?.effectiveRegions.find((region) => region.type === 'SYSTEM') ?? null;
 
   const loadModel = () => {
@@ -161,7 +183,7 @@ export function OmrRuntimePage({ mode = 'runtime' }: { mode?: 'runtime' | 'revie
   };
 
   const runSystem = async () => {
-    if (!bundle || !firstPage || !systemRegion || modelState.kind !== 'ready') {
+    if ((!bundle && !selectedFixture) || !firstPage || !systemRegion || modelState.kind !== 'ready') {
       setStatus('A reviewed system region and loaded test model are required.');
       return;
     }
@@ -169,12 +191,12 @@ export function OmrRuntimePage({ mode = 'runtime' }: { mode?: 'runtime' | 'revie
     const imageData = await imageDataForSystem(firstPage.page.thumbnailDataUrl, systemRegion);
     const inputManifest: OmrModelInputManifest = {
       schemaVersion: 1,
-      projectId: bundle.project.id,
+      projectId: reviewScopeId,
       pageId: firstPage.page.id,
       systemId: systemRegion.id,
       image: {
         reference: firstPage.page.rasterStorageKey ?? firstPage.page.id,
-        sourceChecksum: bundle.source?.sha256 ?? 'unknown',
+        sourceChecksum: bundle?.source?.sha256 ?? selectedFixture?.id ?? 'unknown',
         width: imageData.width,
         height: imageData.height,
         channels: modelState.manifest.input.channels,
@@ -195,7 +217,7 @@ export function OmrRuntimePage({ mode = 'runtime' }: { mode?: 'runtime' | 'revie
     latestJobRef.current = jobId;
     const job: OmrAnalysisJobRecord = {
       id: jobId,
-      projectId: bundle.project.id,
+      projectId: reviewScopeId,
       pageId: firstPage.page.id,
       systemId: systemRegion.id,
       status: 'RUNNING',
@@ -205,7 +227,7 @@ export function OmrRuntimePage({ mode = 'runtime' }: { mode?: 'runtime' | 'revie
     };
     await omrRepository.saveJob(job);
     await omrRepository.savePreferences({
-      projectId: bundle.project.id,
+      projectId: reviewScopeId,
       modelManifestUrl: selectedModel.url,
       selectedResultId: undefined,
       confidenceFilter: 'ALL',
@@ -220,11 +242,28 @@ export function OmrRuntimePage({ mode = 'runtime' }: { mode?: 'runtime' | 'revie
     }
   };
 
+  const selectFixture = (fixtureId: string) => {
+    setSelectedFixtureId(fixtureId || null);
+    reviewScopeIdRef.current = fixtureId ? `${projectId}:fixture:${fixtureId}` : projectId;
+    setLocalFixtureDataUrl(null);
+    setStatus(fixtureId ? 'Sample fixture selected. Load a model and run system crop to evaluate it.' : 'Import project input selected.');
+  };
+
+  const handleLocalFixtureFile = async (file: File | null) => {
+    if (!file) {
+      return;
+    }
+    const dataUrl = await readFileAsDataUrl(file);
+    setSelectedFixtureId('korean-lyrics-chords-local');
+    setLocalFixtureDataUrl(dataUrl);
+    setStatus('Local Korean lyrics/chord fixture loaded for browser-only evaluation.');
+  };
+
   const saveReviewCorrection = async (correction: OmrCorrection) => {
     await omrRepository.saveCorrection(correction);
-    const next = await omrRepository.loadCorrections(projectId);
+    const next = await omrRepository.loadCorrections(reviewScopeId);
     setCorrections(next);
-    await persistReviewSnapshot(projectId, createReviewExport(projectId, activeResult, next));
+    await persistReviewSnapshot(reviewScopeId, createReviewExport(reviewScopeId, activeResult, next, selectedFixture));
     setStatus('Review correction saved to IndexedDB. OPFS snapshot is updated when available.');
   };
 
@@ -234,7 +273,7 @@ export function OmrRuntimePage({ mode = 'runtime' }: { mode?: 'runtime' | 'revie
     }
     await saveReviewCorrection({
       id: createOmrCorrectionId(projectId, selectedDetection.id),
-      projectId,
+      projectId: reviewScopeId,
       pageId: selectedDetection.pageId,
       detectionId: selectedDetection.id,
       createdAt: Date.now(),
@@ -248,7 +287,7 @@ export function OmrRuntimePage({ mode = 'runtime' }: { mode?: 'runtime' | 'revie
     }
     await saveReviewCorrection({
       id: createOmrCorrectionId(projectId, selectedDetection.id),
-      projectId,
+      projectId: reviewScopeId,
       pageId: selectedDetection.pageId,
       detectionId: selectedDetection.id,
       createdAt: Date.now(),
@@ -289,7 +328,7 @@ export function OmrRuntimePage({ mode = 'runtime' }: { mode?: 'runtime' | 'revie
     };
     await saveReviewCorrection({
       id: createOmrCorrectionId(projectId, detection.id),
-      projectId,
+      projectId: reviewScopeId,
       pageId: detection.pageId,
       detectionId: detection.id,
       createdAt: Date.now(),
@@ -300,7 +339,7 @@ export function OmrRuntimePage({ mode = 'runtime' }: { mode?: 'runtime' | 'revie
   };
 
   const exportReviewJson = () => {
-    setReviewJson(JSON.stringify(createReviewExport(projectId, activeResult, correctionsForResult(corrections, activeResult)), null, 2));
+    setReviewJson(JSON.stringify(createReviewExport(reviewScopeId, activeResult, correctionsForResult(corrections, activeResult), selectedFixture), null, 2));
   };
 
   const importReviewJson = async () => {
@@ -308,9 +347,9 @@ export function OmrRuntimePage({ mode = 'runtime' }: { mode?: 'runtime' | 'revie
     for (const correction of parsed.corrections ?? []) {
       await omrRepository.saveCorrection(correction);
     }
-    const next = await omrRepository.loadCorrections(projectId);
+    const next = await omrRepository.loadCorrections(reviewScopeId);
     setCorrections(next);
-    await persistReviewSnapshot(projectId, createReviewExport(projectId, activeResult, next));
+    await persistReviewSnapshot(reviewScopeId, createReviewExport(reviewScopeId, activeResult, next, selectedFixture));
     setStatus('Review JSON imported into the correction layer.');
   };
 
@@ -368,6 +407,45 @@ export function OmrRuntimePage({ mode = 'runtime' }: { mode?: 'runtime' | 'revie
             <span className="summary-label">Cache</span>
             <strong data-testid="omr-cache-state">{modelState.kind === 'ready' ? (modelState.cacheHit ? 'hit' : 'downloaded') : 'unknown'}</strong>
           </div>
+        </div>
+
+        <div className="omr-fixture-gallery" data-testid="omr-fixture-gallery">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Evaluation fixtures</p>
+              <h3>OMR sample gallery</h3>
+            </div>
+            <button type="button" className="secondary-link" onClick={() => selectFixture('')} data-testid="omr-use-import-project">
+              Use import project
+            </button>
+          </div>
+          <div className="score-grid">
+            {OMR_SAMPLE_FIXTURES.map((fixture) => (
+              <button
+                key={fixture.id}
+                type="button"
+                className={`score-card omr-fixture-card ${selectedFixtureId === fixture.id ? 'is-active' : ''}`}
+                onClick={() => selectFixture(fixture.id)}
+                data-testid={`omr-fixture-${fixture.id}`}
+              >
+                <span className="score-card__composer">{fixture.captureType}</span>
+                <h3>{fixture.title}</h3>
+                <p>{fixture.expectedNotationType}</p>
+                <small>{fixture.licenseUsageNote}</small>
+              </button>
+            ))}
+          </div>
+          {selectedFixture ? (
+            <div className="omr-fixture-metadata" data-testid="omr-fixture-metadata">
+              <strong>{selectedFixture.title}</strong>
+              <span>Source: {selectedFixture.source}</span>
+              <span>Lyrics: {selectedFixture.hasLyrics ? 'yes' : 'no'} / Chords: {selectedFixture.hasChordSymbols ? 'yes' : 'no'}</span>
+              {selectedFixture.localFileProcedure ? <span>{selectedFixture.localFileProcedure}</span> : null}
+              {selectedFixture.id === 'korean-lyrics-chords-local' ? (
+                <input type="file" accept="image/png,image/jpeg,image/bmp" onChange={(event) => void handleLocalFixtureFile(event.target.files?.[0] ?? null)} data-testid="omr-local-fixture-file" />
+              ) : null}
+            </div>
+          ) : null}
         </div>
 
         <div className="import-toolbar">
@@ -469,10 +547,27 @@ export function OmrRuntimePage({ mode = 'runtime' }: { mode?: 'runtime' | 'revie
       <aside className="panel import-review-sidebar">
         <p className="eyebrow">Review foundation</p>
         <p data-testid="omr-review-foundation">Detection overlay and correction persistence are ready, but product detections require Phase 9 models.</p>
+        <div className="omr-summary-panel" data-testid="omr-summary">
+          <p className="eyebrow">Run summary</p>
+          <div className="viewer-summary">
+            <div>
+              <span className="summary-label">Detections</span>
+              <strong data-testid="omr-summary-detection-count">{runSummary.detectionCount}</strong>
+            </div>
+            <div>
+              <span className="summary-label">Avg confidence</span>
+              <strong data-testid="omr-summary-average-confidence">{runSummary.averageConfidence.toFixed(2)}</strong>
+            </div>
+          </div>
+          <p data-testid="omr-summary-class-counts">{runSummary.classCountsText || 'No class counts'}</p>
+          <p data-testid="omr-summary-correction-counts">
+            deleted {runSummary.deletedCount} / modified {runSummary.modifiedCount} / added {runSummary.addedCount}
+          </p>
+        </div>
         <p className="eyebrow">Stored runtime results</p>
         <ul className="measure-list" data-testid="omr-result-list">
-          {storedResults.length === 0 ? <li>No runtime result stored.</li> : null}
-          {storedResults.map((result) => (
+          {displayedResults.length === 0 ? <li>No runtime result stored.</li> : null}
+          {displayedResults.map((result) => (
             <li key={result.id}>
               {result.modelId} {result.modelVersion} / {result.executionProvider} / {result.detections.length} detections
             </li>
@@ -614,11 +709,22 @@ function correctionsForResult(corrections: OmrCorrection[], result: OmrDetection
   });
 }
 
-function createReviewExport(projectId: string, result: OmrDetectionResult | null, corrections: OmrCorrection[]) {
+function createReviewExport(projectId: string, result: OmrDetectionResult | null, corrections: OmrCorrection[], fixture: OmrSampleFixture | null = null) {
   return {
     schemaVersion: 1,
     kind: 'CUENOTE_OMR_REVIEW',
     projectId,
+    fixture: fixture
+      ? {
+          id: fixture.id,
+          title: fixture.title,
+          source: fixture.source,
+          expectedNotationType: fixture.expectedNotationType,
+          hasLyrics: fixture.hasLyrics,
+          hasChordSymbols: fixture.hasChordSymbols,
+          captureType: fixture.captureType
+        }
+      : null,
     result: result
       ? {
           id: result.id,
@@ -632,6 +738,75 @@ function createReviewExport(projectId: string, result: OmrDetectionResult | null
     corrections,
     exportedAt: new Date().toISOString()
   };
+}
+
+function createRunSummary(detections: OmrDetection[], corrections: OmrCorrection[]) {
+  const classCounts = new Map<string, number>();
+  for (const detection of detections) {
+    if (detection.reviewDecision === 'REJECTED') {
+      continue;
+    }
+    classCounts.set(detection.classId, (classCounts.get(detection.classId) ?? 0) + 1);
+  }
+  const visible = detections.filter((detection) => detection.reviewDecision !== 'REJECTED');
+  const averageConfidence = visible.length ? visible.reduce((sum, detection) => sum + detection.confidence, 0) / visible.length : 0;
+  return {
+    detectionCount: visible.length,
+    averageConfidence,
+    classCountsText: [...classCounts.entries()].map(([classId, count]) => `${classId}: ${count}`).join(', '),
+    deletedCount: corrections.filter((correction) => correction.operation.type === 'REJECT').length,
+    modifiedCount: corrections.filter((correction) => correction.operation.type === 'CHANGE_CLASS' || correction.operation.type === 'MOVE_RESIZE').length,
+    addedCount: corrections.filter((correction) => correction.operation.type === 'ADD').length
+  };
+}
+
+function createFixturePage(fixture: OmrSampleFixture, imageDataUrl: string) {
+  const pageId = `fixture-page-${fixture.id}`;
+  const systemId = `fixture-system-${fixture.id}`;
+  return {
+    page: {
+      id: pageId,
+      projectId: `fixture-project-${fixture.id}`,
+      sourceId: `fixture-source-${fixture.id}`,
+      pageIndex: 0,
+      originalDimensions: { width: 960, height: 420 },
+      rasterDimensions: { width: 960, height: 420 },
+      rasterStorageKey: `fixture:${fixture.id}`,
+      thumbnailDataUrl: imageDataUrl,
+      status: 'REVIEW_COMPLETE' as const,
+      transform: DEFAULT_PAGE_TRANSFORM,
+      warnings: [],
+      updatedAt: Date.now()
+    },
+    detectionSnapshot: null,
+    effectiveRegions: [
+      {
+        id: systemId,
+        type: 'SYSTEM' as const,
+        pageId,
+        parentId: null,
+        rect: { x: 0.05, y: 0.18, width: 0.9, height: 0.5 },
+        orderIndex: 0,
+        confidence: 1,
+        source: 'USER' as const
+      }
+    ],
+    corrections: [],
+    reviewComplete: true
+  };
+}
+
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(reader.error ?? new Error('LOCAL_FIXTURE_READ_FAILED'));
+    reader.readAsDataURL(file);
+  });
+}
+
+function mergeResults(results: OmrDetectionResult[], result: OmrDetectionResult): OmrDetectionResult[] {
+  return [...results.filter((candidate) => candidate.id !== result.id), result];
 }
 
 async function persistReviewSnapshot(projectId: string, payload: unknown): Promise<void> {

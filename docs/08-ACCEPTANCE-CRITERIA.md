@@ -466,3 +466,16 @@ Status before user-run Colab:
 - PASS required: full-page `SYMBOL_TRAIN` remains available only as deprecated diagnostic-only baseline.
 - PASS required: Phase 8 runtime tile inference orchestration is not marked complete and Phase 10 readiness remains `NOT READY`.
 - PASS required: Phase 10 structure assembly, pitch/duration inference, and MusicXML generation remain out of scope.
+
+## Phase 9N OMR Evaluation Fixture Criteria
+
+- PASS required: Web PWA includes an OMR sample fixture gallery for browser runtime evaluation.
+- PASS required: fixture metadata records title, source, license/usage note, notation type, lyrics/chord flags, and capture type.
+- PASS required: Korean lyrics/chord sample is represented as a placeholder metadata slot only; no copyrighted image is committed.
+- PASS required: users can attach a local image to the Korean lyrics/chord slot for browser-local evaluation.
+- PASS required: selecting a fixture can feed its image into the OMR runtime without server upload.
+- PASS required: OMR run summary reports detection count, per-class counts, average confidence, and correction counts.
+- PASS required: review JSON export/import includes fixture context and correction layer data.
+- PASS required: review corrections are restored per fixture.
+- PASS required: Phase 10 remains `NOT READY` until sample fixture review is possible, minimum class coverage is documented, a tile model artifact is installed, and the correction layer persists.
+- PASS required: pitch inference, duration inference, voice assembly, MusicXML generation, automatic ScoreVersion publish, and model promotion remain out of scope.

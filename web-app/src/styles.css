@@ -161,6 +161,17 @@ a {
   line-height: 1.5;
 }
 
+button.score-card {
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+}
+
+button.score-card.is-active {
+  border-color: #1d4ed8;
+  background: #eff6ff;
+}
+
 .score-card__topline {
   display: flex;
   justify-content: space-between;
@@ -686,7 +697,10 @@ a {
 }
 
 .omr-review-toolbar,
-.omr-review-editor {
+.omr-review-editor,
+.omr-fixture-gallery,
+.omr-fixture-metadata,
+.omr-summary-panel {
   display: grid;
   gap: 12px;
   margin-top: 14px;
@@ -694,6 +708,11 @@ a {
   border: 1px solid #e2e8f0;
   border-radius: 10px;
   background: #f8fafc;
+}
+
+.omr-fixture-metadata {
+  margin-top: 0;
+  background: #fff;
 }
 
 .omr-class-toggles {

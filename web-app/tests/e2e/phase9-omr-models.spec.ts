@@ -32,6 +32,8 @@ test('runs installed Colab experimental layout and symbol artifacts without prom
   await createReviewedImportProject(page);
   await page.getByTestId('open-omr-runtime').click();
   await expect(page.getByTestId('omr-runtime-page')).toBeVisible();
+  await page.getByTestId('omr-fixture-synthetic-basic-staff').click();
+  await expect(page.getByTestId('omr-fixture-metadata')).toContainText('Synthetic staff and symbols');
 
   await runInstalledExperimentalModel(page, 'cuenote-layout-deepscores-exp');
   await page.context().setOffline(true);
@@ -41,6 +43,8 @@ test('runs installed Colab experimental layout and symbol artifacts without prom
 
   await runInstalledExperimentalModel(page, 'cuenote-symbol-deepscores-exp', 'cuenote-symbol-deepscores-exp');
   await runInstalledExperimentalModel(page, 'cuenote-symbol-deepscores-exp-0.1.0-colab-tile', 'cuenote-symbol-deepscores-exp', true);
+  await expect(page.getByTestId('omr-summary-detection-count')).not.toHaveText('0');
+  await expect(page.getByTestId('omr-summary-class-counts')).not.toHaveText('No class counts');
   await exerciseOmrReviewUi(page);
   await page.getByTestId('omr-model-select').selectOption('cuenote-symbol-deepscores-exp-0.1.0-colab-tile');
   await page.getByTestId('omr-load-model').click();
