@@ -35,9 +35,10 @@ await fs.copyFile(path.join(root, 'checksums.json'), path.join(targetDir, 'check
 
 const catalogPath = path.join(webModelRoot, 'model-catalog.json');
 const catalog = await readJson(catalogPath);
+const catalogId = catalogEntryId(catalog, manifest);
 const entry = {
-  id: manifest.modelId,
-  label: `${manifest.modelId} (${manifest.status})`,
+  id: catalogId,
+  label: catalogId === manifest.modelId ? `${manifest.modelId} (${manifest.status})` : `${manifest.modelId} ${manifest.version} (${manifest.status})`,
   url: `/models/omr/installed/${manifest.modelId}/${manifest.version}/manifest.json`,
   builtIn: false
 };
@@ -67,4 +68,13 @@ async function resolveArtifactRoot(input) {
     throw new Error(`Could not expand zip artifact: ${expanded.stderr || expanded.stdout}`);
   }
   return temp;
+}
+
+function catalogEntryId(catalog, manifest) {
+  const existing = (catalog.models ?? []).find((model) => model.id === manifest.modelId);
+  const expectedUrl = `/models/omr/installed/${manifest.modelId}/${manifest.version}/manifest.json`;
+  if (!existing || existing.url === expectedUrl) {
+    return manifest.modelId;
+  }
+  return `${manifest.modelId}-${manifest.version}`;
 }

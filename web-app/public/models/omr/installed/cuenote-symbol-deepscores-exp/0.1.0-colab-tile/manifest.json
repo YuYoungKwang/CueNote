@@ -1,0 +1,182 @@
+{
+  "schemaVersion": 1,
+  "modelId": "cuenote-symbol-deepscores-exp",
+  "version": "0.1.0-colab-tile",
+  "task": "SYMBOL_DETECTION",
+  "status": "EXPERIMENTAL",
+  "file": "cuenote-symbol-deepscores-exp-0.1.0-colab-tile.onnx",
+  "sha256": "07a565a77f5aa8f0fac96a3e57e23718f82097ffa0d8b5a69814e2cbd428a9af",
+  "sizeBytes": 12236312,
+  "input": {
+    "width": 768,
+    "height": 768,
+    "channels": 3,
+    "tensorLayout": "NCHW",
+    "resizeMode": "LETTERBOX",
+    "valueRange": "ZERO_TO_ONE"
+  },
+  "outputs": [
+    {
+      "name": "output0",
+      "format": "YOLO_V8_RAW",
+      "coordinateSpace": "TENSOR_NORMALIZED",
+      "shape": [
+        1,
+        31,
+        -1
+      ]
+    }
+  ],
+  "executionProviders": [
+    "WEBGPU",
+    "WASM"
+  ],
+  "classes": [
+    {
+      "id": "ledger.line",
+      "index": 0,
+      "label": "ledger.line"
+    },
+    {
+      "id": "rest.quarter",
+      "index": 1,
+      "label": "rest.quarter"
+    },
+    {
+      "id": "notehead.filled",
+      "index": 2,
+      "label": "notehead.filled"
+    },
+    {
+      "id": "stem.up",
+      "index": 3,
+      "label": "stem.up"
+    },
+    {
+      "id": "flag.eighth.up",
+      "index": 4,
+      "label": "flag.eighth.up"
+    },
+    {
+      "id": "beam",
+      "index": 5,
+      "label": "beam"
+    },
+    {
+      "id": "rest.eighth",
+      "index": 6,
+      "label": "rest.eighth"
+    },
+    {
+      "id": "flag.eighth.down",
+      "index": 7,
+      "label": "flag.eighth.down"
+    },
+    {
+      "id": "accidental.sharp",
+      "index": 8,
+      "label": "accidental.sharp"
+    },
+    {
+      "id": "accidental.natural",
+      "index": 9,
+      "label": "accidental.natural"
+    },
+    {
+      "id": "time_signature.digit_4",
+      "index": 10,
+      "label": "time_signature.digit_4"
+    },
+    {
+      "id": "clef.treble",
+      "index": 11,
+      "label": "clef.treble"
+    },
+    {
+      "id": "clef.bass",
+      "index": 12,
+      "label": "clef.bass"
+    },
+    {
+      "id": "rest.whole",
+      "index": 13,
+      "label": "rest.whole"
+    },
+    {
+      "id": "notehead.whole",
+      "index": 14,
+      "label": "notehead.whole"
+    },
+    {
+      "id": "notehead.hollow",
+      "index": 15,
+      "label": "notehead.hollow"
+    },
+    {
+      "id": "accidental.flat",
+      "index": 16,
+      "label": "accidental.flat"
+    },
+    {
+      "id": "tie",
+      "index": 17,
+      "label": "tie"
+    },
+    {
+      "id": "navigation.segno",
+      "index": 18,
+      "label": "navigation.segno"
+    },
+    {
+      "id": "rest.half",
+      "index": 19,
+      "label": "rest.half"
+    },
+    {
+      "id": "dot.repeat",
+      "index": 20,
+      "label": "dot.repeat"
+    },
+    {
+      "id": "dot.augmentation",
+      "index": 21,
+      "label": "dot.augmentation"
+    },
+    {
+      "id": "rest.16th",
+      "index": 22,
+      "label": "rest.16th"
+    },
+    {
+      "id": "navigation.coda",
+      "index": 23,
+      "label": "navigation.coda"
+    },
+    {
+      "id": "time_signature.common",
+      "index": 24,
+      "label": "time_signature.common"
+    },
+    {
+      "id": "rest.64th",
+      "index": 25,
+      "label": "rest.64th"
+    },
+    {
+      "id": "rest.32nd",
+      "index": 26,
+      "label": "rest.32nd"
+    }
+  ],
+  "postprocessing": {
+    "confidenceThreshold": 0.35,
+    "nmsThreshold": 0.5,
+    "autoAcceptThreshold": 0.92,
+    "lowConfidenceThreshold": 0.55
+  },
+  "datasetVersion": "",
+  "taxonomyVersion": "cuenote-omr-taxonomy-v1",
+  "evaluationReport": "evaluation.json",
+  "minimumAppVersion": "0.9.0",
+  "createdAt": "2026-07-14T01:45:47.733440+00:00"
+}

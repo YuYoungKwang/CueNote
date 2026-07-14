@@ -1,0 +1,17 @@
+{
+  "onnx": {
+    "file": "cuenote-symbol-deepscores-exp-0.1.0-colab-tile.onnx",
+    "sha256": "07a565a77f5aa8f0fac96a3e57e23718f82097ffa0d8b5a69814e2cbd428a9af",
+    "sizeBytes": 12236312
+  },
+  "manifest": {
+    "file": "manifest.json",
+    "sha256": "89bb9cf50ea67e9f21109adaab48768a5a2e15b05a3e006f614014f01f50e9b4",
+    "sizeBytes": 3595
+  },
+  "evaluation": {
+    "file": "evaluation.json",
+    "sha256": "448fd574210a091022a3102d001ce6bee70700b5e4cda219c985eb7bac332c28",
+    "sizeBytes": 8922
+  }
+}
